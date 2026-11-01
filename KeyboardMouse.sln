@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{CEA7DAE1-A7EC-4603-A544-E3294B2A1369}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeyboardMouse", "src\KeyboardMouse\KeyboardMouse.csproj", "{8AF5A2AB-FF81-4911-9122-FE13E6499DFA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{886F8481-3054-45BD-93F1-18D8904A5705}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeyboardMouse.Tests", "tests\KeyboardMouse.Tests\KeyboardMouse.Tests.csproj", "{668B6744-5DAC-4223-9F7D-C2ED7F8562D4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8AF5A2AB-FF81-4911-9122-FE13E6499DFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8AF5A2AB-FF81-4911-9122-FE13E6499DFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8AF5A2AB-FF81-4911-9122-FE13E6499DFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8AF5A2AB-FF81-4911-9122-FE13E6499DFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{668B6744-5DAC-4223-9F7D-C2ED7F8562D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{668B6744-5DAC-4223-9F7D-C2ED7F8562D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{668B6744-5DAC-4223-9F7D-C2ED7F8562D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{668B6744-5DAC-4223-9F7D-C2ED7F8562D4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8AF5A2AB-FF81-4911-9122-FE13E6499DFA} = {CEA7DAE1-A7EC-4603-A544-E3294B2A1369}
+		{668B6744-5DAC-4223-9F7D-C2ED7F8562D4} = {886F8481-3054-45BD-93F1-18D8904A5705}
+	EndGlobalSection
+EndGlobal

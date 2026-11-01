@@ -1,0 +1,49 @@
+name: Release
+
+# On a version tag (e.g. v0.1.0): test the solution, build the single-file
+# self-contained exe, zip it, and attach it to the GitHub Release.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build
+        run: dotnet build KeyboardMouse.sln -c Release
+
+      - name: Test
+        run: dotnet test tests/KeyboardMouse.Tests -c Release
+
+      - name: Publish single-file exe
+        run: >
+          dotnet publish src/KeyboardMouse -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+
+      - name: Zip
+        run: |
+          $name = "KeyboardMouse-$env:GITHUB_REF_NAME-win-x64"
+          Compress-Archive -Path publish/* -DestinationPath "$name.zip"
+          Write-Output "zip_name=$name.zip" >> $env:GITHUB_ENV
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.zip_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(env.GITHUB_REF_NAME, '-') }}
