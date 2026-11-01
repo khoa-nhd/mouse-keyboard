@@ -85,14 +85,20 @@ and never records keystrokes (see [PRIVACY.md](PRIVACY.md)).
    of the screen.
 6. **Tap Caps Lock** again (or press **Esc**) to go back to normal typing.
 
+Want to practise? Open the **Practice** tab in the window and hit 10 targets
+without touching the mouse.
+
 While mouse mode is on, letters don't type. Watch for the green dot. Use
 **T** to click a text box *and* leave mouse mode in one key, so you can
 type right away.
 
 ## 5. Start automatically with Windows
 
-Right-click the tray icon → **Start with Windows** (a ✓ appears).
-Click it again to turn autostart off.
+In the window's **Start** tab, turn on **Start with Windows**. The same tab
+has **Add to Start menu** and **Desktop shortcut** buttons.
+You can also right-click the tray icon → **Start with Windows** (a ✓ appears).
+
+At sign-in the app starts silently in the tray, without opening the window.
 
 ## 6. Tray menu
 
@@ -110,7 +116,7 @@ Click it again to turn autostart off.
 
 ## 7. Update to a new version
 
-1. Right-click the tray icon → **Exit**.
+1. Right-click the tray icon → **Exit** (or **About → Quit** in the window).
 2. Download the new zip from [Releases](https://github.com/khoa-nhd/mouse-keyboard/releases/latest).
 3. Replace the old `KeyboardMouse.exe` in your folder with the new one.
 4. Run it again. Your settings, marks and autostart are kept.
@@ -248,6 +254,10 @@ On first run, a default `settings.json` is created at
 `%APPDATA%\KeyboardMouse\settings.json`. For a portable setup, put
 `settings.json` next to the exe instead.
 
+The common options (auto-click speed and button, pointer dot, screen border,
+copy/paste keys) can be changed in the window's **Settings** tab. Everything
+else is in the file.
+
 Tray icon → **Open settings file**, edit it, save, then tray icon →
 **Reload settings**. No restart is needed.
 
@@ -328,6 +338,8 @@ git push origin v0.1.0
 - `PLAN.md`: the full design document (keymap, architecture, settings schema, phases, risks)
 - `src/KeyboardMouse/`: the app (keyboard hook, input router, movement engine,
   controllers per mode, overlays, tray app)
+- `src/KeyboardMouse/Ui/`: the guide window (`guide.html` shown in WebView2 by `GuideWindow.cs`)
+- `tools/make-icons.ps1`: generates the app and tray icons
 - `tests/KeyboardMouse.Tests/`: xUnit tests for the pure logic
 
 ---
