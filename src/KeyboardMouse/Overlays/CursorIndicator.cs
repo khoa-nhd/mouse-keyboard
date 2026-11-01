@@ -80,7 +80,9 @@ public sealed class CursorIndicator : IDisposable
         }
 
         var feedback = _state.GetFeedback();
-        Color color = feedback.DragLock
+        Color color = feedback.AutoClicking
+            ? Color.FromArgb(255, 241, 196, 15)   // yellow: auto clicker running
+            : feedback.DragLock
             ? Color.FromArgb(255, 230, 126, 34)   // orange: drag lock
             : feedback.Scroll
                 ? Color.FromArgb(255, 52, 152, 219)  // blue: scroll layer

@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KeyboardMouse</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f6fb;
+  --panel: #ffffff;
+  --panel-2: #f8fafc;
+  --sidebar: #eef1f8;
+  --line: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --soft: #94a3b8;
+  --accent: #6366f1;
+  --accent-2: #06b6d4;
+  --accent-ink: #ffffff;
+  --accent-soft: #eef2ff;
+  --ok: #16a34a;
+  --ok-soft: #dcfce7;
+  --warn: #ca8a04;
+  --cap: #ffffff;
+  --cap-edge: #cbd5e1;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .06);
+  --c-move: #6366f1;
+  --c-click: #16a34a;
+  --c-layer: #ea580c;
+  --c-jump: #0891b2;
+  --c-nav: #9333ea;
+  --c-edit: #db2777;
+  --c-system: #475569;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b1020;
+    --panel: #121a2e;
+    --panel-2: #0f1628;
+    --sidebar: #0e1527;
+    --line: #22304d;
+    --text: #e6ebf5;
+    --muted: #94a3b8;
+    --soft: #64748b;
+    --accent-soft: #1e2350;
+    --ok-soft: #12331f;
+    --cap: #1b2540;
+    --cap-edge: #0a0f1d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+    --c-move: #818cf8;
+    --c-click: #4ade80;
+    --c-layer: #fb923c;
+    --c-jump: #22d3ee;
+    --c-nav: #c084fc;
+    --c-edit: #f472b6;
+    --c-system: #94a3b8;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+h1, h2, h3 { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; margin: 0; letter-spacing: -.01em; }
+h1 { font-size: 30px; line-height: 1.2; font-weight: 700; }
+h2 { font-size: 20px; font-weight: 650; }
+h3 { font-size: 15px; font-weight: 650; }
+p { margin: 0; }
+button { font: inherit; color: inherit; }
+.muted { color: var(--muted); }
+
+/* ---------- layout ---------- */
+.app { display: grid; grid-template-columns: 236px 1fr; height: 100vh; }
+.sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  padding: 18px 14px;
+  gap: 18px;
+}
+.brand { display: flex; align-items: center; gap: 11px; padding: 2px 6px; }
+.brand img { width: 40px; height: 40px; border-radius: 10px; }
+.brand b { display: block; font-size: 15px; }
+.brand span { font-size: 12px; color: var(--muted); }
+.status {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line);
+  cursor: pointer; text-align: left; width: 100%;
+  transition: border-color .2s, background .2s;
+}
+.status:hover { border-color: var(--accent); }
+.status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--soft); flex: none; }
+.status.on .dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, .22); animation: pulse 1.8s infinite; }
+.status.auto .dot { background: #eab308; box-shadow: 0 0 0 4px rgba(234, 179, 8, .25); }
+.status small { display: block; color: var(--muted); font-size: 11.5px; }
+.status b { font-size: 13px; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); } }
+nav { display: flex; flex-direction: column; gap: 3px; }
+nav button {
+  display: flex; align-items: center; gap: 11px;
+  border: 0; background: none; text-align: left;
+  padding: 9px 12px; border-radius: 10px; cursor: pointer;
+  color: var(--muted); font-weight: 500;
+  transition: background .15s, color .15s;
+}
+nav button svg { width: 18px; height: 18px; flex: none; }
+nav button:hover { background: var(--panel); color: var(--text); }
+nav button[aria-current="page"] { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+nav button[aria-current="page"] svg { color: var(--accent); }
+.sidebar .grow { flex: 1; }
+.lang { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.lang button { flex: 1; border: 0; background: none; padding: 6px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.lang button.active { background: var(--accent); color: var(--accent-ink); }
+
+main { overflow-y: auto; scroll-behavior: smooth; }
+.page { display: none; padding: 34px 40px 48px; max-width: 1040px; margin: 0 auto; animation: fade .25s ease; }
+.page.active { display: block; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+.page-head { margin-bottom: 22px; }
+.page-head p { margin-top: 6px; color: var(--muted); max-width: 640px; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.section-title { margin: 30px 0 12px; display: flex; align-items: baseline; gap: 10px; }
+.section-title span { color: var(--muted); font-size: 13px; }
+
+/* ---------- keycaps ---------- */
+kbd, .kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; padding: 0 7px;
+  font: 600 12.5px/1 "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  background: var(--cap);
+  border: 1px solid var(--line);
+  border-bottom: 3px solid var(--cap-edge);
+  border-radius: 7px;
+  vertical-align: middle;
+}
+kbd.lg { min-width: 46px; height: 44px; font-size: 18px; border-radius: 10px; border-bottom-width: 4px; }
+.plus { color: var(--soft); margin: 0 4px; font-weight: 600; }
+
+/* ---------- buttons, toggles ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); background: var(--panel);
+  padding: 9px 14px; border-radius: 10px; cursor: pointer; font-weight: 600;
+  transition: transform .1s, border-color .15s, background .15s;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:active { transform: scale(.98); }
+.btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border: 0; box-shadow: 0 6px 18px rgba(99, 102, 241, .35); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.big { padding: 13px 20px; font-size: 15px; border-radius: 12px; }
+.btn.done { border-color: var(--ok); color: var(--ok); }
+.btn svg { width: 16px; height: 16px; }
+.row { display: flex; align-items: center; gap: 14px; }
+.row.between { justify-content: space-between; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.setting:last-child { border-bottom: 0; padding-bottom: 2px; }
+.setting:first-child { padding-top: 2px; }
+.setting p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.switch { position: relative; width: 44px; height: 24px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.switch span { position: absolute; inset: 0; background: var(--line); border-radius: 99px; cursor: pointer; transition: background .2s; }
+.switch span::after { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: none; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-weight: 600; color: var(--muted); }
+.seg button.active { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+input[type=range] { width: 220px; accent-color: var(--accent); }
+.value-pill { min-width: 92px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- home ---------- */
+.hero {
+  position: relative; overflow: hidden;
+  border-radius: 20px; padding: 32px 34px;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #06b6d4 100%);
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(79, 70, 229, .28);
+}
+.hero h1 { font-size: 32px; max-width: 560px; }
+.hero p { margin-top: 10px; opacity: .92; max-width: 520px; font-size: 15px; }
+.hero .actions { margin-top: 22px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.hero .btn { border: 0; }
+.hero .btn.light { background: #fff; color: #3730a3; box-shadow: 0 8px 20px rgba(15, 23, 42, .2); }
+.hero .btn.ghost { background: rgba(255,255,255,.16); color: #fff; }
+.hero .hint { font-size: 13px; opacity: .9; display: flex; align-items: center; gap: 8px; }
+.hero kbd { background: rgba(255,255,255,.95); color: #312e81; border-color: transparent; border-bottom-color: rgba(30, 27, 75, .35); }
+.hero-art { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); width: 270px; height: 190px; pointer-events: none; }
+.hero-art .k { position: absolute; width: 54px; height: 50px; border-radius: 12px; background: rgba(255,255,255,.95); color: #3730a3; font: 700 20px/50px "Segoe UI", sans-serif; text-align: center; box-shadow: 0 6px 0 rgba(30, 27, 75, .35), 0 12px 24px rgba(15, 23, 42, .25); transition: transform .12s, box-shadow .12s; }
+.hero-art .k.down { transform: translateY(5px); box-shadow: 0 1px 0 rgba(30, 27, 75, .35), 0 6px 14px rgba(15, 23, 42, .2); background: #fde68a; }
+.hero-art .ptr { position: absolute; width: 34px; height: 46px; left: 150px; top: 18px; transition: left .6s cubic-bezier(.3,.7,.3,1), top .6s cubic-bezier(.3,.7,.3,1); filter: drop-shadow(0 4px 6px rgba(15,23,42,.35)); }
+.hero-art .ring { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border: 3px solid #fde68a; border-radius: 50%; opacity: 0; }
+.hero-art .ring.go { animation: ring .6s ease-out; }
+@keyframes ring { from { opacity: 1; transform: scale(.3); } to { opacity: 0; transform: scale(1.6); } }
+
+.steps { counter-reset: step; }
+.step { position: relative; padding-top: 52px; }
+.step::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; top: 18px; left: 20px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  font-weight: 700; font-size: 13px; display: grid; place-items: center;
+}
+.step .keys { margin: 4px 0 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.step p { color: var(--muted); font-size: 13.5px; }
+.callout { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: var(--radius); background: var(--accent-soft); border: 1px solid transparent; }
+.callout svg { width: 22px; height: 22px; color: var(--accent); flex: none; margin-top: 1px; }
+.callout p { color: var(--text); }
+.check { display: flex; align-items: center; gap: 14px; }
+.check .icon { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none; }
+.check .icon svg { width: 20px; height: 20px; }
+.check .text { flex: 1; }
+.check .text p { color: var(--muted); font-size: 13px; }
+
+/* ---------- keyboard ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); transition: all .15s; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; }
+.chip.active { color: var(--text); border-color: currentColor; }
+.keyboard-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.keyboard { padding: 22px; container-type: inline-size; }
+/* One key unit: the widest row is 12.5 units + 11 gaps. */
+.kb { --gap: 6px; --u: clamp(34px, calc((100cqw - 11 * var(--gap)) / 12.5), 62px); width: fit-content; margin: 0 auto; }
+.kb-row { display: flex; gap: var(--gap); margin-bottom: var(--gap); }
+.kb-row:last-child { margin-bottom: 0; }
+.key {
+  position: relative; flex: 0 0 auto;
+  width: var(--u); height: var(--u); border-radius: 11px;
+  background: var(--cap); border: 1px solid var(--line); border-bottom: 4px solid var(--cap-edge);
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 6px 7px 5px; cursor: default;
+  transition: transform .08s, opacity .2s, background .15s, border-color .15s;
+}
+.key .cap { font-weight: 700; font-size: calc(var(--u) * .26); }
+.key .act { font-size: clamp(8.5px, calc(var(--u) * .17), 10.5px); line-height: 1.15; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.key.mapped { border-color: color-mix(in srgb, var(--c) 45%, var(--line)); border-bottom-color: color-mix(in srgb, var(--c) 70%, var(--cap-edge)); background: color-mix(in srgb, var(--c) 9%, var(--cap)); cursor: pointer; }
+.key.mapped .act { color: var(--c); }
+.key.mapped::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+.key.dim { opacity: .28; }
+.key.sel { outline: 2px solid var(--c, var(--accent)); outline-offset: 2px; }
+.key.pressed { transform: translateY(3px); border-bottom-width: 1px; background: color-mix(in srgb, var(--c, var(--accent)) 30%, var(--cap)); }
+.key.w15 { width: calc(var(--u) * 1.5 + var(--gap) * .5); } .key.w2 { width: calc(var(--u) * 2 + var(--gap)); } .key.space { width: calc(var(--u) * 6 + var(--gap) * 5); }
+.kb-indent { flex: none; }
+.detail { min-height: 104px; display: flex; align-items: center; gap: 18px; }
+.detail .top { display: flex; align-items: center; gap: 14px; flex: none; min-width: 230px; }
+.detail .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--c, var(--muted)); }
+.detail p { color: var(--muted); }
+.detail .tip { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); font-size: 13px; color: var(--muted); }
+.live { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--soft); }
+.live.on i { background: #22c55e; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 10px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { width: 168px; white-space: nowrap; }
+.ref h3 { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+.ref h3 i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+
+/* ---------- modes ---------- */
+.mode { display: flex; flex-direction: column; gap: 12px; }
+.mode .head { display: flex; align-items: center; gap: 12px; }
+.mode .head .kbd { min-width: 34px; height: 32px; font-size: 15px; }
+.mode p { color: var(--muted); font-size: 13.5px; }
+.mode ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; }
+.mode li { margin: 3px 0; }
+.demo { position: relative; height: 200px; border-radius: 12px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--line); }
+.demo .screen { position: absolute; inset: 12px; border-radius: 8px; background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, var(--panel)), var(--panel)); border: 1px solid var(--line); }
+.gcell { position: absolute; border: 1px solid color-mix(in srgb, var(--c-jump) 55%, transparent); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--c-jump); transition: all .35s ease; }
+.gcell.hit { background: color-mix(in srgb, var(--c-jump) 22%, transparent); color: var(--text); }
+.gptr { position: absolute; width: 16px; height: 22px; transition: left .35s ease, top .35s ease; z-index: 3; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
+.typed { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 4px; z-index: 4; }
+.hbtn { position: absolute; height: 26px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font-size: 11px; display: grid; place-items: center; color: var(--muted); padding: 0 10px; transition: all .2s; }
+.hbtn.hit { border-color: var(--c-jump); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-jump) 30%, transparent); }
+.hlabel { position: absolute; top: -9px; left: -6px; background: #fde047; color: #422006; font: 700 10.5px/1 "Segoe UI", sans-serif; padding: 3px 5px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: opacity .2s; }
+.hlabel.out { opacity: .15; }
+.lines { position: absolute; left: 24px; right: 24px; top: 0; transition: transform .6s ease; }
+.lines div { height: 9px; border-radius: 5px; background: var(--line); margin: 14px 0; }
+.lines div:nth-child(3n) { width: 70%; } .lines div:nth-child(4n) { width: 85%; }
+.dots { display: flex; flex-wrap: wrap; gap: 10px; }
+.dotrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); padding: 6px 10px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--line); }
+.dotrow i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.ripple { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border-radius: 50%; background: #eab308; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); z-index: 2; }
+.ripple::before, .ripple::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid #eab308; animation: rip 1s infinite ease-out; }
+.ripple::after { animation-delay: .5s; }
+@keyframes rip { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(3.4); } }
+.counter { position: absolute; right: 14px; top: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--warn); font-size: 13px; }
+
+/* ---------- practice ---------- */
+.arena { position: relative; height: 380px; border-radius: 16px; overflow: hidden; background:
+  radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--soft) 35%, transparent) 1px, transparent 0) 0 0 / 22px 22px, var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.arena .center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; }
+.arena .center p { color: var(--muted); max-width: 420px; margin: 8px auto 18px; }
+.target {
+  position: absolute; width: 56px; height: 56px; margin: -28px; border-radius: 50%;
+  border: 0; cursor: pointer; padding: 0;
+  background: radial-gradient(circle, #fff 0 18%, #f43f5e 19% 38%, #fff 39% 58%, #f43f5e 59% 100%);
+  box-shadow: 0 6px 18px rgba(244, 63, 94, .35);
+  animation: pop .25s cubic-bezier(.3, 1.6, .5, 1);
+}
+.target.small { width: 34px; height: 34px; margin: -17px; }
+@keyframes pop { from { transform: scale(0); } }
+.burst { position: absolute; width: 60px; height: 60px; margin: -30px; border-radius: 50%; border: 3px solid #f43f5e; animation: burst .45s ease-out forwards; pointer-events: none; }
+@keyframes burst { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+.hud { display: flex; gap: 12px; margin-bottom: 14px; }
+.stat { flex: 1; padding: 14px 16px; }
+.stat small { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.stat b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.tips .card { padding: 14px 16px; font-size: 13px; color: var(--muted); }
+.tips .card b { color: var(--text); display: block; margin-bottom: 4px; font-size: 13.5px; }
+
+/* ---------- about ---------- */
+.about-hero { display: flex; align-items: center; gap: 20px; }
+.about-hero img { width: 84px; height: 84px; border-radius: 20px; box-shadow: var(--shadow); }
+.list { margin: 0; padding: 0; list-style: none; }
+.list li { display: flex; gap: 10px; padding: 7px 0; color: var(--muted); }
+.list li svg { width: 18px; height: 18px; color: var(--ok); flex: none; margin-top: 2px; }
+.list.info li svg { color: var(--accent); }
+
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); opacity: 0; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; transition: all .25s; pointer-events: none; z-index: 50; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 1080px) {
+  .hero-art { display: none; }
+  .keyboard-wrap { grid-template-columns: 1fr; }
+  .detail { position: static; }
+}
+@media (max-width: 900px) {
+  .grid-3, .tips { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .page { padding: 26px 22px 40px; }
+  .key .act { display: none; }
+  .detail { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-keys" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 15.5h6"/></symbol>
+  <symbol id="i-modes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/></symbol>
+  <symbol id="i-start" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
+  <symbol id="i-desktop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-tray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7 3.6 3.6 0 0 1 .1-2.7s.8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2"/></symbol>
+  <symbol id="ptr" viewBox="0 0 34 46"><path d="M2 2v36l9.5-8.2 6.2 13.6 6.4-2.9-6-13.2H30z" fill="#fff" stroke="#1e1b4b" stroke-width="2.6" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.png" alt="">
+      <div><b>KeyboardMouse</b><span id="version">v—</span></div>
+    </div>
+
+    <button class="status" id="status" type="button">
+      <i class="dot"></i>
+      <div><b id="status-title">Mouse mode off</b><small id="status-sub">Tap Caps Lock to start</small></div>
+    </button>
+
+    <nav id="nav">
+      <button data-page="home" aria-current="page"><svg><use href="#i-home"/></svg><span data-t="nav.home">Start</span></button>
+      <button data-page="keys"><svg><use href="#i-keys"/></svg><span data-t="nav.keys">Keys</span></button>
+      <button data-page="modes"><svg><use href="#i-modes"/></svg><span data-t="nav.modes">Power moves</span></button>
+      <button data-page="practice"><svg><use href="#i-target"/></svg><span data-t="nav.practice">Practice</span></button>
+      <button data-page="settings"><svg><use href="#i-gear"/></svg><span data-t="nav.settings">Settings</span></button>
+      <button data-page="about"><svg><use href="#i-info"/></svg><span data-t="nav.about">About</span></button>
+    </nav>
+
+    <div class="grow"></div>
+    <div class="lang" id="lang">
+      <button data-lang="en">English</button>
+      <button data-lang="vi">Tiếng Việt</button>
+    </div>
+  </aside>
+
+  <main id="main">
+    <!-- ================= HOME ================= -->
+    <section class="page active" id="page-home">
+      <div class="hero">
+        <h1 data-t="home.title">Your keyboard is now your mouse.</h1>
+        <p data-t="home.lead">Move, click, drag and scroll without lifting your hands from the home row. KeyboardMouse runs quietly in the system tray.</p>
+        <div class="actions">
+          <button class="btn big light" id="hero-toggle" type="button"><svg><use href="#i-power"/></svg><span data-t="home.turnOn">Turn on mouse mode</span></button>
+          <span class="hint"><span data-t="home.orPress">or press</span> <kbd data-toggle-key>Caps Lock</kbd></span>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="k" style="left:96px;top:66px" data-hk="I">I</div>
+          <div class="k" style="left:34px;top:126px" data-hk="J">J</div>
+          <div class="k" style="left:96px;top:126px" data-hk="K">K</div>
+          <div class="k" style="left:158px;top:126px" data-hk="L">L</div>
+          <div class="ring" id="hero-ring"></div>
+          <svg class="ptr" id="hero-ptr"><use href="#ptr"/></svg>
+        </div>
+      </div>
+
+      <div class="section-title"><h2 data-t="home.quick">Get going in 30 seconds</h2></div>
+      <div class="grid-3 steps">
+        <div class="card step">
+          <div class="keys"><kbd class="lg" data-toggle-key>Caps</kbd></div>
+          <h3 data-t="home.s1t">Turn it on</h3>
+          <p data-t="home.s1">Tap Caps Lock. A small green dot appears next to the pointer — you are in mouse mode.</p>
+        </div>
+        <div class="card step">
+          <div class="keys"><kbd class="lg" data-key="up">I</kbd><kbd class="lg" data-key="left">J</kbd><kbd class="lg" data-key="down">K</kbd><kbd class="lg" data-key="right">L</kbd></div>
+          <h3 data-t="home.s2t">Move</h3>
+          <p data-t="home.s2">Hold a key and the pointer glides, getting faster the longer you hold. Press two for diagonals.</p>
+        </div>
+        <div class="card step">
+          <div class="keys"><kbd class="lg" style="min-width:120px" data-key="leftClick">Space</kbd></div>
+          <h3 data-t="home.s3t">Click</h3>
+          <p data-t="home.s3">Space is the left button. Hold it while moving to drag. Tap Caps Lock again to type normally.</p>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:16px">
+        <svg><use href="#i-tray"/></svg>
+        <p data-t="home.tray">Closing this window does not stop the app. Find it in the system tray next to the clock (click <b>^</b> if it is hidden). Right-click the icon for the menu, double-click to reopen this guide.</p>
+      </div>
+
+      <div class="section-title"><h2 data-t="home.setup">Make it feel like home</h2></div>
+      <div class="card stack">
+        <div class="check">
+          <div class="icon"><svg><use href="#i-power"/></svg></div>
+          <div class="text"><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div>
+          <label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label>
+        </div>
+        <div class="check">
+          <div class="icon"><svg><use href="#i-start"/></svg></div>
+          <div class="text"><h3 data-t="home.startMenuT">Add to Start menu</h3><p data-t="home.startMenu">Find KeyboardMouse by typing its name in Start.</p></div>
+          <button class="btn" data-shortcut="startMenu" type="button"><span data-t="home.add">Add</span></button>
+        </div>
+        <div class="check">
+          <div class="icon"><svg><use href="#i-desktop"/></svg></div>
+          <div class="text"><h3 data-t="home.desktopT">Desktop shortcut</h3><p data-t="home.desktop">An icon on the desktop to reopen this window.</p></div>
+          <button class="btn" data-shortcut="desktop" type="button"><span data-t="home.add">Add</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= KEYS ================= -->
+    <section class="page" id="page-keys">
+      <div class="page-head">
+        <h1 data-t="keys.title">Every key, at a glance</h1>
+        <p data-t="keys.lead">Hover a key to see what it does. Turn on mouse mode and press keys — they light up here so you can learn by doing.</p>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="keyboard-wrap">
+        <div class="card keyboard" id="keyboard"></div>
+        <div class="card detail" id="detail"></div>
+      </div>
+      <div class="section-title"><h2 data-t="keys.ref">Quick reference</h2></div>
+      <div class="grid-2" id="reference"></div>
+    </section>
+
+    <!-- ================= MODES ================= -->
+    <section class="page" id="page-modes">
+      <div class="page-head">
+        <h1 data-t="modes.title">Power moves</h1>
+        <p data-t="modes.lead">Moving across a big screen with I J K L is fine — but these are much faster.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card mode">
+          <div class="head"><span class="kbd" data-key="grid">G</span><h2 data-t="modes.gridT">Grid jump</h2></div>
+          <div class="demo"><div class="screen" id="grid-demo"></div></div>
+          <p data-t="modes.grid">The screen splits into 9 boxes laid out like the keys under your right hand. Each press zooms into that box — any spot is 2–3 keys away.</p>
+          <ul>
+            <li data-t="modes.grid1"><kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> / <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> / <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> pick a box</li>
+            <li data-t="modes.grid2"><kbd>Space</kbd> click there · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> go back</li>
+          </ul>
+        </div>
+        <div class="card mode">
+          <div class="head"><span class="kbd" data-key="hint">H</span><h2 data-t="modes.hintT">Hints</h2></div>
+          <div class="demo"><div class="screen" id="hint-demo"></div></div>
+          <p data-t="modes.hint">Every button and link gets a short label. Type the label and it is clicked — no aiming at all.</p>
+          <ul>
+            <li data-t="modes.hint1">Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd></li>
+            <li data-t="modes.hint2"><kbd>Shift</kbd> + label = hover · <kbd>F</kbd> + label = right click</li>
+          </ul>
+        </div>
+        <div class="card mode">
+          <div class="head"><span class="kbd" data-key="scrollLayer">D</span><h2 data-t="modes.scrollT">Scroll layer</h2></div>
+          <div class="demo"><div class="screen"><div class="lines" id="scroll-lines"></div></div><div class="typed" id="scroll-keys"><kbd data-key="scrollLayer">D</kbd><span class="plus">+</span><kbd data-key="down">K</kbd></div></div>
+          <p data-t="modes.scroll">Hold D and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.</p>
+          <ul>
+            <li data-t="modes.scroll1"><kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways</li>
+            <li data-t="modes.scroll2"><kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom</li>
+          </ul>
+        </div>
+        <div class="card mode">
+          <div class="head"><span class="kbd" data-key="autoClick">B</span><h2 data-t="modes.autoT">Auto clicker</h2></div>
+          <div class="demo"><div class="screen"></div><div class="ripple"></div><div class="counter" id="auto-count">0</div></div>
+          <p data-t="modes.auto">Press B and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press B again to stop.</p>
+          <ul>
+            <li data-t="modes.auto1">The dot turns <b style="color:#eab308">yellow</b> while it runs</li>
+            <li data-t="modes.auto2">Speed and button: <b>Settings → Auto clicker</b></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-title"><h2 data-t="modes.moreT">More moves</h2></div>
+      <div class="grid-3">
+        <div class="card mode"><div class="head"><span class="kbd" data-key="dragLock">V</span><h3 data-t="modes.dragT">Drag lock</h3></div><p data-t="modes.drag">Holds the left button down so you can move freely. Press V or Space to drop.</p></div>
+        <div class="card mode"><div class="head"><span class="kbd" data-key="clickAndExit">T</span><h3 data-t="modes.typeT">Click &amp; type</h3></div><p data-t="modes.type">Clicks a text box and leaves mouse mode in one key, so you can start typing.</p></div>
+        <div class="card mode"><div class="head"><span class="kbd" data-key="precisionLayer">S</span><span class="kbd" data-key="turboLayer">A</span><h3 data-t="modes.speedT">Speed</h3></div><p data-t="modes.speed">Hold S for pixel-precise moves, hold A for turbo across the screen.</p></div>
+        <div class="card mode"><div class="head"><span class="kbd" data-key="centerScreen">X</span><span class="kbd" data-key="centerWindow">C</span><span class="kbd" data-key="nextMonitor">N</span><h3 data-t="modes.jumpT">Jumps</h3></div><p data-t="modes.jump">Center of the screen, center of the window, or the next monitor.</p></div>
+        <div class="card mode"><div class="head"><span class="kbd" data-key="markSave">M</span><span class="kbd" data-key="markJump">'</span><h3 data-t="modes.markT">Marks</h3></div><p data-t="modes.mark">M then a letter saves the spot; ' then the letter jumps back. Saved across restarts.</p></div>
+        <div class="card mode"><div class="head"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">⌫</span><h3 data-t="modes.panicT">Panic</h3></div><p data-t="modes.panic">If a button ever feels stuck: releases everything and leaves mouse mode.</p></div>
+      </div>
+
+      <div class="section-title"><h2 data-t="modes.dotT">What the dot means</h2></div>
+      <div class="card dots" id="dots"></div>
+    </section>
+
+    <!-- ================= PRACTICE ================= -->
+    <section class="page" id="page-practice">
+      <div class="page-head">
+        <h1 data-t="practice.title">Practice range</h1>
+        <p data-t="practice.lead">Hit 10 targets without touching the mouse. Turn on mouse mode first, then click Start with Space.</p>
+      </div>
+      <div class="hud">
+        <div class="card stat"><small data-t="practice.hits">Hits</small><b id="p-hits">0 / 10</b></div>
+        <div class="card stat"><small data-t="practice.time">Time</small><b id="p-time">0.0s</b></div>
+        <div class="card stat"><small data-t="practice.best">Best</small><b id="p-best">—</b></div>
+        <div class="card stat" style="flex:1.4"><small data-t="practice.size">Target size</small>
+          <div class="seg" id="p-size" style="margin-top:6px"><button data-size="big" class="active" data-t="practice.big">Big</button><button data-size="small" data-t="practice.small">Small</button></div>
+        </div>
+      </div>
+      <div class="arena" id="arena">
+        <div class="center" id="arena-start">
+          <div>
+            <h2 data-t="practice.ready">Ready?</h2>
+            <p data-t="practice.how">Tap Caps Lock, move onto the button with I J K L, then press Space.</p>
+            <button class="btn primary big" id="p-start" type="button" data-t="practice.start">Start</button>
+          </div>
+        </div>
+      </div>
+      <div class="tips">
+        <div class="card"><b data-t="practice.tip1t">Use the grid</b><span data-t="practice.tip1">Press G, then the box where the target is. Two presses usually land on it.</span></div>
+        <div class="card"><b data-t="practice.tip2t">Try hints</b><span data-t="practice.tip2">Press H — the target gets a label. Type it to click instantly.</span></div>
+        <div class="card"><b data-t="practice.tip3t">Go precise</b><span data-t="practice.tip3">Hold S for slow, exact moves on the small targets.</span></div>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="page" id="page-settings">
+      <div class="page-head">
+        <h1 data-t="settings.title">Settings</h1>
+        <p data-t="settings.lead">Changes apply instantly. Everything else (every key, every speed) lives in the settings file.</p>
+      </div>
+      <div class="stack">
+        <div class="card">
+          <h2 style="margin-bottom:10px" data-t="settings.general">General</h2>
+          <div class="setting"><div><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div><label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label></div>
+          <div class="setting"><div><h3 data-t="settings.dotT">Pointer dot</h3><p data-t="settings.dot">Colored dot next to the pointer while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="cursorDot"><span></span></label></div>
+          <div class="setting"><div><h3 data-t="settings.borderT">Screen border</h3><p data-t="settings.border">Thin colored frame around the screen while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="screenBorder"><span></span></label></div>
+          <div class="setting"><div><h3 data-t="settings.editT">Copy, paste, undo keys</h3><p data-t="settings.edit">Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.</p></div><label class="switch"><input type="checkbox" data-bind="editingExtras"><span></span></label></div>
+        </div>
+        <div class="card">
+          <h2 style="margin-bottom:10px" data-t="settings.autoT">Auto clicker</h2>
+          <div class="setting"><div><h3 data-t="settings.speedT">Speed</h3><p data-t="settings.speed">How many clicks per second while auto click is on.</p></div>
+            <div class="row"><input type="range" id="cps" min="1" max="50" step="1"><span class="value-pill" id="cps-value">10 / s</span></div></div>
+          <div class="setting"><div><h3 data-t="settings.buttonT">Button</h3><p data-t="settings.button">Which mouse button gets clicked.</p></div>
+            <div class="seg" id="auto-button"><button data-button="Left" data-t="settings.left">Left</button><button data-button="Right" data-t="settings.right">Right</button><button data-button="Middle" data-t="settings.middle">Middle</button></div></div>
+        </div>
+        <div class="card">
+          <h2 style="margin-bottom:10px" data-t="settings.advT">Advanced</h2>
+          <p class="muted" style="margin-bottom:14px" data-t="settings.adv">Remap any key, change speeds or the toggle key in settings.json, then reload.</p>
+          <div class="row" style="flex-wrap:wrap; gap:10px">
+            <button class="btn" data-cmd="openSettingsFile" type="button"><svg><use href="#i-file"/></svg><span data-t="settings.open">Open settings file</span></button>
+            <button class="btn" data-cmd="reloadSettings" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.reload">Reload settings</span></button>
+            <button class="btn" data-cmd="openLogFolder" type="button"><svg><use href="#i-folder"/></svg><span data-t="settings.log">Open log folder</span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ABOUT ================= -->
+    <section class="page" id="page-about">
+      <div class="card about-hero">
+        <img src="logo.png" alt="">
+        <div>
+          <h1 style="font-size:26px">KeyboardMouse</h1>
+          <p class="muted"><span id="about-version">v—</span> · <span data-t="about.license">Free and open source (MIT)</span></p>
+          <div class="row" style="margin-top:12px; gap:10px">
+            <button class="btn" data-url="github" type="button"><svg><use href="#i-github"/></svg>GitHub</button>
+            <button class="btn" data-url="issues" type="button" data-t="about.bug">Report a problem</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <h2 style="margin-bottom:8px" data-t="about.privacyT">Your privacy</h2>
+          <ul class="list">
+            <li><svg><use href="#i-check"/></svg><span data-t="about.p1">Never records or saves what you type.</span></li>
+            <li><svg><use href="#i-check"/></svg><span data-t="about.p2">Never connects to the internet.</span></li>
+            <li><svg><use href="#i-check"/></svg><span data-t="about.p3">All source code is public on GitHub.</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2 style="margin-bottom:8px" data-t="about.limitsT">Good to know</h2>
+          <ul class="list info">
+            <li><svg><use href="#i-info"/></svg><span data-t="about.l1">Admin windows (e.g. Task Manager) only respond if KeyboardMouse runs as administrator.</span></li>
+            <li><svg><use href="#i-info"/></svg><span data-t="about.l2">Some games ignore simulated input.</span></li>
+            <li><svg><use href="#i-info"/></svg><span data-t="about.l3">Works together with a TrackPoint, touchpad or mouse.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="card row between" style="margin-top:16px">
+        <div><h3 data-t="about.quitT">Quit KeyboardMouse</h3><p class="muted" data-t="about.quit">Stops the app completely. Your keyboard goes back to normal right away.</p></div>
+        <button class="btn" data-cmd="exitApp" type="button"><svg><use href="#i-power"/></svg><span data-t="about.quitBtn">Quit</span></button>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------------- text ---------------- */
+const T = {
+  en: {
+    "nav.home": "Start", "nav.keys": "Keys", "nav.modes": "Power moves", "nav.practice": "Practice", "nav.settings": "Settings", "nav.about": "About",
+    "status.off": "Mouse mode off", "status.offSub": "Tap {key} to start", "status.on": "Mouse mode on", "status.onSub": "Tap {key} to type again",
+    "status.auto": "Auto clicking", "status.autoSub": "Press {b} to stop", "status.paused": "Paused", "status.pausedSub": "Click to resume",
+    "home.title": "Your keyboard is now your mouse.",
+    "home.lead": "Move, click, drag and scroll without lifting your hands from the home row. KeyboardMouse runs quietly in the system tray.",
+    "home.turnOn": "Turn on mouse mode", "home.turnOff": "Turn off mouse mode", "home.orPress": "or press",
+    "home.quick": "Get going in 30 seconds",
+    "home.s1t": "Turn it on", "home.s1": "Tap Caps Lock. A small green dot appears next to the pointer — you are in mouse mode.",
+    "home.s2t": "Move", "home.s2": "Hold a key and the pointer glides, getting faster the longer you hold. Press two for diagonals.",
+    "home.s3t": "Click", "home.s3": "Space is the left button. Hold it while moving to drag. Tap Caps Lock again to type normally.",
+    "home.tray": "Closing this window does not stop the app. Find it in the system tray next to the clock (click <b>^</b> if it is hidden). Right-click the icon for the menu, double-click to reopen this guide.",
+    "home.setup": "Make it feel like home",
+    "home.autostartT": "Start with Windows", "home.autostart": "Launch silently in the tray every time you sign in.",
+    "home.startMenuT": "Add to Start menu", "home.startMenu": "Find KeyboardMouse by typing its name in Start.",
+    "home.desktopT": "Desktop shortcut", "home.desktop": "An icon on the desktop to reopen this window.",
+    "home.add": "Add", "home.added": "Added",
+    "keys.title": "Every key, at a glance",
+    "keys.lead": "Hover a key to see what it does. Turn on mouse mode and press keys — they light up here so you can learn by doing.",
+    "keys.ref": "Quick reference", "keys.all": "All", "keys.pick": "Hover or press a key", "keys.pickSub": "Colored keys do something in mouse mode. Gray keys keep working as usual.",
+    "keys.live": "Live: press keys in mouse mode", "keys.liveOff": "Turn on mouse mode to see presses here",
+    "keys.notMapped": "Not used in mouse mode — this key types as usual.",
+    "cat.system": "On / off", "cat.move": "Move", "cat.layer": "Hold layers", "cat.click": "Click", "cat.nav": "Back / forward", "cat.jump": "Jump", "cat.edit": "Edit",
+    "modes.title": "Power moves", "modes.lead": "Moving across a big screen with I J K L is fine — but these are much faster.",
+    "modes.gridT": "Grid jump", "modes.grid": "The screen splits into 9 boxes laid out like the keys under your right hand. Each press zooms into that box — any spot is 2–3 keys away.",
+    "modes.grid1": "<kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> / <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> / <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> pick a box",
+    "modes.grid2": "<kbd>Space</kbd> click there · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> go back",
+    "modes.hintT": "Hints", "modes.hint": "Every button and link gets a short label. Type the label and it is clicked — no aiming at all.",
+    "modes.hint1": "Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
+    "modes.hint2": "<kbd>Shift</kbd> + label = hover · <kbd>F</kbd> + label = right click",
+    "modes.scrollT": "Scroll layer", "modes.scroll": "Hold D and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.",
+    "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways",
+    "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom",
+    "modes.autoT": "Auto clicker", "modes.auto": "Press B and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press B again to stop.",
+    "modes.auto1": "The dot turns <b style=\"color:#eab308\">yellow</b> while it runs", "modes.auto2": "Speed and button: <b>Settings → Auto clicker</b>",
+    "modes.moreT": "More moves",
+    "modes.dragT": "Drag lock", "modes.drag": "Holds the left button down so you can move freely. Press V or Space to drop.",
+    "modes.typeT": "Click & type", "modes.type": "Clicks a text box and leaves mouse mode in one key, so you can start typing.",
+    "modes.speedT": "Speed", "modes.speed": "Hold S for pixel-precise moves, hold A for turbo across the screen.",
+    "modes.jumpT": "Jumps", "modes.jump": "Center of the screen, center of the window, or the next monitor.",
+    "modes.markT": "Marks", "modes.mark": "M then a letter saves the spot; ' then the letter jumps back. Saved across restarts.",
+    "modes.panicT": "Panic", "modes.panic": "If a button ever feels stuck: releases everything and leaves mouse mode.",
+    "modes.dotT": "What the dot means",
+    "dot.normal": "Mouse mode on", "dot.scroll": "Scrolling (D)", "dot.precision": "Precise (S)", "dot.turbo": "Turbo (A)", "dot.drag": "Drag lock (V)", "dot.auto": "Auto clicking (B)",
+    "practice.title": "Practice range", "practice.lead": "Hit 10 targets without touching the mouse. Turn on mouse mode first, then click Start with Space.",
+    "practice.hits": "Hits", "practice.time": "Time", "practice.best": "Best", "practice.size": "Target size", "practice.big": "Big", "practice.small": "Small",
+    "practice.ready": "Ready?", "practice.how": "Tap Caps Lock, move onto the button with I J K L, then press Space.", "practice.start": "Start",
+    "practice.done": "Nice! {time}", "practice.newBest": "New personal best!", "practice.again": "Play again",
+    "practice.tip1t": "Use the grid", "practice.tip1": "Press G, then the box where the target is. Two presses usually land on it.",
+    "practice.tip2t": "Try hints", "practice.tip2": "Press H — the target gets a label. Type it to click instantly.",
+    "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
+    "settings.title": "Settings", "settings.lead": "Changes apply instantly. Everything else (every key, every speed) lives in the settings file.",
+    "settings.general": "General",
+    "settings.dotT": "Pointer dot", "settings.dot": "Colored dot next to the pointer while mouse mode is on.",
+    "settings.borderT": "Screen border", "settings.border": "Thin colored frame around the screen while mouse mode is on.",
+    "settings.editT": "Copy, paste, undo keys", "settings.edit": "Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.",
+    "settings.autoT": "Auto clicker", "settings.speedT": "Speed", "settings.speed": "How many clicks per second while auto click is on.",
+    "settings.buttonT": "Button", "settings.button": "Which mouse button gets clicked.", "settings.left": "Left", "settings.right": "Right", "settings.middle": "Middle",
+    "settings.advT": "Advanced", "settings.adv": "Remap any key, change speeds or the toggle key in settings.json, then reload.",
+    "settings.open": "Open settings file", "settings.reload": "Reload settings", "settings.log": "Open log folder",
+    "about.license": "Free and open source (MIT)", "about.bug": "Report a problem",
+    "about.privacyT": "Your privacy", "about.p1": "Never records or saves what you type.", "about.p2": "Never connects to the internet.", "about.p3": "All source code is public on GitHub.",
+    "about.limitsT": "Good to know", "about.l1": "Admin windows (e.g. Task Manager) only respond if KeyboardMouse runs as administrator.", "about.l2": "Some games ignore simulated input.", "about.l3": "Works together with a TrackPoint, touchpad or mouse.",
+    "about.quitT": "Quit KeyboardMouse", "about.quit": "Stops the app completely. Your keyboard goes back to normal right away.", "about.quitBtn": "Quit",
+    "toast.saved": "Saved", "toast.reloaded": "Settings reloaded", "toast.shortcut": "Shortcut added", "toast.failed": "Something went wrong — see the log",
+    "perSec": "{n} / s"
+  },
+  vi: {
+    "nav.home": "Bắt đầu", "nav.keys": "Phím", "nav.modes": "Tuyệt chiêu", "nav.practice": "Luyện tập", "nav.settings": "Cài đặt", "nav.about": "Giới thiệu",
+    "status.off": "Chế độ chuột: tắt", "status.offSub": "Bấm {key} để bật", "status.on": "Chế độ chuột: bật", "status.onSub": "Bấm {key} để gõ chữ lại",
+    "status.auto": "Đang auto click", "status.autoSub": "Bấm {b} để dừng", "status.paused": "Đang tạm dừng", "status.pausedSub": "Bấm để tiếp tục",
+    "home.title": "Bàn phím giờ là con chuột của bạn.",
+    "home.lead": "Di chuột, click, kéo thả và cuộn trang mà không cần rời tay khỏi hàng phím chính. KeyboardMouse chạy ngầm ở khay hệ thống.",
+    "home.turnOn": "Bật chế độ chuột", "home.turnOff": "Tắt chế độ chuột", "home.orPress": "hoặc bấm",
+    "home.quick": "Bắt đầu trong 30 giây",
+    "home.s1t": "Bật lên", "home.s1": "Bấm Caps Lock. Một chấm xanh nhỏ hiện cạnh con trỏ — bạn đang ở chế độ chuột.",
+    "home.s2t": "Di chuyển", "home.s2": "Giữ phím để con trỏ lướt đi, giữ càng lâu càng nhanh. Bấm hai phím cùng lúc để đi chéo.",
+    "home.s3t": "Click", "home.s3": "Space là nút chuột trái. Giữ Space trong lúc di để kéo thả. Bấm Caps Lock lần nữa để gõ chữ bình thường.",
+    "home.tray": "Đóng cửa sổ này không làm tắt app. App nằm ở khay hệ thống cạnh đồng hồ (bấm <b>^</b> nếu bị ẩn). Chuột phải vào icon để mở menu, nhấp đúp để mở lại hướng dẫn này.",
+    "home.setup": "Thiết lập cho tiện",
+    "home.autostartT": "Khởi động cùng Windows", "home.autostart": "Tự chạy ngầm ở khay hệ thống mỗi khi bạn đăng nhập.",
+    "home.startMenuT": "Thêm vào Start menu", "home.startMenu": "Gõ tên KeyboardMouse trong Start là tìm thấy.",
+    "home.desktopT": "Shortcut ngoài desktop", "home.desktop": "Một icon trên desktop để mở lại cửa sổ này.",
+    "home.add": "Thêm", "home.added": "Đã thêm",
+    "keys.title": "Tất cả các phím, nhìn là hiểu",
+    "keys.lead": "Rê chuột lên một phím để xem nó làm gì. Bật chế độ chuột rồi bấm phím — phím sẽ sáng lên ở đây để bạn vừa bấm vừa học.",
+    "keys.ref": "Bảng tra nhanh", "keys.all": "Tất cả", "keys.pick": "Rê chuột hoặc bấm một phím", "keys.pickSub": "Phím có màu có tác dụng trong chế độ chuột. Phím xám vẫn gõ bình thường.",
+    "keys.live": "Trực tiếp: bấm phím trong chế độ chuột", "keys.liveOff": "Bật chế độ chuột để thấy phím sáng lên ở đây",
+    "keys.notMapped": "Không dùng trong chế độ chuột — phím này vẫn gõ bình thường.",
+    "cat.system": "Bật / tắt", "cat.move": "Di chuyển", "cat.layer": "Giữ để đổi", "cat.click": "Click", "cat.nav": "Lùi / tới", "cat.jump": "Nhảy nhanh", "cat.edit": "Chỉnh sửa",
+    "modes.title": "Tuyệt chiêu", "modes.lead": "Di chuột qua màn hình lớn bằng I J K L vẫn ổn — nhưng các chiêu này nhanh hơn nhiều.",
+    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Màn hình chia thành 9 ô, xếp đúng như các phím dưới tay phải. Mỗi lần bấm sẽ phóng vào ô đó — điểm nào cũng chỉ cách 2–3 phím.",
+    "modes.grid1": "<kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> / <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> / <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> chọn ô",
+    "modes.grid2": "<kbd>Space</kbd> click tại đó · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại",
+    "modes.hintT": "Nhãn gợi ý", "modes.hint": "Mỗi nút bấm và link có một nhãn ngắn. Gõ nhãn là click luôn — không cần nhắm.",
+    "modes.hint1": "Nhãn chỉ dùng các chữ ở hàng phím chính: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
+    "modes.hint2": "<kbd>Shift</kbd> + nhãn = chỉ rê tới · <kbd>F</kbd> + nhãn = click phải",
+    "modes.scrollT": "Cuộn trang", "modes.scroll": "Giữ D thì các phím di chuyển sẽ cuộn trang thay vì di chuột. Mượt, và nhanh dần khi giữ.",
+    "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> lên/xuống · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sang ngang",
+    "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> lật trang · thêm <kbd>Ctrl</kbd> để phóng to",
+    "modes.autoT": "Auto click", "modes.auto": "Bấm B là app tự click liên tục tại vị trí con trỏ. Vẫn di chuột được trong lúc đó. Bấm B lần nữa để dừng.",
+    "modes.auto1": "Chấm cạnh con trỏ chuyển <b style=\"color:#eab308\">màu vàng</b> khi đang chạy", "modes.auto2": "Tốc độ và nút chuột: <b>Cài đặt → Auto click</b>",
+    "modes.moreT": "Thêm vài chiêu",
+    "modes.dragT": "Khóa kéo", "modes.drag": "Giữ nút trái xuống để bạn di thoải mái. Bấm V hoặc Space để thả.",
+    "modes.typeT": "Click rồi gõ", "modes.type": "Click vào ô nhập chữ và thoát chế độ chuột chỉ bằng một phím, để gõ ngay.",
+    "modes.speedT": "Tốc độ", "modes.speed": "Giữ S để di chậm, chính xác từng điểm; giữ A để lướt nhanh qua màn hình.",
+    "modes.jumpT": "Nhảy", "modes.jump": "Tới giữa màn hình, giữa cửa sổ, hoặc sang màn hình kế tiếp.",
+    "modes.markT": "Đánh dấu", "modes.mark": "M rồi một chữ để lưu vị trí; ' rồi chữ đó để nhảy về. Vẫn nhớ sau khi khởi động lại.",
+    "modes.panicT": "Khẩn cấp", "modes.panic": "Nếu chuột có vẻ bị kẹt nút: thả hết các nút và thoát chế độ chuột.",
+    "modes.dotT": "Màu của chấm nghĩa là gì",
+    "dot.normal": "Đang bật chế độ chuột", "dot.scroll": "Đang cuộn (D)", "dot.precision": "Chính xác (S)", "dot.turbo": "Siêu nhanh (A)", "dot.drag": "Khóa kéo (V)", "dot.auto": "Đang auto click (B)",
+    "practice.title": "Sân luyện tập", "practice.lead": "Bắn trúng 10 mục tiêu mà không đụng tới chuột. Bật chế độ chuột trước, rồi bấm Bắt đầu bằng phím Space.",
+    "practice.hits": "Trúng", "practice.time": "Thời gian", "practice.best": "Kỷ lục", "practice.size": "Cỡ mục tiêu", "practice.big": "To", "practice.small": "Nhỏ",
+    "practice.ready": "Sẵn sàng chưa?", "practice.how": "Bấm Caps Lock, di con trỏ lên nút bằng I J K L, rồi bấm Space.", "practice.start": "Bắt đầu",
+    "practice.done": "Giỏi lắm! {time}", "practice.newBest": "Kỷ lục mới!", "practice.again": "Chơi lại",
+    "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G, rồi bấm ô có mục tiêu. Thường hai lần bấm là trúng.",
+    "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
+    "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
+    "settings.title": "Cài đặt", "settings.lead": "Thay đổi có hiệu lực ngay. Những thứ khác (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
+    "settings.general": "Chung",
+    "settings.dotT": "Chấm cạnh con trỏ", "settings.dot": "Chấm màu cạnh con trỏ khi chế độ chuột đang bật.",
+    "settings.borderT": "Viền màn hình", "settings.border": "Viền màu mỏng quanh màn hình khi chế độ chuột đang bật.",
+    "settings.editT": "Phím copy, paste, undo", "settings.edit": "Y, P và Z gửi Ctrl+C, Ctrl+V và Ctrl+Z trong chế độ chuột.",
+    "settings.autoT": "Auto click", "settings.speedT": "Tốc độ", "settings.speed": "Số lần click mỗi giây khi auto click đang chạy.",
+    "settings.buttonT": "Nút chuột", "settings.button": "Nút chuột nào sẽ được click.", "settings.left": "Trái", "settings.right": "Phải", "settings.middle": "Giữa",
+    "settings.advT": "Nâng cao", "settings.adv": "Đổi bất kỳ phím nào, chỉnh tốc độ hoặc phím bật/tắt trong settings.json, rồi tải lại.",
+    "settings.open": "Mở file cài đặt", "settings.reload": "Tải lại cài đặt", "settings.log": "Mở thư mục log",
+    "about.license": "Miễn phí và mã nguồn mở (MIT)", "about.bug": "Báo lỗi",
+    "about.privacyT": "Quyền riêng tư", "about.p1": "Không bao giờ ghi lại hay lưu những gì bạn gõ.", "about.p2": "Không bao giờ kết nối internet.", "about.p3": "Toàn bộ mã nguồn công khai trên GitHub.",
+    "about.limitsT": "Nên biết", "about.l1": "Cửa sổ chạy quyền admin (vd. Task Manager) chỉ nhận lệnh nếu KeyboardMouse cũng chạy bằng quyền admin.", "about.l2": "Một số game bỏ qua thao tác chuột giả lập.", "about.l3": "Dùng chung được với TrackPoint, touchpad hoặc chuột thật.",
+    "about.quitT": "Thoát KeyboardMouse", "about.quit": "Tắt hẳn app. Bàn phím trở lại bình thường ngay lập tức.", "about.quitBtn": "Thoát",
+    "toast.saved": "Đã lưu", "toast.reloaded": "Đã tải lại cài đặt", "toast.shortcut": "Đã tạo shortcut", "toast.failed": "Có lỗi xảy ra — xem file log",
+    "perSec": "{n} / giây"
+  }
+};
+
+/* ---------------- actions ---------------- */
+const CAT_COLORS = { system: "--c-system", move: "--c-move", layer: "--c-layer", click: "--c-click", nav: "--c-nav", jump: "--c-jump", edit: "--c-edit" };
+const ACTIONS = [
+  { id: "toggle", cat: "system", def: "CapsLock", en: ["Mouse mode", "Tap to turn mouse mode on/off. Hold it for mouse mode only while held. Shift + Caps Lock = real Caps Lock."], vi: ["Chế độ chuột", "Bấm nhả để bật/tắt chế độ chuột. Giữ phím = chỉ bật trong lúc giữ. Shift + Caps Lock = Caps Lock thật."] },
+  { id: "escape", cat: "system", def: "Escape", fixed: true, en: ["Exit", "Closes the grid or hints, otherwise leaves mouse mode."], vi: ["Thoát", "Đóng lưới hoặc nhãn gợi ý, nếu không thì thoát chế độ chuột."] },
+  { id: "up", cat: "move", def: "I", en: ["Up", "Move the pointer up. Hold to accelerate."], vi: ["Lên", "Di con trỏ lên. Giữ để nhanh dần."] },
+  { id: "left", cat: "move", def: "J", en: ["Left", "Move the pointer left. Hold to accelerate."], vi: ["Trái", "Di con trỏ sang trái. Giữ để nhanh dần."] },
+  { id: "down", cat: "move", def: "K", en: ["Down", "Move the pointer down. Hold to accelerate."], vi: ["Xuống", "Di con trỏ xuống. Giữ để nhanh dần."] },
+  { id: "right", cat: "move", def: "L", en: ["Right", "Move the pointer right. Hold to accelerate."], vi: ["Phải", "Di con trỏ sang phải. Giữ để nhanh dần."] },
+  { id: "turboLayer", cat: "layer", def: "A", en: ["Turbo", "Hold for very fast movement across the screen."], vi: ["Siêu nhanh", "Giữ để con trỏ lướt rất nhanh qua màn hình."] },
+  { id: "precisionLayer", cat: "layer", def: "S", en: ["Precise", "Hold for slow, pixel-exact movement. One tap = 1 pixel."], vi: ["Chính xác", "Giữ để di chậm, chính xác từng điểm. Mỗi lần bấm = 1 pixel."] },
+  { id: "scrollLayer", cat: "layer", def: "D", en: ["Scroll", "Hold, then I/K scroll up/down, J/L sideways, U/O page up/down."], vi: ["Cuộn", "Giữ, rồi I/K cuộn lên/xuống, J/L cuộn ngang, U/O lật trang."] },
+  { id: "leftClick", cat: "click", def: "Space", en: ["Left click", "Left mouse button. Hold while moving to drag."], vi: ["Click trái", "Nút chuột trái. Giữ trong lúc di để kéo thả."] },
+  { id: "rightClick", cat: "click", def: "F", en: ["Right click", "Right mouse button — opens context menus."], vi: ["Click phải", "Nút chuột phải — mở menu chuột phải."] },
+  { id: "middleClick", cat: "click", def: "E", en: ["Middle", "Middle click — e.g. open a link in a new tab."], vi: ["Click giữa", "Click giữa — vd. mở link trong tab mới."] },
+  { id: "doubleClick", cat: "click", def: "R", en: ["Double", "Double click in one press."], vi: ["Double", "Double click chỉ với một lần bấm."] },
+  { id: "clickAndExit", cat: "click", def: "T", en: ["Click+type", "Left click, then leave mouse mode so you can type."], vi: ["Click+gõ", "Click trái rồi thoát chế độ chuột để gõ chữ."] },
+  { id: "dragLock", cat: "click", def: "V", en: ["Drag lock", "Hold the left button down until you press V or Space again."], vi: ["Khóa kéo", "Giữ nút trái cho đến khi bấm V hoặc Space lần nữa."] },
+  { id: "autoClick", cat: "click", def: "B", en: ["Auto click", "Clicks repeatedly at the pointer until you press it again."], vi: ["Auto click", "Tự click liên tục tại con trỏ cho tới khi bấm lại."] },
+  { id: "back", cat: "nav", def: "U", en: ["Back", "Mouse back button (browser back)."], vi: ["Lùi", "Nút lùi của chuột (quay lại trang trước)."] },
+  { id: "forward", cat: "nav", def: "O", en: ["Forward", "Mouse forward button."], vi: ["Tới", "Nút tới của chuột."] },
+  { id: "grid", cat: "jump", def: "G", en: ["Grid", "Split the screen into 9 boxes and jump there."], vi: ["Lưới", "Chia màn hình thành 9 ô rồi nhảy tới."] },
+  { id: "hint", cat: "jump", def: "H", en: ["Hints", "Label every clickable thing; type a label to click it."], vi: ["Nhãn", "Gắn nhãn cho mọi thứ bấm được; gõ nhãn để click."] },
+  { id: "centerScreen", cat: "jump", def: "X", en: ["Screen", "Jump to the center of the current screen."], vi: ["Giữa MH", "Nhảy tới giữa màn hình hiện tại."] },
+  { id: "centerWindow", cat: "jump", def: "C", en: ["Window", "Jump to the center of the active window."], vi: ["Giữa CS", "Nhảy tới giữa cửa sổ đang mở."] },
+  { id: "nextMonitor", cat: "jump", def: "N", en: ["Monitor", "Jump to the next monitor."], vi: ["MH kế", "Nhảy sang màn hình kế tiếp."] },
+  { id: "markSave", cat: "jump", def: "M", en: ["Save mark", "Then a letter: remember this spot."], vi: ["Lưu", "Rồi một chữ cái: ghi nhớ vị trí này."] },
+  { id: "markJump", cat: "jump", def: "Apostrophe", en: ["Go to mark", "Then a letter: jump to a saved spot."], vi: ["Tới dấu", "Rồi một chữ cái: nhảy tới vị trí đã lưu."] },
+  { id: "copy", cat: "edit", def: "Y", extra: true, en: ["Copy", "Sends Ctrl+C."], vi: ["Copy", "Gửi Ctrl+C."] },
+  { id: "paste", cat: "edit", def: "P", extra: true, en: ["Paste", "Sends Ctrl+V."], vi: ["Paste", "Gửi Ctrl+V."] },
+  { id: "undo", cat: "edit", def: "Z", extra: true, en: ["Undo", "Sends Ctrl+Z."], vi: ["Undo", "Gửi Ctrl+Z."] }
+];
+const ALIASES = { ";": "Semicolon", "'": "Apostrophe", ",": "Comma", ".": "Period", "/": "Slash", "ESC": "Escape", "CAPS": "CapsLock", "CAPSLOCK": "CapsLock", "SPACE": "Space" };
+const LABELS = { Semicolon: ";", Apostrophe: "'", Comma: ",", Period: ".", Slash: "/", Space: "Space", CapsLock: "Caps Lock", Escape: "Esc", LeftShift: "Shift", Backspace: "⌫", ScrollLock: "Scroll Lock" };
+const LAYOUT = [
+  [["Escape", "w15"]],
+  ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"].map(k => [k]),
+  [["CapsLock", "w15"], ...["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon", "Apostrophe"].map(k => [k])],
+  [["LeftShift", "w2"], ...["Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"].map(k => [k])],
+  [["Space", "space"]]
+];
+/* Row indents in key units, like a real staggered keyboard. */
+const ROW_OFFSETS = [0, 0.5, 0, 0, 2.5];
+
+/* ---------------- state ---------------- */
+const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;
+const query = new URLSearchParams(location.search);
+let lang = query.get("lang") || load("lang", (navigator.language || "en").toLowerCase().startsWith("vi") ? "vi" : "en");
+if (query.get("theme")) document.documentElement.dataset.theme = query.get("theme");
+let filter = "all";
+let selectedKey = null;
+let state = {
+  version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
+  shortcuts: { desktop: false, startMenu: false },
+  settings: { toggleKey: "CapsLock", editingExtras: true, cursorDot: true, screenBorder: true, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
+};
+
+function load(key, fallback) { try { return localStorage.getItem("km." + key) ?? fallback; } catch { return fallback; } }
+function save(key, value) { try { localStorage.setItem("km." + key, value); } catch { /* private mode */ } }
+function t(key, vars) {
+  let s = (T[lang] && T[lang][key]) ?? T.en[key] ?? key;
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace("{" + k + "}", v);
+  return s;
+}
+function send(msg) { if (host) host.postMessage(msg); }
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+function norm(name) {
+  if (!name) return "";
+  const raw = String(name).trim();
+  const up = raw.toUpperCase();
+  if (ALIASES[raw]) return ALIASES[raw];
+  if (ALIASES[up]) return ALIASES[up];
+  const known = LAYOUT.flat().map(k => k[0]).concat(Object.keys(LABELS));
+  return known.find(k => k.toUpperCase() === up) || raw;
+}
+function label(name) { return LABELS[name] || name; }
+
+/** physical key -> action, honoring remaps and the "first binding wins" rule */
+function bindings() {
+  const map = new Map();
+  const keys = state.settings.keys || {};
+  for (const a of ACTIONS) {
+    if (a.extra && !state.settings.editingExtras) continue;
+    const name = a.id === "toggle" ? norm(state.settings.toggleKey || a.def) : a.fixed ? a.def : norm(keys[a.id] || a.def);
+    if (!map.has(name)) map.set(name, a);
+  }
+  return map;
+}
+function keyOf(actionId) {
+  for (const [k, a] of bindings()) if (a.id === actionId) return k;
+  const a = ACTIONS.find(x => x.id === actionId);
+  return a ? a.def : "";
+}
+
+/* ---------------- i18n ---------------- */
+function applyText() {
+  document.documentElement.lang = lang;
+  $$("[data-t]").forEach(el => { el.innerHTML = t(el.dataset.t); });
+  $$("#lang button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  renderAll();
+}
+
+/* ---------------- navigation ---------------- */
+function showPage(id) {
+  $$("#nav button").forEach(b => { if (b.dataset.page === id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+  $$(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
+  $("#main").scrollTop = 0;
+  save("page", id);
+}
+
+/* ---------------- status ---------------- */
+function renderStatus() {
+  const el = $("#status");
+  const toggle = label(norm(state.settings.toggleKey || "CapsLock"));
+  el.classList.toggle("on", state.mouseMode && !state.autoClicking);
+  el.classList.toggle("auto", state.autoClicking);
+  let title, sub;
+  if (state.paused) { title = t("status.paused"); sub = t("status.pausedSub"); }
+  else if (state.autoClicking) { title = t("status.auto"); sub = t("status.autoSub", { b: label(keyOf("autoClick")) }); }
+  else if (state.mouseMode) { title = t("status.on"); sub = t("status.onSub", { key: toggle }); }
+  else { title = t("status.off"); sub = t("status.offSub", { key: toggle }); }
+  $("#status-title").textContent = title;
+  $("#status-sub").textContent = sub;
+  $("#hero-toggle span").textContent = state.mouseMode ? t("home.turnOff") : t("home.turnOn");
+  $$("[data-toggle-key]").forEach(k => { k.textContent = k.classList.contains("lg") && toggle === "Caps Lock" ? "Caps" : toggle; });
+  $$("[data-key]").forEach(k => { k.textContent = label(keyOf(k.dataset.key)); });
+  const live = $("#live");
+  if (live) { live.classList.toggle("on", state.mouseMode); live.querySelector("span").textContent = state.mouseMode ? t("keys.live") : t("keys.liveOff"); }
+  $("#version").textContent = "v" + state.version;
+  $("#about-version").textContent = "v" + state.version;
+}
+
+/* ---------------- keyboard ---------------- */
+function renderKeyboard() {
+  const map = bindings();
+  const card = $("#keyboard");
+  card.innerHTML = "";
+  const kb = document.createElement("div");
+  kb.className = "kb";
+  card.appendChild(kb);
+  LAYOUT.forEach((row, i) => {
+    const r = document.createElement("div");
+    r.className = "kb-row";
+    if (ROW_OFFSETS[i]) { const s = document.createElement("div"); s.className = "kb-indent"; s.style.width = `calc(var(--u) * ${ROW_OFFSETS[i]})`; r.appendChild(s); }
+    for (const [name, size] of row) {
+      const a = map.get(name);
+      const k = document.createElement("div");
+      k.className = "key" + (size ? " " + size : "") + (a ? " mapped" : "");
+      k.dataset.name = name;
+      if (a) k.style.setProperty("--c", `var(${CAT_COLORS[a.cat]})`);
+      if (a && filter !== "all" && a.cat !== filter) k.classList.add("dim");
+      if (!a && filter !== "all") k.classList.add("dim");
+      if (name === selectedKey) k.classList.add("sel");
+      k.innerHTML = `<span class="cap">${esc(label(name))}</span><span class="act">${a ? esc(a[lang][0]) : ""}</span>`;
+      k.addEventListener("mouseenter", () => select(name));
+      r.appendChild(k);
+    }
+    kb.appendChild(r);
+  });
+  const live = document.createElement("div");
+  live.className = "live"; live.id = "live";
+  live.innerHTML = "<i></i><span></span>";
+  card.appendChild(live);
+}
+function renderDetail() {
+  const d = $("#detail");
+  const a = selectedKey ? bindings().get(selectedKey) : null;
+  if (!selectedKey) {
+    d.style.removeProperty("--c");
+    d.innerHTML = `<div class="top"><kbd class="lg">?</kbd><div><h3>${t("keys.pick")}</h3></div></div><p>${t("keys.pickSub")}</p>`;
+    return;
+  }
+  if (!a) {
+    d.style.removeProperty("--c");
+    d.innerHTML = `<div class="top"><kbd class="lg">${esc(label(selectedKey))}</kbd><div><div class="badge">—</div></div></div><p>${t("keys.notMapped")}</p>`;
+    return;
+  }
+  d.style.setProperty("--c", `var(${CAT_COLORS[a.cat]})`);
+  d.innerHTML = `<div class="top"><kbd class="lg">${esc(label(selectedKey))}</kbd><div><div class="badge">${t("cat." + a.cat)}</div><h2>${esc(a[lang][0])}</h2></div></div><p>${esc(a[lang][1])}</p>`;
+}
+function select(name) {
+  selectedKey = name;
+  $$("#keyboard .key").forEach(k => k.classList.toggle("sel", k.dataset.name === name));
+  renderDetail();
+}
+function renderLegend() {
+  const cats = ["all", ...Object.keys(CAT_COLORS)];
+  $("#legend").innerHTML = cats.map(c => `<button class="chip${filter === c ? " active" : ""}" data-cat="${c}" style="${c === "all" ? "" : `color:var(${CAT_COLORS[c]})`}">${c === "all" ? "" : `<i style="background:var(${CAT_COLORS[c]})"></i>`}<span style="color:var(--text)">${t(c === "all" ? "keys.all" : "cat." + c)}</span></button>`).join("");
+  $$("#legend .chip").forEach(b => b.addEventListener("click", () => { filter = b.dataset.cat; renderLegend(); renderKeyboard(); renderStatus(); }));
+}
+function renderReference() {
+  const map = bindings();
+  const byCat = {};
+  for (const [k, a] of map) (byCat[a.cat] ||= []).push([k, a]);
+  $("#reference").innerHTML = Object.keys(CAT_COLORS).filter(c => byCat[c]).map(c => `
+    <div class="card ref" style="--c:var(${CAT_COLORS[c]})"><h3><i></i>${t("cat." + c)}</h3><table>${byCat[c].map(([k, a]) => `<tr><td><kbd>${esc(label(k))}</kbd> <span class="muted" style="margin-left:6px">${esc(a[lang][0])}</span></td><td class="muted">${esc(a[lang][1])}</td></tr>`).join("")}</table></div>`).join("");
+}
+function pressKey(name, down) {
+  const k = $(`#keyboard .key[data-name="${CSS.escape(name)}"]`);
+  if (k) k.classList.toggle("pressed", down);
+  if (down && $("#page-keys").classList.contains("active")) select(name);
+  const hk = $(`.hero-art .k[data-hk="${CSS.escape(name)}"]`);
+  if (hk) hk.classList.toggle("down", down);
+}
+
+/* ---------------- dots ---------------- */
+function renderDots() {
+  const dots = [["#2ecc71", "dot.normal"], ["#3498db", "dot.scroll"], ["#9b59b6", "dot.precision"], ["#e74c3c", "dot.turbo"], ["#e67e22", "dot.drag"], ["#f1c40f", "dot.auto"]];
+  $("#dots").innerHTML = dots.map(([c, k]) => `<span class="dotrow"><i style="background:${c}"></i>${t(k)}</span>`).join("");
+}
+
+/* ---------------- settings ---------------- */
+function renderSettings() {
+  const s = state.settings;
+  $$('[data-bind="autostart"]').forEach(i => i.checked = !!state.autostart);
+  $('[data-bind="cursorDot"]').checked = !!s.cursorDot;
+  $('[data-bind="screenBorder"]').checked = !!s.screenBorder;
+  $('[data-bind="editingExtras"]').checked = !!s.editingExtras;
+  const cps = Math.max(1, Math.min(50, Math.round(1000 / (s.autoClick.intervalMs || 100))));
+  if (document.activeElement !== $("#cps")) $("#cps").value = cps;
+  $("#cps-value").textContent = t("perSec", { n: cps });
+  $$("#auto-button button").forEach(b => b.classList.toggle("active", b.dataset.button.toLowerCase() === String(s.autoClick.button).toLowerCase()));
+  $$("[data-shortcut]").forEach(b => {
+    const done = !!state.shortcuts[b.dataset.shortcut];
+    b.classList.toggle("done", done);
+    b.querySelector("span").textContent = done ? t("home.added") : t("home.add");
+  });
+}
+
+function renderAll() {
+  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderDots(); renderSettings(); renderStatus(); renderPracticeBest();
+}
+
+/* ---------------- toast ---------------- */
+let toastTimer;
+function toast(text) {
+  const el = $("#toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+/* ---------------- demos ---------------- */
+function heroDemo() {
+  const ptr = $("#hero-ptr"), ring = $("#hero-ring");
+  const path = [["L", 205, 30], ["K", 205, 92], ["J", 150, 92], ["I", 150, 30], ["Space", 150, 30]];
+  let i = 0;
+  setInterval(() => {
+    if (document.hidden) return;
+    const [key, x, y] = path[i % path.length];
+    if (key === "Space") {
+      ring.style.left = (x + 2) + "px"; ring.style.top = (y + 2) + "px";
+      ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
+    } else {
+      const k = $(`.hero-art .k[data-hk="${key}"]`);
+      k.classList.add("down"); setTimeout(() => k.classList.remove("down"), 420);
+      ptr.style.left = x + "px"; ptr.style.top = y + "px";
+    }
+    i++;
+  }, 900);
+}
+
+function gridDemo() {
+  const host = $("#grid-demo");
+  const labels = ["U", "I", "O", "J", "K", "L", "M", ",", "."];
+  const plan = [2, 3, 4];
+  const ptr = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  ptr.setAttribute("class", "gptr"); ptr.innerHTML = '<use href="#ptr"/>';
+  host.appendChild(ptr);
+  let level = 0, rect;
+  const typed = document.createElement("div"); typed.className = "typed"; host.parentElement.appendChild(typed);
+  function draw() {
+    $$(".gcell", host).forEach(c => c.remove());
+    const W = host.clientWidth, H = host.clientHeight;
+    if (level === 0) { rect = { x: 0, y: 0, w: W, h: H }; typed.innerHTML = '<kbd>G</kbd>'; }
+    const cw = rect.w / 3, ch = rect.h / 3;
+    labels.forEach((l, i) => {
+      const c = document.createElement("div");
+      c.className = "gcell";
+      c.style.cssText = `left:${rect.x + (i % 3) * cw}px;top:${rect.y + Math.floor(i / 3) * ch}px;width:${cw}px;height:${ch}px;font-size:${Math.max(9, 13 - level * 2)}px`;
+      c.textContent = l;
+      host.appendChild(c);
+    });
+    ptr.style.left = (rect.x + rect.w / 2) + "px"; ptr.style.top = (rect.y + rect.h / 2) + "px";
+  }
+  function step() {
+    if (!host.clientWidth || document.hidden) return;
+    if (level >= plan.length) { level = 0; draw(); return; }
+    const pick = plan[level];
+    const cells = $$(".gcell", host);
+    cells[pick].classList.add("hit");
+    typed.innerHTML += `<kbd>${labels[pick] === "," ? "," : labels[pick]}</kbd>`;
+    setTimeout(() => {
+      rect = { x: rect.x + (pick % 3) * rect.w / 3, y: rect.y + Math.floor(pick / 3) * rect.h / 3, w: rect.w / 3, h: rect.h / 3 };
+      level++;
+      if (level >= plan.length) {
+        $$(".gcell", host).forEach(c => c.remove());
+        ptr.style.left = (rect.x + rect.w / 2) + "px"; ptr.style.top = (rect.y + rect.h / 2) + "px";
+        typed.innerHTML += '<kbd>Space</kbd>';
+      } else draw();
+    }, 450);
+  }
+  new ResizeObserver(() => { level = 0; draw(); }).observe(host);
+  setInterval(step, 1300);
+}
+
+function hintDemo() {
+  const host = $("#hint-demo");
+  const items = [["File", 14, 14, "as"], ["Edit", 74, 14, "ad"], ["View", 134, 14, "af"], ["Save", 22, 70, "sa"], ["Share", 110, 70, "sd"], ["Print", 206, 70, "sf"], ["OK", 40, 124, "da"], ["Cancel", 120, 124, "dk"]];
+  host.innerHTML = items.map(([n, x, y, l]) => `<div class="hbtn" style="left:${x}px;top:${y}px" data-l="${l}">${n}<span class="hlabel">${l.toUpperCase()}</span></div>`).join("");
+  const typed = document.createElement("div"); typed.className = "typed"; host.parentElement.appendChild(typed);
+  const targets = ["dk", "sd", "af"];
+  let n = 0, phase = 0;
+  setInterval(() => {
+    if (document.hidden) return;
+    const target = targets[n % targets.length];
+    const btns = $$(".hbtn", host);
+    if (phase === 0) { btns.forEach(b => { b.classList.remove("hit"); b.querySelector(".hlabel").classList.remove("out"); }); typed.innerHTML = "<kbd>H</kbd>"; }
+    if (phase === 1 || phase === 2) {
+      const sofar = target.slice(0, phase);
+      typed.innerHTML += `<kbd>${target[phase - 1].toUpperCase()}</kbd>`;
+      btns.forEach(b => b.querySelector(".hlabel").classList.toggle("out", !b.dataset.l.startsWith(sofar)));
+      if (phase === 2) btns.find(b => b.dataset.l === target).classList.add("hit");
+    }
+    phase = (phase + 1) % 4;
+    if (phase === 0) n++;
+  }, 800);
+}
+
+function scrollDemo() {
+  const lines = $("#scroll-lines");
+  lines.innerHTML = Array.from({ length: 30 }, () => "<div></div>").join("");
+  let y = 0, dir = -1;
+  setInterval(() => {
+    if (document.hidden) return;
+    y += dir * 46;
+    if (y < -360) dir = 1;
+    if (y >= 0) { y = 0; dir = -1; }
+    lines.style.transform = `translateY(${y}px)`;
+    const keys = $("#scroll-keys");
+    keys.querySelectorAll("kbd")[1].textContent = label(keyOf(dir < 0 ? "down" : "up"));
+  }, 700);
+}
+
+function autoDemo() {
+  const el = $("#auto-count");
+  let n = 0;
+  setInterval(() => { if (!document.hidden) el.textContent = "× " + (n = (n + 1) % 1000); }, 100);
+}
+
+/* ---------------- practice ---------------- */
+const practice = { running: false, hits: 0, start: 0, timer: 0, size: load("size", "big") };
+function bestKey() { return "best." + practice.size; }
+function renderPracticeBest() {
+  const best = load(bestKey(), "");
+  $("#p-best").textContent = best ? (best / 1000).toFixed(1) + "s" : "—";
+  $$("#p-size button").forEach(b => b.classList.toggle("active", b.dataset.size === practice.size));
+}
+function spawnTarget() {
+  const arena = $("#arena");
+  const pad = 50;
+  const btn = document.createElement("button");
+  btn.className = "target" + (practice.size === "small" ? " small" : "");
+  btn.type = "button";
+  btn.setAttribute("aria-label", "target");
+  btn.style.left = (pad + Math.random() * (arena.clientWidth - 2 * pad)) + "px";
+  btn.style.top = (pad + Math.random() * (arena.clientHeight - 2 * pad)) + "px";
+  btn.addEventListener("click", () => hit(btn));
+  arena.appendChild(btn);
+}
+function hit(btn) {
+  const b = document.createElement("div");
+  b.className = "burst"; b.style.left = btn.style.left; b.style.top = btn.style.top;
+  $("#arena").appendChild(b);
+  setTimeout(() => b.remove(), 500);
+  btn.remove();
+  practice.hits++;
+  $("#p-hits").textContent = practice.hits + " / 10";
+  if (practice.hits >= 10) finish(); else spawnTarget();
+}
+function startPractice() {
+  $$("#arena .target").forEach(t => t.remove());
+  $("#arena-start").style.display = "none";
+  practice.running = true; practice.hits = 0; practice.start = performance.now();
+  $("#p-hits").textContent = "0 / 10";
+  clearInterval(practice.timer);
+  practice.timer = setInterval(() => { $("#p-time").textContent = ((performance.now() - practice.start) / 1000).toFixed(1) + "s"; }, 100);
+  spawnTarget();
+}
+function finish() {
+  clearInterval(practice.timer);
+  practice.running = false;
+  const ms = Math.round(performance.now() - practice.start);
+  const best = Number(load(bestKey(), 0));
+  const isBest = !best || ms < best;
+  if (isBest) save(bestKey(), ms);
+  renderPracticeBest();
+  const s = $("#arena-start");
+  s.style.display = "";
+  s.querySelector("h2").textContent = t("practice.done", { time: (ms / 1000).toFixed(1) + "s" });
+  s.querySelector("p").textContent = isBest ? t("practice.newBest") : t("practice.how");
+  $("#p-start").textContent = t("practice.again");
+}
+
+/* ---------------- host messages ---------------- */
+function onHost(msg) {
+  if (!msg || typeof msg !== "object") return;
+  if (msg.type === "state") {
+    state = { ...state, ...msg.state, settings: { ...state.settings, ...(msg.state.settings || {}) } };
+    renderAll();
+  } else if (msg.type === "key") {
+    pressKey(String(msg.key), !!msg.down);
+  } else if (msg.type === "toast") {
+    toast(t(msg.text));
+  } else if (msg.type === "page") {
+    showPage(msg.page);
+  }
+}
+
+/* ---------------- wiring ---------------- */
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+$$("#nav button").forEach(b => b.addEventListener("click", () => showPage(b.dataset.page)));
+$$("#lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; save("lang", lang); applyText(); }));
+$("#status").addEventListener("click", () => { if (state.paused) send({ cmd: "setPaused", on: false }); else send({ cmd: "setMouseMode", on: !state.mouseMode }); if (!host) { state.mouseMode = !state.mouseMode; renderStatus(); } });
+$("#hero-toggle").addEventListener("click", () => { send({ cmd: "setMouseMode", on: !state.mouseMode }); if (!host) { state.mouseMode = !state.mouseMode; renderStatus(); } });
+$$('[data-bind]').forEach(input => input.addEventListener("change", () => {
+  const key = input.dataset.bind;
+  if (key === "autostart") { send({ cmd: "setAutostart", on: input.checked }); state.autostart = input.checked; }
+  else { send({ cmd: "setSetting", key, value: input.checked }); state.settings[key] = input.checked; }
+  renderSettings(); renderAll();
+}));
+$("#cps").addEventListener("input", e => { $("#cps-value").textContent = t("perSec", { n: e.target.value }); });
+$("#cps").addEventListener("change", e => {
+  const ms = Math.round(1000 / Number(e.target.value));
+  state.settings.autoClick.intervalMs = ms;
+  send({ cmd: "setSetting", key: "autoClick.intervalMs", value: ms });
+});
+$$("#auto-button button").forEach(b => b.addEventListener("click", () => {
+  state.settings.autoClick.button = b.dataset.button;
+  send({ cmd: "setSetting", key: "autoClick.button", value: b.dataset.button });
+  renderSettings();
+}));
+$$("[data-shortcut]").forEach(b => b.addEventListener("click", () => send({ cmd: "createShortcut", where: b.dataset.shortcut })));
+$$("[data-cmd]").forEach(b => b.addEventListener("click", () => send({ cmd: b.dataset.cmd })));
+$$("[data-url]").forEach(b => b.addEventListener("click", () => send({ cmd: "openUrl", id: b.dataset.url })));
+$("#p-start").addEventListener("click", startPractice);
+$$("#p-size button").forEach(b => b.addEventListener("click", () => { practice.size = b.dataset.size; save("size", practice.size); renderPracticeBest(); }));
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+if (host) host.addEventListener("message", e => onHost(e.data));
+
+applyText();
+{
+  const fromHash = location.hash.slice(1);
+  const pages = $$(".page").map(p => p.id.slice(5));
+  showPage(pages.includes(fromHash) ? fromHash : pages.includes(load("page", "home")) ? load("page", "home") : "home");
+}
+heroDemo(); gridDemo(); hintDemo(); scrollDemo(); autoDemo();
+send({ cmd: "ready" });
+</script>
+</body>
+</html>

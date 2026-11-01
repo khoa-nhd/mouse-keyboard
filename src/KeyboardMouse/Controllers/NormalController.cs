@@ -15,7 +15,7 @@ namespace KeyboardMouse.Controllers;
 /// G opens the grid, H opens hints. X/C/N jump to the screen, window, and next
 /// monitor; M/' start the two-key mark commands handled by
 /// <see cref="PendingController"/>. Y/P/Z send Ctrl+C/V/Z while
-/// <c>editExtras</c> is on.
+/// <c>editExtras</c> is on. B toggles the auto clicker.
 ///
 /// Every binding is remappable: the whole map is built from
 /// <see cref="KeysSettings"/>. The first binding for a key wins, so a
@@ -49,7 +49,8 @@ public sealed class NormalController : IModeController
         JumpMark,
         Copy,
         Paste,
-        Undo
+        Undo,
+        AutoClick
     }
 
     private readonly AppState _state;
@@ -63,6 +64,7 @@ public sealed class NormalController : IModeController
     private readonly Action _beginMarkSave;
     private readonly Action _beginMarkJump;
     private readonly Action _exitMode;
+    private readonly Action? _toggleAutoClick;
 
     private SpeedProfiles _profiles;
     private KeysSettings _settings = new();
@@ -84,7 +86,8 @@ public sealed class NormalController : IModeController
         Action beginMarkSave,
         Action beginMarkJump,
         Action exitMode,
-        bool editingExtras = false)
+        bool editingExtras = false,
+        Action? toggleAutoClick = null)
     {
         _state = state;
         _movement = movement;
@@ -98,6 +101,7 @@ public sealed class NormalController : IModeController
         _beginMarkSave = beginMarkSave;
         _beginMarkJump = beginMarkJump;
         _exitMode = exitMode;
+        _toggleAutoClick = toggleAutoClick;
         _editingExtras = editingExtras;
 
         UpdateKeys(settings);
@@ -184,6 +188,11 @@ public sealed class NormalController : IModeController
         Bind(s.Hint, PhysicalKey.H, NormalAction.EnterHints);
         Bind(s.MarkSave, PhysicalKey.M, NormalAction.SaveMark);
         Bind(s.MarkJump, PhysicalKey.Apostrophe, NormalAction.JumpMark);
+
+        if (_toggleAutoClick is not null)
+        {
+            Bind(s.AutoClick, PhysicalKey.B, NormalAction.AutoClick);
+        }
 
         if (_editingExtras)
         {
@@ -384,6 +393,21 @@ public sealed class NormalController : IModeController
                 if (keyEvent.IsDown && !keyEvent.IsRepeat)
                 {
                     SendEditingChord(action);
+                }
+
+                break;
+
+            case NormalAction.AutoClick:
+                if (keyEvent.IsDown && !keyEvent.IsRepeat)
+                {
+                    // Auto-clicking with the left button held would end a locked
+                    // drag on the first click anyway; drop it cleanly first.
+                    if (_state.DragLock && !_state.AutoClicking)
+                    {
+                        ToggleDragLock();
+                    }
+
+                    _toggleAutoClick?.Invoke();
                 }
 
                 break;

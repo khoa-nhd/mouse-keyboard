@@ -24,6 +24,7 @@ public sealed class InputRouter
     private readonly GridController _grid;
     private readonly PendingController _pending;
     private readonly NormalController _normal;
+    private readonly AutoClicker _autoClicker;
     private readonly IModeController[] _controllers;
     private readonly Func<long> _clock;
     private readonly HashSet<PhysicalKey> _swallowedDown = new();
@@ -63,7 +64,9 @@ public sealed class InputRouter
         Func<Point>? cursor = null,
         bool editingExtras = false,
         int autoOffSeconds = 0,
-        PhysicalKey toggleKey = PhysicalKey.CapsLock)
+        PhysicalKey toggleKey = PhysicalKey.CapsLock,
+        AutoClickSettings? autoClick = null,
+        Func<int, Action, IDisposable>? autoClickScheduler = null)
     {
         _state = state;
         _movement = movement;
@@ -103,6 +106,9 @@ public sealed class InputRouter
             _clock);
         _pending.Changed += () => PollingChanged?.Invoke();
 
+        _autoClicker = new AutoClicker(state, mouse, autoClick, autoClickScheduler);
+        _autoClicker.Changed += () => AutoClickChanged?.Invoke();
+
         _normal = new NormalController(
             state,
             movement,
@@ -117,7 +123,8 @@ public sealed class InputRouter
             () => _pending.BeginSave(),
             () => _pending.BeginJump(),
             () => SetMode(false),
-            editingExtras);
+            editingExtras,
+            _autoClicker.Toggle);
 
         _controllers = [_hint, _grid, _pending, _normal];
     }
@@ -146,6 +153,16 @@ public sealed class InputRouter
     {
         _normal.UpdateEditingExtras(enabled);
     }
+
+    public void UpdateAutoClick(AutoClickSettings settings)
+    {
+        _autoClicker.UpdateSettings(settings);
+    }
+
+    public bool AutoClicking => _autoClicker.IsRunning;
+
+    /// <summary>Raised (on any thread) when the auto clicker starts or stops.</summary>
+    public event Action? AutoClickChanged;
 
     public void UpdateAutoOff(int seconds)
     {
@@ -184,6 +201,8 @@ public sealed class InputRouter
 
         if (!on)
         {
+            // Stop clicking before releasing buttons, so no click lands after.
+            _autoClicker.Stop();
             _movement.ClearDirections();
             foreach (var controller in _controllers)
             {
@@ -222,6 +241,12 @@ public sealed class InputRouter
 
         _activation.Poll(_clock());
         _pending.Tick(_clock());
+
+        // A running auto clicker is activity too: auto-off must not stop it.
+        if (_autoClicker.IsRunning)
+        {
+            _lastActivity = _clock();
+        }
 
         // Auto-off: after `autoOffSeconds` without any key event in mouse
         // mode, leave the mode (which releases all buttons). 0 disables it.
@@ -310,6 +335,7 @@ public sealed class InputRouter
     /// <summary>Panic: release everything and leave mouse mode.</summary>
     public void Panic()
     {
+        _autoClicker.Stop();
         SetMode(false);
         _activation.Reset();
         _movement.ClearDirections();

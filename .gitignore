@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 # Local agent handoff notes (not part of the project)
 HANDOFF*.md
 .freebuff/
+
+# Icon generator preview (tools/make-icons.ps1)
+tools/icon-preview.png

@@ -24,6 +24,8 @@ public sealed class Settings
 
     public FeedbackSettings Feedback { get; set; } = new();
 
+    public AutoClickSettings AutoClick { get; set; } = new();
+
     public bool EditingExtras { get; set; } = true;
 
     /// <summary>
@@ -40,6 +42,10 @@ public sealed class Settings
         Speed ??= new SpeedSettings();
         Scroll ??= new ScrollSettings();
         Feedback ??= new FeedbackSettings();
+        AutoClick ??= new AutoClickSettings();
+
+        AutoClick.IntervalMs = Math.Clamp(AutoClick.IntervalMs, AutoClicker.MinIntervalMs, AutoClicker.MaxIntervalMs);
+        AutoClick.Button = AutoClicker.ParseButton(AutoClick.Button).ToString();
 
         Activation.TapTimeoutMs = Math.Clamp(Activation.TapTimeoutMs, 50, 1000);
         if (Activation.AutoOffSeconds < 0)
@@ -142,6 +148,17 @@ public sealed class KeysSettings
     public string Copy { get; set; } = "Y";
     public string Paste { get; set; } = "P";
     public string Undo { get; set; } = "Z";
+
+    public string AutoClick { get; set; } = "B";
+}
+
+public sealed class AutoClickSettings
+{
+    /// <summary>Time between clicks (10–60000 ms). 100 ms = 10 clicks per second.</summary>
+    public int IntervalMs { get; set; } = 100;
+
+    /// <summary>"Left", "Right" or "Middle".</summary>
+    public string Button { get; set; } = "Left";
 }
 
 public sealed class GridSettings

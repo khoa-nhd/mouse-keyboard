@@ -7,6 +7,7 @@ using KeyboardMouse.Native;
 using KeyboardMouse.Output;
 using KeyboardMouse.Overlays;
 using KeyboardMouse.Platform;
+using KeyboardMouse.Ui;
 
 namespace KeyboardMouse;
 
@@ -16,59 +17,6 @@ namespace KeyboardMouse;
 /// </summary>
 public sealed class TrayApp : ApplicationContext
 {
-    private const string KeymapText = """
-        KeyboardMouse - keymap
-
-        MODE
-          Tap Caps Lock ............ toggle mouse mode on/off
-          Hold Caps Lock + key ..... momentary mouse mode (off on release)
-          Shift + Caps Lock ........ real Caps Lock (passed through)
-          Esc ...................... leave mouse mode
-          Ctrl+Alt+Backspace ....... panic: release everything, leave mode
-
-        MOVE
-          I / J / K / L ............ up / left / down / right (diagonals work)
-          Hold A ................... turbo speed
-          Hold S ................... precision speed
-          Hold D ................... scroll layer
-            I / K .................. scroll up / down
-            J / L .................. scroll left / right
-            U / O .................. Page Up / Page Down
-            (hold S too) ........... slow, precise scroll
-
-        BUTTONS
-          Space .................... left click (hold and move = drag)
-          F ........................ right button (hold for menus)
-          E ........................ middle click
-          R ........................ double click
-          U / O .................... back / forward
-          G ........................ grid mode (U I O / J K L / M , .)
-          H ........................ hint mode: label clickable elements
-          V ........................ drag lock on/off
-          T ........................ left click, then leave mouse mode
-          Y / P / Z ................ send Ctrl+C / Ctrl+V / Ctrl+Z
-
-        HINTS
-          H ........................ show labels (Esc cancels)
-          type a label ............. left click it
-          Shift + label ............ move there without clicking
-          Ctrl + label ............. right click it
-          F + label ................ right click it
-          Backspace ................ remove the last typed letter
-
-        JUMPS
-          X ........................ center of the current screen
-          C ........................ center of the foreground window
-          N ........................ next monitor
-          M then a-z ............... save a mark at the pointer
-          ' then a-z ............... jump to a saved mark
-
-        The pointer keeps working normally with the TrackPoint or a mouse.
-
-        The toggle key is Caps Lock by default; remap it with
-        activation.toggleKey in settings.json, then Reload settings.
-        """;
-
     private readonly AppState _state = new();
     private readonly SettingsStore _settingsStore = new();
     private readonly MouseOutput _mouse = new();
@@ -93,13 +41,24 @@ public sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _autostartItem;
 
+    private const string RepoUrl = "https://github.com/khoa-nhd/mouse-keyboard";
+
+    private readonly Icon _appIcon;
+
     private Settings _settings;
     private SpeedProfiles _profiles;
     private bool _shutdown;
+    private GuideWindow? _guide;
+    private bool _toldAboutTray;
 
-    public TrayApp()
+    public TrayApp(bool showGuide = false)
     {
         Current = this;
+
+        // Keep an existing autostart entry pointing at this exe, with the
+        // argument that keeps sign-in starts silent.
+        Autostart.Refresh();
+        _appIcon = LoadIcon("app.ico", SystemInformation.IconSize);
 
         _settingsStore = new SettingsStore();
         _settings = _settingsStore.Load();
@@ -137,8 +96,10 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
             dispatch: DispatchToUi,
             editingExtras: _settings.EditingExtras,
             autoOffSeconds: _settings.Activation.AutoOffSeconds,
-            toggleKey: ParseToggleKey(_settings));
+            toggleKey: ParseToggleKey(_settings),
+            autoClick: _settings.AutoClick);
         _router.PollingChanged += UpdatePollingTimer;
+        _router.AutoClickChanged += ScheduleUiUpdate;
 
         // Locking the session or suspending must never leave a button held.
         Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
@@ -149,8 +110,8 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _screenBorder = new ScreenBorder();
         _screenBorder.Refresh(_monitors);
 
-        _iconOn = LoadIcon("tray-on.ico");
-        _iconOff = LoadIcon("tray-off.ico");
+        _iconOn = LoadIcon("tray-on.ico", SystemInformation.SmallIconSize);
+        _iconOff = LoadIcon("tray-off.ico", SystemInformation.SmallIconSize);
 
         _pollTimer = new System.Windows.Forms.Timer { Interval = 20 };
         _pollTimer.Tick += OnPollTick;
@@ -165,10 +126,14 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _autostartItem.Click += (_, _) => ToggleAutostart();
 
         _menu = new ContextMenuStrip();
+        var openItem = CreateItem("Open KeyboardMouse", () => ShowGuide());
+        openItem.Font = new Font(openItem.Font, FontStyle.Bold);
+        _menu.Items.Add(openItem);
+        _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_modeItem);
         _menu.Items.Add(_pauseItem);
         _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(CreateItem("Show keymap", ShowKeymap));
+        _menu.Items.Add(CreateItem("Show keymap", () => ShowGuide("keys")));
         _menu.Items.Add(CreateItem("Open settings file", OpenSettingsFile));
         _menu.Items.Add(CreateItem("Reload settings", ReloadSettings));
         _menu.Items.Add(new ToolStripSeparator());
@@ -184,7 +149,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
             Visible = true,
             ContextMenuStrip = _menu
         };
-        _tray.DoubleClick += (_, _) => ToggleMode();
+        _tray.DoubleClick += (_, _) => ShowGuide();
 
         _state.MouseModeChanged += ScheduleUiUpdate;
         _state.PausedChanged += ScheduleUiUpdate;
@@ -193,7 +158,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _hook.Error += ex => Log.Error("Keyboard hook callback error", ex);
         try
         {
-            _hook.Install(_router.HandleKey);
+            _hook.Install(OnKey);
             Log.Info("Keyboard hook installed.");
         }
         catch (Exception ex)
@@ -208,14 +173,223 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
 
         UpdateUi();
 
-        _tray.ShowBalloonTip(
-            4000,
-            "KeyboardMouse is running",
-            "Tap Caps Lock to toggle mouse mode. Hold Caps Lock for momentary mode.",
-            ToolTipIcon.Info);
+        if (showGuide)
+        {
+            // Open once the message loop runs.
+            DispatchToUi(() => ShowGuide());
+        }
     }
 
     public static TrayApp? Current { get; private set; }
+
+    /// <summary>Hook callback: route the key, and mirror it to the guide's
+    /// keyboard while the guide itself is the active window (never otherwise,
+    /// so typing in other apps is never forwarded anywhere).</summary>
+    private bool OnKey(KeyEvent keyEvent)
+    {
+        bool swallow = _router.HandleKey(keyEvent);
+
+        if (_guide is { } guide && !keyEvent.IsRepeat && Form.ActiveForm == guide)
+        {
+            string name = keyEvent.Key.ToString();
+            bool down = keyEvent.IsDown;
+            DispatchToUi(() => _guide?.PostKey(name, down));
+        }
+
+        return swallow;
+    }
+
+    /// <summary>Thread-safe: another launch of the exe asked us to show the window.</summary>
+    public void RequestShowGuide() => DispatchToUi(() => ShowGuide());
+
+    private void ShowGuide(string page = "home")
+    {
+        if (_shutdown)
+        {
+            return;
+        }
+
+        if (_guide is null || _guide.IsDisposed)
+        {
+            _guide = new GuideWindow(_appIcon, page);
+            _guide.CommandReceived += OnGuideCommand;
+            _guide.FormClosed += (_, _) => OnGuideClosed();
+            _guide.Show();
+        }
+        else
+        {
+            if (_guide.WindowState == FormWindowState.Minimized)
+            {
+                _guide.WindowState = FormWindowState.Normal;
+            }
+
+            _guide.ShowPage(page);
+        }
+
+        _guide.Activate();
+        User32.SetForegroundWindow(_guide.Handle);
+    }
+
+    private void OnGuideClosed()
+    {
+        _guide = null;
+        if (!_toldAboutTray && !_shutdown)
+        {
+            _toldAboutTray = true;
+            _tray.ShowBalloonTip(
+                4000,
+                "KeyboardMouse is still running",
+                "Tap Caps Lock for mouse mode. Double-click this icon to open the guide again.",
+                ToolTipIcon.Info);
+        }
+    }
+
+    private void PushGuideState()
+    {
+        if (_guide is null || _guide.IsDisposed)
+        {
+            return;
+        }
+
+        var version = typeof(TrayApp).Assembly.GetName().Version;
+        _guide.PushState(new
+        {
+            version = version is null ? "0.0.0" : $"{version.Major}.{version.Minor}.{version.Build}",
+            mouseMode = _state.MouseModeOn,
+            paused = _state.Paused,
+            autoClicking = _router.AutoClicking,
+            autostart = Autostart.IsEnabled(),
+            shortcuts = new
+            {
+                desktop = Shortcuts.Exists(ShortcutLocation.Desktop),
+                startMenu = Shortcuts.Exists(ShortcutLocation.StartMenu)
+            },
+            settings = new
+            {
+                toggleKey = _settings.Activation.ToggleKey,
+                editingExtras = _settings.EditingExtras,
+                cursorDot = _settings.Feedback.CursorDot,
+                screenBorder = _settings.Feedback.ScreenBorder,
+                autoClick = new { intervalMs = _settings.AutoClick.IntervalMs, button = _settings.AutoClick.Button },
+                keys = _settings.Keys
+            }
+        });
+    }
+
+    /// <summary>Commands from guide.html. Every input is validated here; the
+    /// page can only change the handful of settings listed below.</summary>
+    private void OnGuideCommand(GuideCommand command)
+    {
+        switch (command.Name)
+        {
+            case "ready":
+                break;
+
+            case "setMouseMode":
+                if (_state.Paused)
+                {
+                    _router.SetPaused(false);
+                }
+
+                _router.SetMode(command.GetBool("on"));
+                break;
+
+            case "setPaused":
+                _router.SetPaused(command.GetBool("on"));
+                break;
+
+            case "setAutostart":
+                if (!Autostart.SetEnabled(command.GetBool("on")))
+                {
+                    _guide?.Toast("toast.failed");
+                }
+
+                _autostartItem.Checked = Autostart.IsEnabled();
+                break;
+
+            case "setSetting":
+                ApplyGuideSetting(command.GetString("key"), command.Get("value"));
+                break;
+
+            case "createShortcut":
+                var where = command.GetString("where") == "desktop" ? ShortcutLocation.Desktop : ShortcutLocation.StartMenu;
+                _guide?.Toast(Shortcuts.Create(where) ? "toast.shortcut" : "toast.failed");
+                break;
+
+            case "openSettingsFile":
+                OpenSettingsFile();
+                break;
+
+            case "reloadSettings":
+                ReloadSettings();
+                _guide?.Toast("toast.reloaded");
+                break;
+
+            case "openLogFolder":
+                OpenLogFolder();
+                break;
+
+            case "openUrl":
+                // Only our own pages; the page cannot open arbitrary URLs.
+                GuideWindow.OpenUrl(command.GetString("id") == "issues" ? RepoUrl + "/issues" : RepoUrl);
+                break;
+
+            case "exitApp":
+                ExitThread();
+                return;
+
+            default:
+                Log.Info($"Ignored unknown guide command '{command.Name}'.");
+                return;
+        }
+
+        PushGuideState();
+    }
+
+    private void ApplyGuideSetting(string? key, System.Text.Json.JsonElement? value)
+    {
+        if (value is not { } v)
+        {
+            return;
+        }
+
+        bool isBool = v.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False;
+        switch (key)
+        {
+            case "cursorDot" when isBool:
+                _settings.Feedback.CursorDot = v.GetBoolean();
+                break;
+            case "screenBorder" when isBool:
+                _settings.Feedback.ScreenBorder = v.GetBoolean();
+                break;
+            case "editingExtras" when isBool:
+                _settings.EditingExtras = v.GetBoolean();
+                break;
+            case "autoClick.intervalMs" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int ms):
+                _settings.AutoClick.IntervalMs = ms;
+                break;
+            case "autoClick.button" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.AutoClick.Button = v.GetString() ?? "Left";
+                break;
+            default:
+                return;
+        }
+
+        _settings.Normalize();
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save settings", ex);
+            _guide?.Toast("toast.failed");
+            return;
+        }
+
+        ApplySettings();
+        _guide?.Toast("toast.saved");
+    }
 
     /// <summary>Best-effort release from a crash handler on any thread.</summary>
     public static void EmergencyRelease()
@@ -277,11 +451,16 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _modeItem.Checked = on;
         _pauseItem.Checked = _state.Paused;
         _tray.Icon = on ? _iconOn : _iconOff;
-        _tray.Text = on ? "KeyboardMouse - mouse mode ON" : "KeyboardMouse - off";
+        _tray.Text = !on
+            ? "KeyboardMouse - off"
+            : _router.AutoClicking
+                ? "KeyboardMouse - auto clicking (B to stop)"
+                : "KeyboardMouse - mouse mode ON";
 
         bool feedbackOn = on && !_state.Paused;
         _cursorIndicator.SetEnabled(feedbackOn && _settings.Feedback.CursorDot);
         _screenBorder.SetVisible(feedbackOn && _settings.Feedback.ScreenBorder);
+        PushGuideState();
     }
 
     /// <summary>
@@ -365,15 +544,6 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         }
     }
 
-    private void ShowKeymap()
-    {
-        MessageBox.Show(
-            KeymapText,
-            "KeyboardMouse keymap",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
-    }
-
     private void OpenSettingsFile()
     {
         try
@@ -391,6 +561,18 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
     private void ReloadSettings()
     {
         _settings = _settingsStore.Load();
+        ApplySettings();
+
+        string message = _settingsStore.LastError is null
+            ? "Settings reloaded."
+            : "Settings reloaded with errors: " + _settingsStore.LastError;
+        _tray.ShowBalloonTip(3000, "KeyboardMouse", message,
+            _settingsStore.LastError is null ? ToolTipIcon.Info : ToolTipIcon.Warning);
+    }
+
+    /// <summary>Pushes the current <see cref="_settings"/> into every component.</summary>
+    private void ApplySettings()
+    {
         _profiles = BuildProfiles(_settings);
         _router.UpdateProfiles(_profiles);
         _router.SetTapTimeout(_settings.Activation.TapTimeoutMs);
@@ -403,14 +585,9 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _router.UpdateHint(_settings.Hint);
         _router.UpdateEditingExtras(_settings.EditingExtras);
         _router.UpdateAutoOff(_settings.Activation.AutoOffSeconds);
+        _router.UpdateAutoClick(_settings.AutoClick);
         _router.SetToggleKey(ParseToggleKey(_settings));
         UpdateUi();
-
-        string message = _settingsStore.LastError is null
-            ? "Settings reloaded."
-            : "Settings reloaded with errors: " + _settingsStore.LastError;
-        _tray.ShowBalloonTip(3000, "KeyboardMouse", message,
-            _settingsStore.LastError is null ? ToolTipIcon.Info : ToolTipIcon.Warning);
     }
 
     private static SpeedProfiles BuildProfiles(Settings settings) => new(
@@ -518,13 +695,15 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         }
     }
 
-    private static Icon LoadIcon(string fileName)
+    /// <summary>Loads an embedded .ico, picking the frame that fits <paramref name="size"/>
+    /// (the icons carry several sizes for different DPI scales).</summary>
+    private static Icon LoadIcon(string fileName, Size size)
     {
         var assembly = typeof(TrayApp).Assembly;
         using var stream = assembly.GetManifestResourceStream($"KeyboardMouse.Assets.{fileName}");
         if (stream is not null)
         {
-            return new Icon(stream);
+            return new Icon(stream, size);
         }
 
         return (Icon)SystemIcons.Application.Clone();
@@ -552,6 +731,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _state.MouseModeChanged -= ScheduleUiUpdate;
         _state.PausedChanged -= ScheduleUiUpdate;
         _router.PollingChanged -= UpdatePollingTimer;
+        _router.AutoClickChanged -= ScheduleUiUpdate;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
@@ -566,6 +746,9 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         }
 
         _router.Panic();
+
+        _guide?.Close();
+        _guide = null;
 
         _pollTimer.Stop();
         _pollTimer.Dispose();
@@ -586,6 +769,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
 
         _iconOn.Dispose();
         _iconOff.Dispose();
+        _appIcon.Dispose();
 
         if (ReferenceEquals(Current, this))
         {

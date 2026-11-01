@@ -3,6 +3,33 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.3.0] - 2026-11-01
+
+### Added
+- A real app window. Launching the exe opens an illustrated guide (English and
+  Tiếng Việt, light and dark): quick start, an interactive keyboard that
+  lights up the keys you press, animated demos of grid / hints / scroll / auto
+  click, a practice range, and settings (autostart, Start menu and desktop
+  shortcuts, auto-click speed and button, pointer dot, screen border,
+  copy/paste keys). Built on the Edge WebView2 runtime, served from embedded
+  files only; falls back to a short message with a download link if the
+  runtime is missing.
+- New app icon (16–256 px) and matching tray icons.
+- Running the exe again reopens the window instead of doing nothing; the
+  autostart entry now starts silently with `--background` (existing entries
+  are updated on the next launch).
+- Auto clicker: `B` in mouse mode starts/stops clicking at the pointer
+  position (default left button, every 100 ms). The pointer can keep moving
+  while it runs; the dot turns yellow. It stops when mouse mode turns off, on
+  panic, session lock and suspend. Configure with
+  `autoClick.intervalMs` (10–60000), `autoClick.button` (Left/Right/Middle)
+  and `keys.autoClick`.
+
+### Changed
+- Double-clicking the tray icon opens the guide; "Show keymap" opens its Keys
+  tab. Mouse mode is toggled from the menu or Caps Lock as before.
+- Release builds ship only `KeyboardMouse.exe` (no .pdb).
+
 ## [0.2.0] - 2026-11-01
 
 ### Added

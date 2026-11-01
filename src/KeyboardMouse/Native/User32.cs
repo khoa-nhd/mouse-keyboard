@@ -98,6 +98,17 @@ internal static class User32
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    /// <summary>ASFW_ANY: lets any process (the running instance) take the foreground.</summary>
+    public const int ASFW_ANY = -1;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool AllowSetForegroundWindow(int dwProcessId);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 

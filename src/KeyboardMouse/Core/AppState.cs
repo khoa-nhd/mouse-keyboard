@@ -13,6 +13,7 @@ public sealed class AppState
     private bool _turbo;
     private bool _precision;
     private bool _scroll;
+    private bool _autoClicking;
 
     public event Action? MouseModeChanged;
 
@@ -152,13 +153,33 @@ public sealed class AppState
         }
     }
 
+    public bool AutoClicking
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _autoClicking;
+            }
+        }
+    }
+
+    public void SetAutoClicking(bool enabled)
+    {
+        lock (_gate)
+        {
+            _autoClicking = enabled;
+        }
+    }
+
     public FeedbackState GetFeedback()
     {
         lock (_gate)
         {
-            return new FeedbackState(_turbo, _precision, _scroll, _dragLock);
+            return new FeedbackState(_turbo, _precision, _scroll, _dragLock, _autoClicking);
         }
     }
 }
 
-public readonly record struct FeedbackState(bool Turbo, bool Precision, bool Scroll, bool DragLock);
+public readonly record struct FeedbackState(
+    bool Turbo, bool Precision, bool Scroll, bool DragLock, bool AutoClicking = false);

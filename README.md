@@ -40,14 +40,31 @@ stops working.
 
 ## 3. Run it
 
-Double-click `KeyboardMouse.exe`.
+Double-click `KeyboardMouse.exe` (the blue icon with the K key and pointer).
 
-- **No window opens.** That's expected. The app runs in the background
-  and shows an icon in the **system tray** (bottom-right, next to the clock).
-- **Can't see the icon?** Click the **^** arrow next to the clock to show
+The **KeyboardMouse window** opens with an illustrated guide:
+
+| Tab | What's in it |
+|---|---|
+| **Start** | Turn mouse mode on, a 30-second quick start, and one-click setup: Start with Windows, Start menu entry, desktop shortcut |
+| **Keys** | An interactive keyboard. Hover a key to see what it does; in mouse mode the keys you press light up |
+| **Power moves** | Animated demos of grid jump, hints, scrolling and the auto clicker |
+| **Practice** | A target range to practise clicking without the mouse, with your best time |
+| **Settings** | Auto-click speed and button, pointer dot, screen border, copy/paste keys |
+| **About** | Version, privacy, links, and Quit |
+
+The guide is available in **English and Tiếng Việt** (switch at the bottom left).
+
+- **Closing the window doesn't stop the app.** It keeps running in the
+  **system tray** (bottom-right, next to the clock). Double-click the tray icon,
+  or run the exe again, to reopen the window.
+- **Can't see the tray icon?** Click the **^** arrow next to the clock to show
   hidden icons. To keep it always visible, drag it onto the taskbar, or go to
   **Settings → Personalization → Taskbar → Other system tray icons** and turn
   **KeyboardMouse** on.
+- The window uses the Microsoft Edge **WebView2 Runtime**, which is built into
+  Windows 11 and most Windows 10 PCs. If it's missing, the app still works and the
+  window shows a download link.
 
 ### "Windows protected your PC"
 
@@ -81,9 +98,10 @@ Click it again to turn autostart off.
 
 | Item | What it does |
 |---|---|
+| **Open KeyboardMouse** | Open the guide window (same as double-clicking the icon) |
 | Mouse mode (Caps Lock) | Turn mouse mode on/off with the mouse |
 | Pause | Ignore all hotkeys until you un-pause |
-| Show keymap | Show the key cheat sheet |
+| Show keymap | Open the guide on the Keys tab |
 | Open settings file | Open `settings.json` in Notepad |
 | Reload settings | Apply changes made to `settings.json` |
 | Start with Windows | Toggle autostart |
@@ -124,8 +142,8 @@ AZERTY and QWERTZ keyboards.
 │hold│hold│hold│clk │    │   │    │    │    │    │    │
 ├────┼────┼────┼────┼────┤   ├────┼────┼────┼────┼────┤
 │ Z  │ X  │ C  │ V  │ B  │   │ N  │ M  │ ,  │ .  │ /  │
-│Undo│Scrn│Win │Drag│    │   │Next│Mark│    │    │    │
-│    │ctr │ctr │lock│    │   │mon │    │    │    │    │
+│Undo│Scrn│Win │Drag│Auto│   │Next│Mark│    │    │    │
+│    │ctr │ctr │lock│clik│   │mon │    │    │    │    │
 └────┴────┴────┴────┴────┘   └────┴────┴────┴────┴────┘
           Space = left click (hold = drag)      ' = jump to mark
 ```
@@ -155,11 +173,31 @@ AZERTY and QWERTZ keyboards.
 | **U / O** | Mouse back / forward |
 | **V** | Drag lock: left button stays down until V or Space |
 | **T** | Left click, then leave mouse mode |
+| **B** | **Auto clicker** on/off (see below) |
 | **Y / P / Z** | Ctrl+C / Ctrl+V / Ctrl+Z (can be turned off in settings) |
 
 Shift, Ctrl and Alt pass through, so `Shift+Space`, `Ctrl+Space` and so on work
 like modifier clicks on a real mouse. Keys that aren't mapped (Enter, Tab,
 Backspace, digits, arrows, F-keys) keep working normally.
+
+### Auto clicker (B)
+
+Press **B** to start clicking automatically wherever the pointer is. The dot
+next to the pointer turns **yellow**. Press **B** again to stop.
+
+- Default: left click, 10 times per second (every 100 ms).
+- You can keep moving with I J K L (or the TrackPoint) while it clicks, and
+  each click lands at the new position.
+- It stops by itself when you leave mouse mode (Caps Lock / Esc), on panic
+  (Ctrl + Alt + Backspace), and when the PC locks or sleeps.
+- Change the speed or button in `settings.json`:
+
+```json
+"autoClick": { "intervalMs": 100, "button": "Left" }
+```
+
+`intervalMs` can be 10–60000 (lower = faster). `button` can be `Left`, `Right`
+or `Middle`. To use a different key, set `keys.autoClick`.
 
 ### Scroll layer (hold D)
 
@@ -224,8 +262,10 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "grid": "G", "hint": "H",
     "centerScreen": "X", "centerWindow": "C", "nextMonitor": "N",
     "markSave": "M", "markJump": "Apostrophe",
-    "copy": "Y", "paste": "P", "undo": "Z"
+    "copy": "Y", "paste": "P", "undo": "Z",
+    "autoClick": "B"
   },
+  "autoClick": { "intervalMs": 100, "button": "Left" },
   ...
 }
 ```
@@ -302,12 +342,17 @@ git push origin v0.1.0
 3. Chuột phải vào file zip → **Extract All…** → **Extract**.
 4. Chép `KeyboardMouse.exe` vào một thư mục cố định, ví dụ `C:\Tools\KeyboardMouse\`.
    Đừng để trong Downloads rồi xóa, vì tính năng tự khởi động cần đúng đường dẫn này.
-5. Nhấp đúp `KeyboardMouse.exe` để chạy.
+5. Nhấp đúp `KeyboardMouse.exe` để chạy (icon màu xanh có phím K và con trỏ).
    - Nếu hiện **"Windows protected your PC"**, bấm **More info → Run anyway**.
-   - **Không có cửa sổ nào mở ra**, như vậy là bình thường. App chạy ngầm và có icon ở khay hệ thống
-     (góc dưới bên phải, cạnh đồng hồ). Không thấy icon thì bấm mũi tên **^** cạnh đồng hồ.
-     Kéo icon ra thanh taskbar nếu muốn lúc nào cũng thấy.
-6. **Tự chạy khi bật máy:** chuột phải vào icon → **Start with Windows** (hiện dấu ✓).
+   - **Cửa sổ KeyboardMouse** mở ra với hướng dẫn có hình minh họa, gồm các tab:
+     **Bắt đầu**, **Phím** (bàn phím tương tác, phím sáng lên khi bạn bấm),
+     **Tuyệt chiêu** (minh họa động), **Luyện tập** (bắn mục tiêu), **Cài đặt**, **Giới thiệu**.
+     Đổi ngôn ngữ English / Tiếng Việt ở góc dưới bên trái.
+   - **Đóng cửa sổ không tắt app.** App vẫn chạy ở khay hệ thống (góc dưới bên phải, cạnh đồng hồ).
+     Nhấp đúp vào icon ở khay, hoặc mở lại file exe, để mở lại cửa sổ.
+     Không thấy icon thì bấm mũi tên **^** cạnh đồng hồ.
+6. **Tự chạy khi bật máy:** trong tab **Bắt đầu**, bật **Khởi động cùng Windows**.
+   Ở đó cũng có nút **Thêm vào Start menu** và **Shortcut ngoài desktop**.
 
 ### Cách dùng
 1. **Bấm nhả Caps Lock** một lần → cạnh con trỏ hiện **chấm xanh lá**, nghĩa là chế độ chuột đã bật.
@@ -318,6 +363,8 @@ git push origin v0.1.0
 6. **G** rồi bấm **U I O / J K L / M , .** = nhảy nhanh tới vùng đó trên màn hình.
 7. **H** = hiện nhãn chữ trên các nút bấm được. Gõ nhãn để click vào nút đó.
 8. **T** = click rồi tắt chế độ chuột luôn, tiện khi bấm vào ô nhập chữ để gõ.
+   **B** = bật/tắt **auto click**: tự click liên tục tại vị trí con trỏ (mặc định 10 lần/giây, chấm cạnh con trỏ chuyển màu vàng).
+   Tự dừng khi tắt chế độ chuột. Đổi tốc độ trong `settings.json` → `"autoClick": { "intervalMs": 100, "button": "Left" }`.
 9. **Bấm Caps Lock** lần nữa hoặc **Esc** để quay lại gõ chữ bình thường.
    Cần Caps Lock thật thì bấm **Shift + Caps Lock**.
 

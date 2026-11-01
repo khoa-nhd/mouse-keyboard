@@ -370,8 +370,14 @@ internal sealed class RouterHarness
             foreground: () => Foreground,
             dispatch: action => action(),
             cursor: () => Pointer,
-            editingExtras: editingExtras);
+            editingExtras: editingExtras,
+            autoClick: AutoClickSettings,
+            autoClickScheduler: AutoClickTimer.Start);
     }
+
+    public AutoClickSettings AutoClickSettings { get; } = new();
+
+    public FakePeriodicTimer AutoClickTimer { get; } = new();
 
     public bool Down(PhysicalKey key, bool repeat = false) =>
         Router.HandleKey(new KeyEvent(key, IsDown: true, repeat, Now));
@@ -387,5 +393,44 @@ internal sealed class RouterHarness
         Down(PhysicalKey.CapsLock);
         Now += 50;
         Up(PhysicalKey.CapsLock);
+    }
+}
+
+/// <summary>Stands in for the auto clicker's periodic timer; tests fire ticks by hand.</summary>
+internal sealed class FakePeriodicTimer
+{
+    private Action? _tick;
+
+    public int IntervalMs { get; private set; }
+
+    public int Starts { get; private set; }
+
+    public bool Running => _tick is not null;
+
+    public IDisposable Start(int intervalMs, Action tick)
+    {
+        IntervalMs = intervalMs;
+        Starts++;
+        _tick = tick;
+        return new Handle(this, tick);
+    }
+
+    public void Fire(int times = 1)
+    {
+        for (int i = 0; i < times; i++)
+        {
+            _tick?.Invoke();
+        }
+    }
+
+    private sealed class Handle(FakePeriodicTimer owner, Action tick) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (owner._tick == tick)
+            {
+                owner._tick = null;
+            }
+        }
     }
 }

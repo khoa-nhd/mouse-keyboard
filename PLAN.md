@@ -97,10 +97,11 @@ All keys are matched by **physical scan code**, so the layout is identical on QW
 | M + letter | Save current position as mark |
 | ' + letter | Jump to saved mark |
 | Y / P / Z | Send Ctrl+C / Ctrl+V / Ctrl+Z (optional, `editingExtras`) |
+| B | Auto clicker on/off: clicks at the pointer every `autoClick.intervalMs` (added after v0.2.0) |
 | Shift / Ctrl / Alt | Passed through, so clicks and scrolls become modifier clicks |
 | Everything else | Passed through (Enter, Tab, Backspace, digits, F-keys, arrows, Win combos) |
 
-Unused in mouse mode: Q, W, B, `,`, `.`, `/`, `;` (reserved for future features).
+Unused in mouse mode: Q, W, `,`, `.`, `/`, `;` (reserved for future features).
 
 ### 3.3 Scroll layer (hold D)
 
