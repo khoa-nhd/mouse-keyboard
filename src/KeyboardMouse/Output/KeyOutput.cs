@@ -34,46 +34,22 @@ public sealed class KeyOutput : IKeyOutput
             return;
         }
 
-        var inputs = new List<INPUT>(4);
         // If the user physically holds Shift or Alt right now, release them
         // inside the batch (otherwise Ctrl+C would arrive as Ctrl+Shift+C)
         // and restore them afterwards. See PLAN.md §5.8.
-        bool shiftHeld = IsPhysicallyDown(User32.VK_LSHIFT) || IsPhysicallyDown(User32.VK_RSHIFT);
-        bool altHeld = IsPhysicallyDown(User32.VK_LMENU) || IsPhysicallyDown(User32.VK_RMENU);
+        var chord = ChordInputs(
+            ctrl: ctrl,
+            scan: scanCode,
+            extended: extended,
+            leftShiftDown: IsPhysicallyDown(User32.VK_LSHIFT),
+            rightShiftDown: IsPhysicallyDown(User32.VK_RSHIFT),
+            leftAltDown: IsPhysicallyDown(User32.VK_LMENU),
+            rightAltDown: IsPhysicallyDown(User32.VK_RMENU));
 
-        if (shiftHeld)
+        var inputs = new List<INPUT>(chord.Count);
+        foreach (var (scan, isExtended, up) in chord)
         {
-            inputs.Add(ScanInput(0x2A, extended: false, up: true)); // LeftShift
-        }
-
-        if (altHeld)
-        {
-            inputs.Add(ScanInput(0x38, extended: false, up: true)); // LeftAlt
-        }
-
-        if (ctrl)
-        {
-            var (ctrlScan, ctrlExtended) = PhysicalKey.LeftCtrl.ToScanCode();
-            inputs.Add(KeyInput(ctrlScan, ctrlExtended, up: false));
-        }
-
-        inputs.Add(KeyInput(scanCode, extended, up: false));
-        inputs.Add(KeyInput(scanCode, extended, up: true));
-
-        if (ctrl)
-        {
-            var (ctrlScan, ctrlExtended) = PhysicalKey.LeftCtrl.ToScanCode();
-            inputs.Add(KeyInput(ctrlScan, ctrlExtended, up: true));
-        }
-
-        if (altHeld)
-        {
-            inputs.Add(ScanInput(0x38, extended: false, up: false));
-        }
-
-        if (shiftHeld)
-        {
-            inputs.Add(ScanInput(0x2A, extended: false, up: false));
+            inputs.Add(KeyInput(scan, isExtended, up));
         }
 
         Send(inputs.ToArray());
@@ -82,11 +58,85 @@ public sealed class KeyOutput : IKeyOutput
     private static bool IsPhysicallyDown(ushort vk) =>
         (User32.GetAsyncKeyState((short)vk) & 0x8000) != 0;
 
-    /// <summary>Key input for a fixed scan-code modifier (Shift/Alt restore).</summary>
-    private static INPUT ScanInput(ushort scanCode, bool extended, bool up)
+    /// <summary>
+    /// The scan-code sequence (code, extended, up) of one chord as a single
+    /// batch. Every Shift/Alt half the user is holding is released on its own
+    /// scan code before the chord and pressed again afterwards: releasing the
+    /// left halves for a right-side hold would leave the modifier stuck and
+    /// turn the chord into Ctrl+Shift+C or Alt+key.
+    /// </summary>
+    internal static List<(ushort Scan, bool Extended, bool Up)> ChordInputs(
+        bool ctrl,
+        ushort scan,
+        bool extended,
+        bool leftShiftDown,
+        bool rightShiftDown,
+        bool leftAltDown,
+        bool rightAltDown)
     {
-        var input = KeyInput(scanCode, extended, up);
-        return input;
+        const ushort leftShift = 0x2A;
+        const ushort rightShift = 0x36;
+        const ushort leftAlt = 0x38;
+        const ushort rightAlt = 0x38;
+
+        var inputs = new List<(ushort, bool, bool)>(8);
+
+        if (rightShiftDown)
+        {
+            inputs.Add((rightShift, false, true));
+        }
+
+        if (leftShiftDown)
+        {
+            inputs.Add((leftShift, false, true));
+        }
+
+        if (rightAltDown)
+        {
+            inputs.Add((rightAlt, true, true));
+        }
+
+        if (leftAltDown)
+        {
+            inputs.Add((leftAlt, false, true));
+        }
+
+        if (ctrl)
+        {
+            var (ctrlScan, ctrlExtended) = PhysicalKey.LeftCtrl.ToScanCode();
+            inputs.Add((ctrlScan, ctrlExtended, false));
+        }
+
+        inputs.Add((scan, extended, false));
+        inputs.Add((scan, extended, true));
+
+        if (ctrl)
+        {
+            var (ctrlScan, ctrlExtended) = PhysicalKey.LeftCtrl.ToScanCode();
+            inputs.Add((ctrlScan, ctrlExtended, true));
+        }
+
+        if (leftAltDown)
+        {
+            inputs.Add((leftAlt, false, false));
+        }
+
+        if (rightAltDown)
+        {
+            inputs.Add((rightAlt, true, false));
+        }
+
+        if (leftShiftDown)
+        {
+            inputs.Add((leftShift, false, false));
+        }
+
+        if (rightShiftDown)
+        {
+            inputs.Add((rightShift, false, false));
+        }
+
+        return inputs;
     }
 
     private static INPUT KeyInput(ushort scanCode, bool extended, bool up)

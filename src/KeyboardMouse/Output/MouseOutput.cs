@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using KeyboardMouse.Native;
+using KeyboardMouse.Platform;
 
 namespace KeyboardMouse.Output;
 
@@ -76,27 +76,54 @@ public sealed class MouseOutput : IMouseOutput
 
     public void XButtonUp(MouseXButton button) => Release(XFlag(button), User32.MOUSEEVENTF_XUP, XData(button));
 
-    public void LeftClick() => Send(
+    public void LeftClick() => Click(
+        LeftFlag,
         MouseInput(User32.MOUSEEVENTF_LEFTDOWN),
         MouseInput(User32.MOUSEEVENTF_LEFTUP));
 
-    public void RightClick() => Send(
+    public void RightClick() => Click(
+        RightFlag,
         MouseInput(User32.MOUSEEVENTF_RIGHTDOWN),
         MouseInput(User32.MOUSEEVENTF_RIGHTUP));
 
-    public void MiddleClick() => Send(
+    public void MiddleClick() => Click(
+        MiddleFlag,
         MouseInput(User32.MOUSEEVENTF_MIDDLEDOWN),
         MouseInput(User32.MOUSEEVENTF_MIDDLEUP));
 
-    public void DoubleClick() => Send(
+    public void DoubleClick() => Click(
+        LeftFlag,
         MouseInput(User32.MOUSEEVENTF_LEFTDOWN),
         MouseInput(User32.MOUSEEVENTF_LEFTUP),
         MouseInput(User32.MOUSEEVENTF_LEFTDOWN),
         MouseInput(User32.MOUSEEVENTF_LEFTUP));
 
-    public void XButtonClick(MouseXButton button) => Send(
+    public void XButtonClick(MouseXButton button) => Click(
+        XFlag(button),
         MouseInput(User32.MOUSEEVENTF_XDOWN, mouseData: XData(button)),
         MouseInput(User32.MOUSEEVENTF_XUP, mouseData: XData(button)));
+
+    /// <summary>
+    /// A click while that very button is already held (drag) would have the
+    /// batched button-up end the drag: skip it instead.
+    /// </summary>
+    private void Click(int flag, params INPUT[] inputs)
+    {
+        if (Held(flag))
+        {
+            return;
+        }
+
+        Send(inputs);
+    }
+
+    private bool Held(int flag)
+    {
+        lock (_gate)
+        {
+            return (_held & flag) != 0;
+        }
+    }
 
     public void Wheel(int delta) =>
         Send(MouseInput(User32.MOUSEEVENTF_WHEEL, mouseData: unchecked((uint)delta)));
@@ -116,7 +143,15 @@ public sealed class MouseOutput : IMouseOutput
             _held |= flag;
         }
 
-        Send(MouseInput(mouseFlag, mouseData: mouseData));
+        if (!Send(MouseInput(mouseFlag, mouseData: mouseData)))
+        {
+            // The system never saw the button: forget it, or a later ReleaseAll
+            // would send an orphan button-up for nothing.
+            lock (_gate)
+            {
+                _held &= ~flag;
+            }
+        }
     }
 
     private void Release(int flag, uint mouseFlag, uint mouseData = 0)
@@ -132,9 +167,19 @@ public sealed class MouseOutput : IMouseOutput
         }
 
         // Do not emit an orphan button-up for a button we never pressed.
-        if (wasHeld)
+        if (!wasHeld)
         {
-            Send(MouseInput(mouseFlag, mouseData: mouseData));
+            return;
+        }
+
+        if (!Send(MouseInput(mouseFlag, mouseData: mouseData)))
+        {
+            // The button is still physically down: keep tracking it so a later
+            // release or ReleaseAll can still let it go.
+            lock (_gate)
+            {
+                _held |= flag;
+            }
         }
     }
 
@@ -172,9 +217,9 @@ public sealed class MouseOutput : IMouseOutput
             _held = 0;
         }
 
-        if (inputs.Count > 0)
+        if (inputs.Count > 0 && !Send(inputs.ToArray()))
         {
-            Send(inputs.ToArray());
+            Log.Error("ReleaseAll could not deliver every button-up; a button may remain pressed.");
         }
     }
 
@@ -199,17 +244,20 @@ public sealed class MouseOutput : IMouseOutput
         }
     };
 
-    private static void Send(params INPUT[] inputs)
+    private static bool Send(params INPUT[] inputs)
     {
         if (inputs.Length == 0)
         {
-            return;
+            return true;
         }
 
         uint sent = User32.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
-        if (sent != inputs.Length)
+        if (sent == inputs.Length)
         {
-            Debug.WriteLine($"[MouseOutput] SendInput sent {sent}/{inputs.Length}, error {Marshal.GetLastWin32Error()}");
+            return true;
         }
+
+        Log.Error($"MouseOutput.SendInput delivered {sent}/{inputs.Length} (error {Marshal.GetLastWin32Error()}).");
+        return false;
     }
 }

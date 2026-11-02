@@ -49,7 +49,13 @@ public static class AppRestarter
             startInfo.ArgumentList.Add(scriptPath);
 
             using var process = Process.Start(startInfo);
-            Log.Info(process is null ? "Restart scheduled without a helper process." : "Restart scheduled.");
+            if (process is null)
+            {
+                Log.Error("The restart helper did not start; the app stays open.");
+                return false;
+            }
+
+            Log.Info("Restart scheduled.");
             return true;
         }
         catch (Exception ex)
@@ -59,15 +65,31 @@ public static class AppRestarter
         }
     }
 
-    /// <summary>The helper script: wait for this process, wait a beat, start the exe again.</summary>
-    internal static string BuildScript(int processId, string exe, string workingDirectory)
+    /// <summary>
+    /// The helper script: wait for this process, wait a beat, start the exe
+    /// again. A failed Start-Process is written to a log — the caller has
+    /// already exited, so a silent failure would leave the tray empty with no
+    /// clue on disk.
+    /// </summary>
+    internal static string BuildScript(int processId, string exe, string workingDirectory, string? logPath = null)
     {
+        string log = logPath ?? Path.Combine(
+            Path.Combine(Path.GetTempPath(), "KeyboardMouse"),
+            "restart.log");
         var script = new StringBuilder();
-        script.AppendLine("$ErrorActionPreference = 'SilentlyContinue'");
-        script.AppendLine($"Wait-Process -Id {processId}");
+        script.AppendLine($"$log = '{Escape(log)}'");
+        script.AppendLine("try {");
+        script.AppendLine($"  Wait-Process -Id {processId} -ErrorAction Stop");
+        script.AppendLine("} catch {");
+        script.AppendLine("  # Already exited; nothing to wait for.");
+        script.AppendLine("}");
         script.AppendLine("Start-Sleep -Milliseconds 300");
-        script.AppendLine(
-            $"Start-Process -FilePath '{Escape(exe)}' -WorkingDirectory '{Escape(workingDirectory)}'");
+        script.AppendLine("try {");
+        script.AppendLine($"  Start-Process -FilePath '{Escape(exe)}' -WorkingDirectory '{Escape(workingDirectory)}' -ErrorAction Stop");
+        script.AppendLine("} catch {");
+        script.AppendLine("  ((Get-Date -Format o) + ' restart failed: ' + $_.Exception.Message) | Out-File -LiteralPath $log -Append -Encoding utf8");
+        script.AppendLine("  exit 1");
+        script.AppendLine("}");
         script.AppendLine("Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force");
         return script.ToString();
     }

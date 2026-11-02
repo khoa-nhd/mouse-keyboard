@@ -28,6 +28,21 @@ public sealed class HintOverlay : IHintOverlay
         IReadOnlyList<string> labels,
         string typed)
     {
+        // Dispose the windows of monitors that are gone or changed size: each
+        // form carries a monitor-sized bitmap and a native window handle that
+        // only the matching key can reuse.
+        var currentKeys = new HashSet<(IntPtr Handle, Rectangle Bounds)>();
+        foreach (var monitor in monitors)
+        {
+            currentKeys.Add((monitor.Handle, monitor.Bounds));
+        }
+
+        foreach (var key in _forms.Keys.Where(k => !currentKeys.Contains(k)).ToList())
+        {
+            _forms[key].Dispose();
+            _forms.Remove(key);
+        }
+
         var used = new HashSet<(IntPtr Handle, Rectangle Bounds)>();
 
         foreach (var monitor in monitors)

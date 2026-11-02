@@ -97,6 +97,12 @@ public sealed class UpdateService
             string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             return ParseCheck(json, CurrentVersion);
         }
+        catch (OperationCanceledException oce) when (oce.InnerException is TimeoutException)
+        {
+            // The HttpClient timeout surfaces as a cancellation: report it as
+            // "offline" so users do not see "the check was cancelled".
+            return new UpdateCheckResult(null, "offline");
+        }
         catch (OperationCanceledException)
         {
             return new UpdateCheckResult(null, "cancelled");
@@ -222,59 +228,69 @@ public sealed class UpdateService
         Directory.CreateDirectory(StagingDirectory);
 
         string zipPath = Path.Combine(StagingDirectory, Path.GetFileName(release.AssetUri.LocalPath));
-        using (var client = CreateClient(TimeSpan.FromMinutes(15)))
-        using (var response = await client
-                   .GetAsync(release.AssetUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                   .ConfigureAwait(false))
+        try
         {
-            response.EnsureSuccessStatusCode();
-
-            long total = response.Content.Headers.ContentLength ?? release.SizeBytes;
-            if (total > MaxDownloadBytes)
+            using (var client = CreateClient(TimeSpan.FromMinutes(15)))
+            using (var response = await client
+                       .GetAsync(release.AssetUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                       .ConfigureAwait(false))
             {
-                throw new InvalidOperationException("The update is larger than expected.");
-            }
+                response.EnsureSuccessStatusCode();
 
-            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using var target = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-
-            var buffer = new byte[81920];
-            long written = 0;
-            int lastPercent = -1;
-            int read;
-            while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-            {
-                await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                written += read;
-
-                if (written > MaxDownloadBytes)
+                long total = response.Content.Headers.ContentLength ?? release.SizeBytes;
+                if (total > MaxDownloadBytes)
                 {
                     throw new InvalidOperationException("The update is larger than expected.");
                 }
 
-                if (total > 0)
+                await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                await using var target = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+
+                var buffer = new byte[81920];
+                long written = 0;
+                int lastPercent = -1;
+                int read;
+                while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                 {
-                    int percent = (int)Math.Min(100, written * 100 / total);
-                    if (percent != lastPercent)
+                    await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                    written += read;
+
+                    if (written > MaxDownloadBytes)
                     {
-                        lastPercent = percent;
-                        progress?.Report(percent);
+                        throw new InvalidOperationException("The update is larger than expected.");
+                    }
+
+                    if (total > 0)
+                    {
+                        int percent = (int)Math.Min(100, written * 100 / total);
+                        if (percent != lastPercent)
+                        {
+                            lastPercent = percent;
+                            progress?.Report(percent);
+                        }
                     }
                 }
             }
-        }
 
-        string expected = await FetchChecksumAsync(release, cancellationToken).ConfigureAwait(false);
-        string actual = ComputeSha256(zipPath);
-        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
-        {
+            string expected = await FetchChecksumAsync(release, cancellationToken).ConfigureAwait(false);
+            string actual = ComputeSha256(zipPath);
+            if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            {
+                TryDelete(zipPath);
+                throw new InvalidDataException("The downloaded update did not match its published checksum.");
+            }
+
+            string staged = ExtractExe(zipPath);
             TryDelete(zipPath);
-            throw new InvalidDataException("The downloaded update did not match its published checksum.");
+            return new PreparedUpdate(staged, CurrentExePath);
         }
-
-        string staged = ExtractExe(zipPath);
-        TryDelete(zipPath);
-        return new PreparedUpdate(staged, CurrentExePath);
+        catch
+        {
+            // A cancelled or failed download must not leave a partial zip in
+            // the staging folder.
+            TryDelete(zipPath);
+            throw;
+        }
     }
 
     private async Task<string> FetchChecksumAsync(ReleaseInfo release, CancellationToken cancellationToken)
@@ -356,12 +372,20 @@ public sealed class UpdateService
     /// <summary>
     /// Starts a tiny helper that waits for this process to exit, swaps the exe,
     /// and starts the new build. Windows locks the running exe, so the swap has
-    /// to happen after we are gone.
+    /// to happen after we are gone. If the swap itself fails, the helper still
+    /// starts whatever is at the target path (the old build), so the app is
+    /// never simply gone after "Install".
     /// </summary>
     public static bool InstallOnExit(PreparedUpdate update, IReadOnlyList<string> restartArguments)
     {
         try
         {
+            if (!IsDirectoryWritable(Path.GetDirectoryName(update.TargetExePath)))
+            {
+                Log.Error("The install folder is not writable, so the update cannot replace the exe.");
+                return false;
+            }
+
             Directory.CreateDirectory(StagingDirectory);
 
             string scriptPath = Path.Combine(StagingDirectory, "apply-update.ps1");
@@ -379,11 +403,21 @@ public sealed class UpdateService
                 "try {" + nl +
                 "  Move-Item -LiteralPath " + PsLiteral(update.StagedExePath) +
                 " -Destination " + PsLiteral(update.TargetExePath) + " -Force" + nl +
-                "  Start-Process -FilePath " + PsLiteral(update.TargetExePath) +
-                " -ArgumentList " + arguments + nl +
                 "} catch {" + nl +
-                "  ((Get-Date -Format o) + ' ' + $_) | Out-File -LiteralPath " + PsLiteral(logPath) +
-                " -Encoding utf8" + nl +
+                "  ((Get-Date -Format o) + ' swap failed: ' + $_) | Out-File -LiteralPath " + PsLiteral(logPath) +
+                " -Append -Encoding utf8" + nl +
+                "}" + nl +
+                "if (Test-Path -LiteralPath " + PsLiteral(update.TargetExePath) + ") {" + nl +
+                "  try {" + nl +
+                "    Start-Process -FilePath " + PsLiteral(update.TargetExePath) +
+                " -ArgumentList " + arguments + nl +
+                "  } catch {" + nl +
+                "    ((Get-Date -Format o) + ' start failed: ' + $_) | Out-File -LiteralPath " + PsLiteral(logPath) +
+                " -Append -Encoding utf8" + nl +
+                "  }" + nl +
+                "} else {" + nl +
+                "  ((Get-Date -Format o) + ' app is missing after the swap; nothing restarted')" +
+                " | Out-File -LiteralPath " + PsLiteral(logPath) + " -Append -Encoding utf8" + nl +
                 "}" + nl +
                 "Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue" + nl;
 
@@ -410,6 +444,33 @@ public sealed class UpdateService
         catch (Exception ex)
         {
             Log.Error("Could not start the update helper", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Probes the folder the way the helper would need to write into it: the
+    /// app exits to apply an update, and discovering "Program Files" is not
+    /// writable only after it is gone is far too late.
+    /// </summary>
+    private static bool IsDirectoryWritable(string? directory)
+    {
+        if (string.IsNullOrEmpty(directory))
+        {
+            return false;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(directory);
+            string probe = Path.Combine(directory, "KeyboardMouse-write-test.tmp");
+            File.WriteAllText(probe, "writable");
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Folder {directory} is not writable ({ex.GetType().Name}).");
             return false;
         }
     }
@@ -456,12 +517,20 @@ public sealed class UpdateService
         return Version.TryParse(trimmed, out version!);
     }
 
-    /// <summary>Compares major.minor.build so 0.4.0.0 and 0.4.0 are the same release.</summary>
+    /// <summary>
+    /// Compares major.minor.build, then revision, so 0.4.0.0 and 0.4.0 are the
+    /// same release while 0.4.0.1 is genuinely newer.
+    /// </summary>
     public static int Compare(Version left, Version right)
     {
-        var a = new Version(left.Major, left.Minor, Math.Max(left.Build, 0));
-        var b = new Version(right.Major, right.Minor, Math.Max(right.Build, 0));
-        return a.CompareTo(b);
+        int byBase = new Version(left.Major, left.Minor, Math.Max(left.Build, 0))
+            .CompareTo(new Version(right.Major, right.Minor, Math.Max(right.Build, 0)));
+        if (byBase != 0)
+        {
+            return byBase;
+        }
+
+        return Math.Max(left.Revision, 0).CompareTo(Math.Max(right.Revision, 0));
     }
 
     /// <summary>PowerShell single-quoted literal.</summary>

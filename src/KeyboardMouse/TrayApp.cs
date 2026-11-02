@@ -77,8 +77,7 @@ public sealed class TrayApp : ApplicationContext
         // hint scanner threads. Create it before anything can dispatch to it.
         _ = _uiDispatcher.Handle;
 
-_profiles = BuildProfiles(_settings);
-_movement = new MovementEngine(_mouse, _profiles, _monitors);
+        _profiles = BuildProfiles(_settings);
         _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _gridOverlay = new GridOverlay();
         _hintOverlay = new HintOverlay();
@@ -187,7 +186,9 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _autostartItem.Checked = Autostart.IsEnabled();
         UpdatePointerStyleChecks();
 
-        _hook.Error += ex => Log.Error("Keyboard hook callback error", ex);
+        // A throwing hook callback must not do file IO on the hook call stack:
+        // it would risk the low-level hook timeout, so defer the logging.
+        _hook.Error += ex => DispatchToUi(() => Log.Error("Keyboard hook callback error", ex));
         try
         {
             _hook.Install(OnKey);
@@ -739,8 +740,13 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         {
             var result = await _updates.CheckAsync(CancellationToken.None);
 
-            _settings.Update.LastCheckedUtc = DateTimeOffset.UtcNow.ToString("O");
-            SaveSettingsQuietly();
+            // Record the check time only when a check actually succeeded, so an
+            // offline start is not blocked from retrying for another 24 hours.
+            if (result.Error is null)
+            {
+                _settings.Update.LastCheckedUtc = DateTimeOffset.UtcNow.ToString("O");
+                SaveSettingsQuietly();
+            }
 
             if (!result.UpdateAvailable || result.Release is not { } release)
             {
@@ -914,8 +920,13 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _autostartItem.Checked = Autostart.IsEnabled();
 
         _cursorIndicator.SetDotSize(_settings.Feedback.DotSize);
+        _cursorIndicator.SetPalette(_settings.Feedback.ToPalette());
         _cursorIndicator.SetStyle(ParseCursorStyle());
         UpdatePointerStyleChecks();
+        _screenBorder.Configure(
+            BorderStyles.ParseOrDefault(_settings.Feedback.BorderStyle),
+            CursorColors.ToColor(_settings.Feedback.BorderColor),
+            _settings.Feedback.BorderThickness);
         _screenBorder.Refresh(_monitors);
         _router.UpdateGrid(_settings.Grid);
         _router.UpdateKeys(_settings.Keys);
@@ -978,17 +989,27 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
             return;
         }
 
-        try
+        // SystemEvents raises this on a worker thread, so hop to the UI thread
+        // before touching overlays and tray UI (same as EmergencyEndSession).
+        DispatchToUi(() =>
         {
-            _monitors.Refresh();
-            _screenBorder.Refresh(_monitors);
-            UpdateUi();
-            Log.Info("Monitor layout refreshed.");
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Could not refresh the monitor layout", ex);
-        }
+            if (_shutdown)
+            {
+                return;
+            }
+
+            try
+            {
+                _monitors.Refresh();
+                _screenBorder.Refresh(_monitors);
+                UpdateUi();
+                Log.Info("Monitor layout refreshed.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Could not refresh the monitor layout", ex);
+            }
+        });
     }
 
     private void OnSessionSwitch(object? sender, Microsoft.Win32.SessionSwitchEventArgs e)

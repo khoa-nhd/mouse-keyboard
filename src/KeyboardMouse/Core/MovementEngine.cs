@@ -96,7 +96,7 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             Nudge(direction);
         }
 
-        _wake.Set();
+        Wake();
     }
 
     public void ClearDirections()
@@ -108,7 +108,7 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             _wheelHorizontal.Reset();
         }
 
-        _wake.Set();
+        Wake();
     }
 
     public void SetMode(MovementMode mode)
@@ -126,7 +126,7 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             _wheelHorizontal.Reset();
         }
 
-        _wake.Set();
+        Wake();
     }
 
     public void SetMoveProfile(SpeedProfile profile)
@@ -138,7 +138,7 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             _moveStartSeconds = _clock.Elapsed.TotalSeconds;
         }
 
-        _wake.Set();
+        Wake();
     }
 
     public void SetScrollProfile(SpeedProfile profile, bool smooth)
@@ -153,7 +153,7 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             _wheelHorizontal.Reset();
         }
 
-        _wake.Set();
+        Wake();
     }
 
     public void SetScrollPrecision(bool precision)
@@ -169,7 +169,28 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             _moveStartSeconds = _clock.Elapsed.TotalSeconds;
         }
 
-        _wake.Set();
+        Wake();
+    }
+
+    /// <summary>
+    /// Wakes the engine thread. Safe during shutdown: disposing under a caller
+    /// would throw, so a disposed or disposing event is simply left alone.
+    /// </summary>
+    private void Wake()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            _wake.Set();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Dispose is already running; the thread is going down anyway.
+        }
     }
 
     /// <summary>Immediate tap step, so a single press always moves or scrolls a little.</summary>
@@ -483,7 +504,12 @@ public sealed class MovementEngine : IMovementControl, IDisposable
 
         _disposed = true;
         _wake.Set();
-        _thread.Join(1000);
-        _wake.Dispose();
+        // Dispose the event only if the engine thread really stopped: the
+        // thread waits on (or cancels) this event, and disposing it under a
+        // still-running loop can throw ObjectDisposedException in that thread.
+        if (_thread.Join(1000))
+        {
+            _wake.Dispose();
+        }
     }
 }

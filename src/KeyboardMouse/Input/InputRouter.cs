@@ -96,7 +96,8 @@ public sealed class InputRouter
             monitors,
             gridOverlay ?? NullGridOverlay.Instance,
             gridSettings ?? new GridSettings(),
-            pointer);
+            pointer,
+            dispatch ?? (action => action()));
 
         _pending = new PendingController(
             mouse,
@@ -199,7 +200,14 @@ public sealed class InputRouter
 
         _state.SetMouseMode(on);
 
-        if (!on)
+        if (on)
+        {
+            // The idle clock starts now: the router may have been idle far
+            // longer than autoOffSeconds before this, and the instant off of
+            // the first poll would otherwise kill the mode as it turns on.
+            _lastActivity = _clock();
+        }
+        else
         {
             // Stop clicking before releasing buttons, so no click lands after.
             _autoClicker.Stop();
@@ -275,6 +283,14 @@ public sealed class InputRouter
 
         if (_state.Paused)
         {
+            // An up for a key we swallowed may still arrive while paused (the
+            // mode was turned off or the pause happened in between): drop the
+            // down bookkeeping or it would sit in the set forever.
+            if (!keyEvent.IsDown)
+            {
+                _swallowedDown.Remove(keyEvent.Key);
+            }
+
             return false;
         }
 

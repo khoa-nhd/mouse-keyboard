@@ -85,9 +85,17 @@ public sealed class Marks : IMarkStore, IDisposable
 
             _marks[key] = position;
             _dirty = true;
+            // Inside the lock: it cannot race with Dispose finishing after
+            // _disposed was observed under the same lock.
+            try
+            {
+                _wake.Set();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Shutdown race with an earlier Dispose; nothing to do.
+            }
         }
-
-        _wake.Set();
     }
 
     /// <summary>Writes the current snapshot synchronously (tests and shutdown).</summary>
@@ -106,8 +114,12 @@ public sealed class Marks : IMarkStore, IDisposable
         }
 
         _wake.Set();
-        _writer.Join(2000);
-        _wake.Dispose();
+        // Dispose the event only if the writer really stopped: a stale writer
+        // waiting on a disposed event throws and kills the process.
+        if (_writer.Join(2000))
+        {
+            _wake.Dispose();
+        }
     }
 
     private void Load()

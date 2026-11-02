@@ -3,6 +3,78 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.5] - 2026-11-02
+
+Full code audit; fixes ordered by impact.
+
+### Fixed
+- **Auto-off killed the mode at once.** With an auto-off timeout set,
+  activating mouse mode after the app had been idle longer than that timeout
+  turned the mode off again on the very first poll, because the idle clock was
+  stamped when the app started, not when the mode started. It now restarts at
+  every activation (tap or hold).
+- **The app could vanish after an update.** The install helper that swaps the
+  exe on exit did not check whether the install folder is writable, and if the
+  swap failed the app was simply never started again. The folder is now probed
+  before the app exits, and a failed swap still starts the old exe, so
+  "Install" never leaves the taskbar without a tray icon.
+- **Split-restart helper.** The restart helper now logs when it fails to start
+  the app again (see `%TEMP%\KeyboardMouse\restart.log`) instead of quitting
+  silently, and `Restart` returns false if the helper never started.
+- **Chords broken with right-side Shift/Alt.** When a chord (Ctrl+key, Alt+key)
+  was sent while the user held the *right* Shift or Alt, the batch released the
+  *left* scan codes instead: the chord arrived as Ctrl+Shift+C or Alt+C, and
+  the right-sided modifier stayed stuck afterwards. Each half (left/right
+  Shift, left/right Alt) is now released and restored on its own scan code,
+  with Right Alt correctly marked extended.
+- **The guide window could open empty after a restart.** When the app restarted
+  fast, the WebView2 user-data folder was still held by the closing instance
+  and initialization failed once into the "runtime missing" fallback. The
+  guide now retries once before falling back.
+- **Overlay rendering inside the keyboard hook.** Opening the grid drew a
+  full-monitor bitmap layout synchronously in the hook callback, risking the
+  low-level hook timeout (Windows then silently unhooks the keyboard). The
+  grid overlay is shown through the UI dispatcher now, like the hint layer.
+- **Monitor-change handler ran on the SystemEvents worker thread.** It touched
+  tray UI and overlays directly; it is marshalled to the UI thread now, like
+  the session-lock and suspend handlers.
+- **Colour and border changes did not apply live.** Changing cursor colours or
+  the screen-border style/thickness on the guide page now re-paints the
+  indicator and border immediately instead of waiting for an app restart.
+- **Settings could be lost twice.** `settings.json` is now written atomically
+  (temp file + replace), so a crash mid-write can no longer truncate it, and a
+  file that cannot be parsed is copied to `settings.json.corrupt-<time>`
+  before defaults take over, so nothing is silently destroyed.
+- **Stuck buttons after failed input injection.** If `SendInput` fails (only
+  possible under heavy system pressure), a pressed button no longer stays
+  marked as held for an orphan button-up later, a click typed while that very
+  button is held no longer breaks a drag, and the failure is logged in the log
+  file instead of `Debug.WriteLine`.
+- **Keyboard-hook error handler deferred.** An exception inside a key callback
+  used to write to the log file synchronously on the hook call stack; the
+  write is posted to the UI thread now, so logging cannot throttle keystrokes.
+- **Update checks more honest.** A timeout now reports "could not reach
+  GitHub" instead of "cancelled"; the last-check stamp is only recorded when a
+  check actually succeeds (offline starts can retry), a failed or cancelled
+  download no longer leaves a partial zip in the staging folder, and version
+  comparison no longer ignores the revision segment (0.4.0.1 > 0.4.0).
+- **Duplicate engine instance removed.** A leftover second `MovementEngine`
+  allocation (merge artefact) started an extra background thread and leaked a
+  waitable timer plus a high-resolution timer period for the app's lifetime.
+- **Marks writer shutdown race.** Disposing the marks store disposed its wake
+  event while the writer thread could still wait on it; the event is now
+  disposed only after the writer has really stopped (the movement engine gets
+  the same treatment and guards its wake calls).
+- **Stale hint windows released.** Hint overlay windows keep a monitor-sized
+  bitmap each; the ones for monitors that disappeared or changed resolution
+  are disposed instead of living hidden forever.
+- **Guide origin guard hardened.** Navigation is allowed only for the exact
+  scheme + host + port of the private origin (a prefix match would have
+  admitted `app.keyboardmouse.invalid.evil.com`).
+- **Paused pass-through bookkeeping.** A key-up arriving while the app is
+  paused now clears the swallowed-key bookkeeping instead of keeping the entry
+  forever.
+
 ## [0.4.4] - 2026-11-02
 
 ### Added

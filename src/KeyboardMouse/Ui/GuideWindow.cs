@@ -69,18 +69,32 @@ public sealed class GuideWindow : Form
     protected override async void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        try
+        for (int attempt = 1; ; attempt++)
         {
-            await InitializeAsync();
-        }
-        catch (WebView2RuntimeNotFoundException)
-        {
-            ShowRuntimeMissing();
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Could not start the guide window", ex);
-            ShowRuntimeMissing();
+            try
+            {
+                await InitializeAsync();
+                return;
+            }
+            catch (WebView2RuntimeNotFoundException)
+            {
+                ShowRuntimeMissing();
+                return;
+            }
+            catch (Exception ex)
+            {
+                // A just-restarted instance can still hold the WebView2
+                // user-data folder for a moment, which fails initialization
+                // without meaning the runtime is missing: retry once.
+                if (IsDisposed || attempt >= 2)
+                {
+                    Log.Error("Could not start the guide window", ex);
+                    ShowRuntimeMissing();
+                    return;
+                }
+
+                await Task.Delay(800);
+            }
         }
     }
 
@@ -110,7 +124,7 @@ public sealed class GuideWindow : Form
         core.WebResourceRequested += OnWebResourceRequested;
         core.NavigationStarting += (_, args) =>
         {
-            if (!args.Uri.StartsWith(Origin, StringComparison.OrdinalIgnoreCase))
+            if (!IsTrustedGuideUri(args.Uri))
             {
                 args.Cancel = true;
             }
@@ -126,6 +140,23 @@ public sealed class GuideWindow : Form
         core.WebMessageReceived += OnWebMessageReceived;
 
         core.Navigate(Origin + "guide.html#" + _startPage);
+    }
+
+    /// <summary>
+    /// Compares scheme, host and port exactly, because a prefix check would
+    /// admit look-alike origins such as app.keyboardmouse.invalid.evil.com.
+    /// </summary>
+    private static bool IsTrustedGuideUri(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var origin = new Uri(Origin);
+        return uri.Scheme == origin.Scheme &&
+               uri.Host.Equals(origin.Host, StringComparison.OrdinalIgnoreCase) &&
+               uri.Port == origin.Port;
     }
 
     private void OnWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)

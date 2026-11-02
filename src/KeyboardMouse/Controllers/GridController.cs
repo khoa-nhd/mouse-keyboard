@@ -18,6 +18,7 @@ public sealed class GridController : IModeController
     private readonly IMouseOutput _mouse;
     private readonly Func<Point> _cursor;
     private readonly IGridOverlay _overlay;
+    private readonly Action<Action> _dispatch;
     private readonly List<Rectangle> _parents = new();
 
     private IMonitorService? _monitors;
@@ -35,13 +36,15 @@ public sealed class GridController : IModeController
         IMonitorService? monitors,
         IGridOverlay overlay,
         GridSettings settings,
-        Func<Point>? cursor = null)
+        Func<Point>? cursor = null,
+        Action<Action>? dispatch = null)
     {
         _mouse = mouse;
         _monitors = monitors;
         _overlay = overlay;
         _settings = settings;
         _cursor = cursor ?? Pointer.Position;
+        _dispatch = dispatch ?? (action => action());
         ParseSettings();
     }
 
@@ -218,7 +221,21 @@ public sealed class GridController : IModeController
             return;
         }
 
-        _overlay.Show(_monitor, _rect, _labels, _depth, Math.Clamp(_settings.MaxDepth, 1, 5));
+        // Rendering the overlay is a full-monitor bitmap job; running it inside
+        // the keyboard hook would risk the low-level hook timeout, so hand it
+        // to the dispatcher like the hint layer does.
+        _dispatch(() =>
+        {
+            if (_active && _monitor is not null)
+            {
+                _overlay.Show(
+                    _monitor,
+                    _rect,
+                    _labels,
+                    _depth,
+                    Math.Clamp(_settings.MaxDepth, 1, 5));
+            }
+        });
     }
 
     public void Reset()
