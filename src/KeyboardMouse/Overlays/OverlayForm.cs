@@ -74,6 +74,17 @@ public abstract class OverlayForm : Form
     {
         _ = Handle;
         User32.ShowWindow(Handle, User32.SW_SHOWNOACTIVATE);
+
+        // Re-assert the top spot: another topmost window shown since the last
+        // time (a tooltip, the taskbar) can otherwise cover part of the shape.
+        User32.SetWindowPos(
+            Handle,
+            User32.HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            User32.SWP_NOMOVE | User32.SWP_NOSIZE | User32.SWP_NOACTIVATE);
     }
 
     public void HideOverlay()

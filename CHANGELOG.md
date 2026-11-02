@@ -3,6 +3,67 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.1] - 2026-11-02
+
+### Fixed
+- The comet trail now works: samples are recorded along the head's path (not
+  the pointer's), carry an age and are smoothed with two rounds of Chaikin
+  subdivision before being stroked into one tapered tail. It reaches about
+  `5 x size + 24` pixels, keeps samples for 0.9 s, and dissolves when the
+  pointer stops instead of freezing on screen.
+
+- The screen frame no longer drops segments: the side strips run the full
+  height (so corners are drawn twice, and the Glow band no longer stops short of
+  the corner), and every overlay re-asserts its topmost place when it is shown.
+- The frame is configurable: **Frame** (clean line with a lighter inner edge),
+  **Glow** (soft gradient band) or **Corners** (four corner marks), with its own
+  colour and a 2-12 px thickness (`feedback.borderStyle`, `borderColor`,
+  `borderThickness`).
+
+- **New icon**: the app icon is now a single clear metaphor, a white keyboard
+  key with the pointer cut into it. The "K" letter and the heavy outline are
+  gone, the tray icons lost their outline and use the app's indigo/slate
+  palette, and every size is drawn for its slot (16 and 20 px drop the key and
+  show just the pointer) instead of being scaled down.
+
+- **Restart app** now sits in the sidebar, so it is in view on every page
+  instead of buried in Settings → Advanced, and a reminder bar appears after
+  every setting change asking for a restart.
+
+- **No frame**: the border look picker gained a **None** option, so the frame
+  can be switched off from there instead of only from the switch above it.
+
+- The **Arrow** indicator sits further from the pointer and **Classic dot**
+  sits closer, so each one reads clearly next to the system cursor instead of
+  touching it or floating away.
+
+- **Restart KeyboardMouse** in the tray menu and **Restart app** in Settings: a
+  helper waits for the app to exit, then starts it again, so the handful of
+  changes that only apply on a fresh start no longer need a manual close and
+  reopen.
+
+- Settings controls no longer apply eagerly: moving a slider, opening the colour
+  picker or nudging a value now only edits a draft (shown in the value chip and
+  an **Apply** bar), and the app changes when that field loses focus, Enter is
+  pressed, or **Apply** is used.
+
+### Changed
+- Halo, spotlight and reticle are drawn around the pointer again (only the dot,
+  comet and orbit sit beside it), and the halo, spotlight, reticle, arrow and
+  comet are redrawn to suit: no rotating arc, no hard inner ring, a solid
+  crosshair and a slim dart.
+- The shapes that sit beside the pointer (dot, comet, orbit) sit a small,
+  even gap below-right of it (15 x 17 px), and the arrow is now the familiar
+  upright pointer, drawn further out instead of a tilted wedge.
+- The buddy face is gone: that slot is now **Brackets**, four corner marks
+  around the pointer. Existing `feedback.cursorStyle: "buddy"` settings load as
+  `brackets`.
+- The indicator's colours are now yours to pick: **Pointer colour** plus a
+  **State colours** row for scroll, precision, turbo, drag lock and auto click
+  (`feedback.cursorColor`, `scrollColor`, `precisionColor`, `turboColor`,
+  `dragLockColor`, `autoClickColor`). The legend in the window and the live
+  pointer both follow your choice.
+
 ## [0.4.0] - 2026-11-02
 
 ### Added

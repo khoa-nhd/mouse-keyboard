@@ -58,9 +58,9 @@ public class CursorStyleTests
     {
         var trail = new[]
         {
-            new PointF(20, 20),
-            new PointF(26, 24),
-            new PointF(32, 30)
+            new TrailSample(new PointF(20, 20), 0.9f),
+            new TrailSample(new PointF(26, 24), 0.5f),
+            new TrailSample(new PointF(32, 30), 0.1f)
         };
 
         foreach (var style in CursorStyleNames.All)
@@ -90,7 +90,7 @@ public class CursorStyleTests
         var animated = CursorStyleNames.All.Where(CursorPainter.IsAnimated).ToArray();
 
         Assert.Equal(
-            new[] { CursorStyle.Spotlight, CursorStyle.Orbit, CursorStyle.Buddy },
+            new[] { CursorStyle.Halo, CursorStyle.Spotlight, CursorStyle.Comet, CursorStyle.Orbit },
             animated);
     }
 
@@ -108,5 +108,53 @@ public class CursorStyleTests
         }
 
         return false;
+    }
+
+    [Theory]
+    [InlineData("e74c3c", "e74c3c")]
+    [InlineData("#E74C3C", "e74c3c")]
+    [InlineData("  #f1c40f ", "f1c40f")]
+    [InlineData("", "2ecc71")]
+    [InlineData("#abc", "2ecc71")]
+    [InlineData("not-a-colour", "2ecc71")]
+    [InlineData(null, "2ecc71")]
+    public void CursorColors_NormalizeAcceptsSixHexDigits(string? input, string expected)
+    {
+        Assert.Equal(expected, CursorColors.Normalize(input));
+    }
+
+    [Fact]
+    public void CursorColors_ToColorMatchesTheHexDigits()
+    {
+        Assert.Equal(Color.FromArgb(255, 231, 76, 60), CursorColors.ToColor("e74c3c"));
+        Assert.Equal(Color.FromArgb(255, 46, 204, 113), CursorColors.ToColor(null));
+    }
+
+    [Fact]
+    public void OldBuddySetting_LoadsAsBrackets()
+    {
+        Assert.True(CursorStyleNames.TryParse("buddy", out var style));
+        Assert.Equal(CursorStyle.Brackets, style);
+        Assert.Equal("brackets", CursorStyleNames.ToId(CursorStyle.Brackets));
+    }
+
+    [Theory]
+    [InlineData("frame", ScreenBorderStyle.Frame)]
+    [InlineData("GLOW", ScreenBorderStyle.Glow)]
+    [InlineData(" corners ", ScreenBorderStyle.Corners)]
+    [InlineData("none", ScreenBorderStyle.None)]
+    public void BorderStyles_ParseTheirIds(string value, ScreenBorderStyle expected)
+    {
+        Assert.True(BorderStyles.TryParse(value, out var style));
+        Assert.Equal(expected, style);
+        Assert.Equal(BorderStyles.ToId(expected), BorderStyles.ToId(style));
+    }
+
+    [Fact]
+    public void BorderStyles_FallBackToFrame()
+    {
+        Assert.False(BorderStyles.TryParse("neon", out _));
+        Assert.Equal(ScreenBorderStyle.Frame, BorderStyles.ParseOrDefault(null));
+        Assert.Equal("frame", BorderStyles.ToId(ScreenBorderStyle.Frame));
     }
 }

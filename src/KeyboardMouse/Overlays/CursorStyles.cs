@@ -5,8 +5,8 @@ namespace KeyboardMouse.Overlays;
 /// <summary>
 /// Pointer indicator designs. Every style shows the same thing (the active
 /// layer through its colour), but they suit different tastes: a small dot, a
-/// presenter-style spotlight, a tinted arrow, a friendly buddy, and so on.
-/// Chosen with settings.feedback.cursorStyle.
+/// presenter-style halo, corner brackets, and so on. Chosen with
+/// settings.feedback.cursorStyle.
 /// </summary>
 public enum CursorStyle
 {
@@ -17,7 +17,7 @@ public enum CursorStyle
     Arrow,
     Comet,
     Orbit,
-    Buddy
+    Brackets
 }
 
 /// <summary>Parses and names <see cref="CursorStyle"/> values for the settings file and the UI.</summary>
@@ -32,7 +32,13 @@ public static class CursorStyleNames
         (CursorStyle.Arrow, "arrow", "Arrow"),
         (CursorStyle.Comet, "comet", "Comet trail"),
         (CursorStyle.Orbit, "orbit", "Orbit"),
-        (CursorStyle.Buddy, "buddy", "Buddy")
+        (CursorStyle.Brackets, "brackets", "Brackets")
+    };
+
+    /// <summary>Ids that used to name a style and now map onto another one.</summary>
+    private static readonly (string Id, CursorStyle Style)[] Aliases =
+    {
+        ("buddy", CursorStyle.Brackets)
     };
 
     public static IReadOnlyList<CursorStyle> All { get; } = Entries.Select(e => e.Style).ToArray();
@@ -82,12 +88,82 @@ public static class CursorStyleNames
             }
         }
 
+        foreach (var alias in Aliases)
+        {
+            if (string.Equals(alias.Id, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                style = alias.Style;
+                return true;
+            }
+        }
+
         return false;
     }
 }
 
+/// <summary>
+/// The colour the indicator normally draws in. Stored in settings as six hex
+/// digits without the leading '#', so the guide's colour picker and the
+/// settings file agree.
+/// </summary>
+public static class CursorColors
+{
+    /// <summary>Mouse mode is on: the calm green the app has always used.</summary>
+    public const string DefaultHex = "2ecc71";
+
+    public const string DefaultScrollHex = "3498db";
+    public const string DefaultPrecisionHex = "9b59b6";
+    public const string DefaultTurboHex = "e74c3c";
+    public const string DefaultDragLockHex = "e67e22";
+    public const string DefaultAutoClickHex = "f1c40f";
+
+    public static string Normalize(string? hex) => Normalize(hex, DefaultHex);
+
+    public static string Normalize(string? hex, string fallback)
+    {
+        string text = (hex ?? string.Empty).Trim().TrimStart('#');
+        if (text.Length == 6 && text.All(Uri.IsHexDigit))
+        {
+            return text.ToLowerInvariant();
+        }
+
+        return Normalize(fallback, DefaultHex);
+    }
+
+    public static Color ToColor(string? hex)
+    {
+        string text = Normalize(hex);
+        return Color.FromArgb(
+            255,
+            Convert.ToInt32(text[..2], 16),
+            Convert.ToInt32(text.Substring(2, 2), 16),
+            Convert.ToInt32(text.Substring(4, 2), 16));
+    }
+}
+
+/// <summary>The colours the indicator draws with, one per state.</summary>
+public readonly record struct CursorPalette(
+    Color Normal,
+    Color Scroll,
+    Color Precision,
+    Color Turbo,
+    Color DragLock,
+    Color AutoClick)
+{
+    public static CursorPalette Default { get; } = new(
+        CursorColors.ToColor(CursorColors.DefaultHex),
+        CursorColors.ToColor(CursorColors.DefaultScrollHex),
+        CursorColors.ToColor(CursorColors.DefaultPrecisionHex),
+        CursorColors.ToColor(CursorColors.DefaultTurboHex),
+        CursorColors.ToColor(CursorColors.DefaultDragLockHex),
+        CursorColors.ToColor(CursorColors.DefaultAutoClickHex));
+}
+
 /// <summary>Where the indicator window sits relative to the pointer, and how big it is.</summary>
 public readonly record struct CursorVisual(int OffsetX, int OffsetY, int Width, int Height);
+
+/// <summary>One recent pointer sample, aged 0 (fresh) to 1 (spent) for the comet tail.</summary>
+public readonly record struct TrailSample(PointF Point, float Age);
 
 /// <summary>
 /// Paints the pointer indicator. Pure drawing: no state, no timers, so the
@@ -97,9 +173,44 @@ public static class CursorPainter
 {
     private static readonly Color Ink = Color.FromArgb(255, 24, 26, 32);
 
-    /// <summary>Styles with motion need a redraw every tick even when the pointer rests.</summary>
+    /// <summary>
+    /// Extra gap between the pointer and the shapes that are drawn beside it,
+    /// so the dot never sits right on top of the arrow. Centred styles (rings,
+    /// reticle, brackets) are left exactly on the aim point.
+    /// </summary>
+    public const int PointerGapX = 15;
+
+    public const int PointerGapY = 17;
+
+    /// <summary>Top-left of the dot, measured from the pointer: close, but clear of the arrow.</summary>
+    private const float DotInset = 12f;
+
+    /// <summary>Where the arrow's tip sits, measured from the pointer.</summary>
+    private const float ArrowInset = 22f;
+
+    /// <summary>Where the comet's head sits inside its window, relative to the pointer.</summary>
+    public const float CometHeadInset = 10f;
+
+    /// <summary>How far behind the head the comet's tail reaches, in pixels.</summary>
     public static bool IsAnimated(CursorStyle style) =>
-        style is CursorStyle.Spotlight or CursorStyle.Orbit or CursorStyle.Buddy;
+        style is CursorStyle.Spotlight or CursorStyle.Orbit or CursorStyle.Comet or CursorStyle.Halo;
+
+    /// <summary>
+    /// Offset added to the window origin. Only the shapes that sit beside the
+    /// pointer get it; rings stay centred on the pixel being aimed at.
+    /// </summary>
+    public static void Gap(CursorStyle style, out int x, out int y)
+    {
+        if (style is CursorStyle.Dot or CursorStyle.Comet or CursorStyle.Orbit)
+        {
+            x = PointerGapX;
+            y = PointerGapY;
+            return;
+        }
+
+        x = 0;
+        y = 0;
+    }
 
     public static CursorVisual Measure(CursorStyle style, int size)
     {
@@ -108,37 +219,39 @@ public static class CursorPainter
         switch (style)
         {
             case CursorStyle.Dot:
-                return new CursorVisual(0, 0, s + 20, s + 20);
+                return new CursorVisual(0, 0, s + 24, s + 24);
 
             case CursorStyle.Halo:
             {
-                int half = (int)MathF.Ceiling((s * 0.9f) + 6f) + 8;
+                float glow = MathF.Max(7f, s * 0.7f);
+                int half = (int)MathF.Ceiling((s * 0.95f) + 7f + (glow / 2f)) + 4;
                 return new CursorVisual(-half, -half, half * 2, half * 2);
             }
 
             case CursorStyle.Spotlight:
             {
-                int half = (int)MathF.Ceiling((s * 3f) + 10f) + 6;
+                int half = (int)MathF.Ceiling((s * 3.2f) + 12f) + 6;
                 return new CursorVisual(-half, -half, half * 2, half * 2);
             }
 
             case CursorStyle.Reticle:
             {
-                int half = (int)MathF.Ceiling((s * 1.1f) + 6f) + 10;
+                int half = (int)MathF.Ceiling((s * 1.1f) + 8f) + 5;
                 return new CursorVisual(-half, -half, half * 2, half * 2);
             }
 
             case CursorStyle.Arrow:
             {
-                int w = (int)MathF.Ceiling(s * 1.5f) + 24;
-                int h = (int)MathF.Ceiling(s * 2.2f) + 20;
-                return new CursorVisual(0, 0, w, h);
+                float scale = ((s * 1.2f) + 5f) / 18f;
+                int extent = (int)MathF.Ceiling(ArrowInset + (11.4f * scale)) + 6;
+                return new CursorVisual(0, 0, extent, extent);
             }
 
             case CursorStyle.Comet:
             {
-                int half = (int)MathF.Ceiling((s * 2.6f) + 12f);
-                return new CursorVisual(16 - half, 16 - half, half * 2, half * 2);
+                int reach = (int)MathF.Ceiling((s * 5f) + 24f) + 8;
+                int offset = (int)CometHeadInset - reach;
+                return new CursorVisual(offset, offset, reach * 2, reach * 2);
             }
 
             case CursorStyle.Orbit:
@@ -150,9 +263,8 @@ public static class CursorPainter
 
             default:
             {
-                int w = (int)MathF.Ceiling(s * 1.75f) + 26;
-                int h = (int)MathF.Ceiling(s * 1.4f) + 26;
-                return new CursorVisual(0, 0, w, h);
+                int half = (int)MathF.Ceiling((s * 1.25f) + 10f) + 7;
+                return new CursorVisual(-half, -half, half * 2, half * 2);
             }
         }
     }
@@ -170,7 +282,7 @@ public static class CursorPainter
         Color color,
         float phase,
         PointF pointer,
-        IReadOnlyList<PointF>? trail)
+        IReadOnlyList<TrailSample>? trail)
     {
         int s = Math.Clamp(size, 4, 48);
 
@@ -198,14 +310,14 @@ public static class CursorPainter
                 PaintOrbit(g, pointer, s, color, phase);
                 break;
             default:
-                PaintBuddy(g, pointer, s, color, phase);
+                PaintBrackets(g, pointer, s, color);
                 break;
         }
     }
 
     private static void PaintDot(Graphics g, PointF pointer, int s, Color color)
     {
-        var rect = new RectangleF(pointer.X + 16, pointer.Y + 16, s, s);
+        var rect = new RectangleF(pointer.X + DotInset, pointer.Y + DotInset, s, s);
 
         using var shadow = new SolidBrush(Color.FromArgb(90, 0, 0, 0));
         g.FillEllipse(shadow, rect.X + 1.5f, rect.Y + 1.5f, rect.Width, rect.Height);
@@ -219,38 +331,42 @@ public static class CursorPainter
 
     private static void PaintHalo(Graphics g, PointF p, int s, Color color, float phase)
     {
-        float r = (s * 0.9f) + 6f;
+        // Ring centred on the pointer, breathing just enough to feel alive.
+        float breathe = 1f + (MathF.Sin(phase * 1.4f) * 0.02f);
+        float r = ((s * 0.95f) + 7f) * breathe;
         var ring = new RectangleF(p.X - r, p.Y - r, r * 2, r * 2);
 
-        // Soft outer glow, then the crisp ring: a pointer highlighter look.
-        using (var glow = new Pen(Color.FromArgb(28, color), MathF.Max(6f, s * 0.55f)))
+        using (var glow = new Pen(Color.FromArgb(24, color), MathF.Max(7f, s * 0.7f)))
         {
             g.DrawEllipse(glow, ring);
         }
 
-        using (var soft = new Pen(Color.FromArgb(70, color), MathF.Max(3f, s * 0.22f)))
+        using (var soft = new Pen(Color.FromArgb(66, color), MathF.Max(3.2f, s * 0.28f)))
         {
             g.DrawEllipse(soft, ring);
         }
 
-        using (var core = new Pen(color, MathF.Max(1.8f, s * 0.1f)))
+        using (var core = new Pen(color, MathF.Max(1.8f, s * 0.11f)))
         {
             g.DrawEllipse(core, ring);
         }
 
-        // A slowly travelling highlight keeps the ring from looking printed on.
-        float sweep = (phase * 140f) % 360f;
-        using var shine = new Pen(Color.FromArgb(215, 255, 255, 255), MathF.Max(1.6f, s * 0.08f));
-        g.DrawArc(shine, ring, sweep, 62f);
+        // A white hairline just inside keeps the ring readable on pale walls.
+        float inner = r - MathF.Max(1.6f, s * 0.1f);
+        using (var hairline = new Pen(Color.FromArgb(110, 255, 255, 255), 1f))
+        {
+            g.DrawEllipse(hairline, p.X - inner, p.Y - inner, inner * 2, inner * 2);
+        }
 
-        using var inner = new SolidBrush(Color.FromArgb(200, color));
-        g.FillEllipse(inner, p.X - 1.6f, p.Y - 1.6f, 3.2f, 3.2f);
+        using var centre = new SolidBrush(Color.FromArgb(225, color));
+        g.FillEllipse(centre, p.X - 2f, p.Y - 2f, 4f, 4f);
     }
 
     private static void PaintSpotlight(Graphics g, PointF p, int s, Color color, float phase)
     {
-        float breathe = 1f + (MathF.Sin(phase * 1.5f) * 0.035f);
-        float r = ((s * 3f) + 10f) * breathe;
+        // A soft pool of light, low alpha so the screen under it stays usable.
+        float breathe = 1f + (MathF.Sin(phase * 1.1f) * 0.03f);
+        float r = ((s * 3.2f) + 12f) * breathe;
         var area = new RectangleF(p.X - r, p.Y - r, r * 2, r * 2);
 
         using var path = new GraphicsPath();
@@ -258,76 +374,61 @@ public static class CursorPainter
 
         using var brush = new PathGradientBrush(path)
         {
-            CenterColor = Color.FromArgb(165, color),
+            CenterColor = Color.FromArgb(88, color),
             SurroundColors = new[] { Color.FromArgb(0, color) },
             CenterPoint = p
         };
         g.FillEllipse(brush, area);
 
-        using var edge = new Pen(Color.FromArgb(130, color), 1.5f);
-        g.DrawEllipse(edge, area);
-
-        using var core = new SolidBrush(Color.FromArgb(220, color));
-        g.FillEllipse(core, p.X - 2.5f, p.Y - 2.5f, 5f, 5f);
+        using var core = new SolidBrush(Color.FromArgb(235, color));
+        g.FillEllipse(core, p.X - 2.2f, p.Y - 2.2f, 4.4f, 4.4f);
     }
 
     private static void PaintReticle(Graphics g, PointF p, int s, Color color)
     {
-        float r = (s * 1.1f) + 6f;
-        float inner = r * 0.34f;
+        float r = (s * 1.1f) + 8f;
+        float inner = r * 0.38f;
 
-        using (var faint = new Pen(Color.FromArgb(70, color), 1f))
-        {
-            g.DrawEllipse(faint, p.X - r, p.Y - r, r * 2, r * 2);
-        }
+        using var arm = new Pen(color, 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
 
-        // Four white-backed arms so the reticle reads on any wallpaper.
-        using var halo = new Pen(Color.FromArgb(190, 255, 255, 255), 4.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-        using var arm = new Pen(color, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-
-        var directions = new (float dx, float dy)[]
-        {
-            (1, 0), (-1, 0), (0, 1), (0, -1)
-        };
-
-        foreach (var (dx, dy) in directions)
+        foreach (var (dx, dy) in new (float Dx, float Dy)[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
         {
             var a = new PointF(p.X + (dx * inner), p.Y + (dy * inner));
             var b = new PointF(p.X + (dx * r), p.Y + (dy * r));
-            g.DrawLine(halo, a, b);
             g.DrawLine(arm, a, b);
         }
 
-        // Hollow centre: never cover the pixel the pointer is aiming at.
-        using var centreRing = new Pen(color, 1.8f);
-        g.DrawEllipse(centreRing, p.X - inner * 0.55f, p.Y - inner * 0.55f, inner * 1.1f, inner * 1.1f);
+        using var centre = new SolidBrush(color);
+        g.FillEllipse(centre, p.X - 1.6f, p.Y - 1.6f, 3.2f, 3.2f);
     }
 
     private static void PaintArrow(Graphics g, PointF p, int s, Color color)
     {
-        float scale = (s * 2.2f) / 16f;
-        float tipX = p.X + 14f;
-        float tipY = p.Y + 10f;
+        // The familiar pointer arrow, upright rather than tilted, parked
+        // below-right so it points at the cursor instead of covering it.
+        float scale = ((s * 1.2f) + 5f) / 18f;
+        float x = p.X + ArrowInset;
+        float y = p.Y + ArrowInset;
 
-        var points = new[]
-        {
-            new PointF(tipX, tipY),
-            new PointF(tipX, tipY + (14.6f * scale)),
-            new PointF(tipX + (3.6f * scale), tipY + (11.2f * scale)),
-            new PointF(tipX + (5.9f * scale), tipY + (15.9f * scale)),
-            new PointF(tipX + (8.1f * scale), tipY + (14.8f * scale)),
-            new PointF(tipX + (5.8f * scale), tipY + (10.2f * scale)),
-            new PointF(tipX + (10.3f * scale), tipY + (10.2f * scale))
-        };
+        PointF At(float dx, float dy) => new(x + (dx * scale), y + (dy * scale));
 
         using var path = new GraphicsPath();
-        path.AddPolygon(points);
+        path.AddPolygon(new[]
+        {
+            At(0f, 0f),
+            At(0f, 16.4f),
+            At(4.1f, 12.6f),
+            At(6.5f, 18f),
+            At(9f, 16.9f),
+            At(6.6f, 11.5f),
+            At(11.4f, 11.5f)
+        });
 
         using (var shadowBrush = new SolidBrush(Color.FromArgb(85, 0, 0, 0)))
         using (var shadowPath = (GraphicsPath)path.Clone())
         {
             using var shift = new Matrix();
-            shift.Translate(1.6f, 2.2f);
+            shift.Translate(1.3f, 1.8f);
             shadowPath.Transform(shift);
             g.FillPath(shadowBrush, shadowPath);
         }
@@ -337,43 +438,44 @@ public static class CursorPainter
             g.FillPath(fill, path);
         }
 
-        using (var outline = new Pen(Color.FromArgb(240, 255, 255, 255), 1.7f) { LineJoin = LineJoin.Round })
+        using (var outline = new Pen(Color.FromArgb(240, 255, 255, 255), 1.5f) { LineJoin = LineJoin.Round })
         {
             g.DrawPath(outline, path);
         }
     }
 
-    private static void PaintComet(Graphics g, PointF p, int s, Color color, IReadOnlyList<PointF>? trail)
+    private static void PaintComet(Graphics g, PointF p, int s, Color color, IReadOnlyList<TrailSample>? trail)
     {
-        const float HeadInset = 16f;
-        var head = new PointF(p.X + HeadInset, p.Y + HeadInset);
-        float reach = (s * 2.6f) + 12f;
+        var head = new PointF(p.X + CometHeadInset, p.Y + CometHeadInset);
+        float reach = (s * 5f) + 24f;
 
         if (trail is { Count: > 1 })
         {
-            for (int i = 0; i < trail.Count; i++)
+            // Head first, then the samples newest to oldest: the tail is one
+            // smooth, tapered stroke instead of a chain of blobs.
+            var points = new List<TrailVertex> { new(head, 1f) };
+            for (int i = trail.Count - 1; i >= 0; i--)
             {
                 var sample = trail[i];
-                float dx = head.X - sample.X;
-                float dy = head.Y - sample.Y;
-                float distance = MathF.Sqrt((dx * dx) + (dy * dy));
-                if (distance < 1f || distance > reach)
+                float dx = head.X - sample.Point.X;
+                float dy = head.Y - sample.Point.Y;
+                if (MathF.Sqrt((dx * dx) + (dy * dy)) > reach)
                 {
-                    continue;
+                    break;
                 }
 
-                float t = 1f - (distance / reach);
-                float radius = (s * 0.14f) + (s * 0.42f * t);
-                int alpha = (int)(120f * t * t);
+                points.Add(new TrailVertex(sample.Point, Math.Clamp(1f - sample.Age, 0f, 1f)));
+            }
 
-                using var dot = new SolidBrush(Color.FromArgb(alpha, color));
-                g.FillEllipse(dot, sample.X - radius, sample.Y - radius, radius * 2, radius * 2);
+            if (points.Count > 1)
+            {
+                DrawTrail(g, points, s, color);
             }
         }
 
-        using (var glow = new SolidBrush(Color.FromArgb(60, color)))
+        using (var glow = new SolidBrush(Color.FromArgb(30, color)))
         {
-            g.FillEllipse(glow, head.X - (s * 0.95f), head.Y - (s * 0.95f), s * 1.9f, s * 1.9f);
+            g.FillEllipse(glow, head.X - (s * 0.72f), head.Y - (s * 0.72f), s * 1.44f, s * 1.44f);
         }
 
         using (var core = new SolidBrush(color))
@@ -383,6 +485,65 @@ public static class CursorPainter
 
         using var outline = new Pen(Color.FromArgb(240, 255, 255, 255), 1.6f);
         g.DrawEllipse(outline, head.X - (s * 0.5f), head.Y - (s * 0.5f), s, s);
+    }
+
+    /// <summary>
+    /// Draws the comet's tail. The samples are smoothed with two rounds of
+    /// Chaikin subdivision (which never overshoots the way a spline can), then
+    /// stroked once with a width and alpha that fade towards the oldest end.
+    /// </summary>
+    private static void DrawTrail(Graphics g, List<TrailVertex> points, int s, Color color)
+    {
+        var smooth = Subdivide(Subdivide(points));
+        using var pen = new Pen(color, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+
+        for (int i = 1; i < smooth.Count; i++)
+        {
+            var a = smooth[i - 1];
+            var b = smooth[i];
+
+            float fade = (a.Fade + b.Fade) * 0.5f;
+            float eased = fade * fade;
+
+            int alpha = (int)(210f * eased);
+            if (alpha < 4)
+            {
+                continue;
+            }
+
+            pen.Color = Color.FromArgb(alpha, color);
+            pen.Width = 1.1f + (s * 0.46f * eased);
+            g.DrawLine(pen, a.P, b.P);
+        }
+    }
+
+    private static List<TrailVertex> Subdivide(List<TrailVertex> points)
+    {
+        if (points.Count < 3)
+        {
+            return points;
+        }
+
+        var result = new List<TrailVertex>((points.Count * 2) + 2) { points[0] };
+
+        for (int i = 0; i < points.Count - 1; i++)
+        {
+            var a = points[i];
+            var b = points[i + 1];
+            result.Add(TrailVertex.Lerp(a, b, 0.25f));
+            result.Add(TrailVertex.Lerp(a, b, 0.75f));
+        }
+
+        result.Add(points[^1]);
+        return result;
+    }
+
+    private readonly record struct TrailVertex(PointF P, float Fade)
+    {
+        public static TrailVertex Lerp(TrailVertex a, TrailVertex b, float t) =>
+            new(
+                new PointF(a.P.X + ((b.P.X - a.P.X) * t), a.P.Y + ((b.P.Y - a.P.Y) * t)),
+                a.Fade + ((b.Fade - a.Fade) * t));
     }
 
     private static void PaintOrbit(Graphics g, PointF p, int s, Color color, float phase)
@@ -415,6 +576,33 @@ public static class CursorPainter
         g.DrawEllipse(outline, anchor.X - coreR, anchor.Y - coreR, coreR * 2, coreR * 2);
     }
 
+    private static void PaintBrackets(Graphics g, PointF p, int s, Color color)
+    {
+        // Four corner brackets: a selection frame around the aim point.
+        float r = (s * 1.25f) + 10f;
+        float arm = r * 0.5f;
+        float width = MathF.Max(2f, s * 0.14f);
+
+        using var under = new Pen(Color.FromArgb(80, 255, 255, 255), width + 1.4f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        using var ink = new Pen(color, width) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+
+        foreach (var (sx, sy) in new (float Sx, float Sy)[] { (-1, -1), (1, -1), (1, 1), (-1, 1) })
+        {
+            var corner = new PointF(p.X + (sx * r), p.Y + (sy * r));
+            var horizontal = new PointF(corner.X - (sx * arm), corner.Y);
+            var vertical = new PointF(corner.X, corner.Y - (sy * arm));
+
+            g.DrawLine(under, corner, horizontal);
+            g.DrawLine(under, corner, vertical);
+            g.DrawLine(ink, corner, horizontal);
+            g.DrawLine(ink, corner, vertical);
+        }
+    }
+
     private static void DrawMoon(Graphics g, PointF centre, float radius, float degrees, float moonRadius, Color color, int alpha)
     {
         double rad = degrees * Math.PI / 180.0;
@@ -426,76 +614,5 @@ public static class CursorPainter
 
         using var outline = new Pen(Color.FromArgb(Math.Min(alpha, 220), 255, 255, 255), 1f);
         g.DrawEllipse(outline, x - moonRadius, y - moonRadius, moonRadius * 2, moonRadius * 2);
-    }
-
-    private static void PaintBuddy(Graphics g, PointF p, int s, Color color, float phase)
-    {
-        float w = s * 1.75f;
-        float h = s * 1.4f;
-        float bob = MathF.Sin(phase * 2.2f) * 1.4f;
-        float x = p.X + 15f;
-        float y = p.Y + 13f + bob;
-
-        using (var shadow = new SolidBrush(Color.FromArgb(70, 0, 0, 0)))
-        {
-            g.FillEllipse(shadow, x + 1.5f, y + h - 3f, w * 0.92f, 7f);
-        }
-
-        using var body = RoundedRect(new RectangleF(x, y, w, h), h * 0.48f);
-
-        using (var fill = new SolidBrush(color))
-        {
-            g.FillPath(fill, body);
-        }
-
-        using (var outline = new Pen(Color.FromArgb(240, 255, 255, 255), 1.7f))
-        {
-            g.DrawPath(outline, body);
-        }
-
-        bool blinking = phase % 3.6f < 0.14f;
-        float eyeW = s * 0.44f;
-        float eyeH = s * 0.5f;
-        float eyeY = y + (h * 0.34f);
-
-        foreach (float fraction in new[] { 0.3f, 0.62f })
-        {
-            float eyeX = x + (w * fraction);
-
-            if (blinking)
-            {
-                using var lid = new Pen(Ink, MathF.Max(1.4f, s * 0.08f)) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-                g.DrawLine(lid, eyeX, eyeY + (eyeH * 0.45f), eyeX + eyeW, eyeY + (eyeH * 0.45f));
-                continue;
-            }
-
-            using (var white = new SolidBrush(Color.FromArgb(245, 255, 255, 255)))
-            {
-                g.FillEllipse(white, eyeX, eyeY, eyeW, eyeH);
-            }
-
-            float pupil = eyeH * 0.42f;
-            using var pupilBrush = new SolidBrush(Ink);
-            g.FillEllipse(
-                pupilBrush,
-                eyeX + ((eyeW - pupil) / 2f) + (eyeW * 0.14f),
-                eyeY + ((eyeH - pupil) / 2f) + (eyeH * 0.06f),
-                pupil,
-                pupil);
-        }
-    }
-
-    private static GraphicsPath RoundedRect(RectangleF rect, float radius)
-    {
-        float r = Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2f);
-        float d = r * 2f;
-
-        var path = new GraphicsPath();
-        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
     }
 }

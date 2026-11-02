@@ -100,6 +100,12 @@ button { font: inherit; color: inherit; }
 }
 .status:hover { border-color: var(--accent); }
 .status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--soft); flex: none; }
+.side-restart { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); font: 600 13px/1.2 inherit; cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s; }
+.side-restart:hover { border-color: var(--accent); color: var(--accent); }
+.side-restart svg { width: 16px; height: 16px; }
 .status.on .dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, .22); animation: pulse 1.8s infinite; }
 .status.auto .dot { background: #eab308; box-shadow: 0 0 0 4px rgba(234, 179, 8, .25); }
 .status small { display: block; color: var(--muted); font-size: 11.5px; }
@@ -171,6 +177,7 @@ kbd.lg { min-width: 46px; height: 44px; font-size: 18px; border-radius: 10px; bo
 .setting:last-child { border-bottom: 0; padding-bottom: 2px; }
 .setting:first-child { padding-top: 2px; }
 .setting p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.setting > div:first-child { min-width: 0; }
 .switch { position: relative; width: 44px; height: 24px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .switch span { position: absolute; inset: 0; background: var(--line); border-radius: 99px; cursor: pointer; transition: background .2s; }
@@ -182,6 +189,19 @@ kbd.lg { min-width: 46px; height: 44px; font-size: 18px; border-radius: 10px; bo
 .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-weight: 600; color: var(--muted); }
 .seg button.active { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
 input[type=range] { width: 220px; accent-color: var(--accent); }
+input[type=color] { width: 44px; height: 32px; padding: 2px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); cursor: pointer; }
+input[type=color]::-webkit-color-swatch-wrapper { padding: 2px; }
+input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
+.draft-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  padding: 10px 14px; border-radius: 12px; border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent); font: 600 13px/1.3 inherit; }
+.draft-bar[hidden] { display: none; }
+.draft-bar .btn { padding: 6px 14px; }
+.value-pill.draft { border-color: var(--accent); color: var(--accent); }
+.colour-row { display: flex; flex-wrap: wrap; gap: 16px 22px; }
+.colour-cell { display: flex; align-items: center; gap: 8px; font: 600 12.5px/1.2 inherit; color: var(--muted); cursor: pointer; }
+.colour-cell input[type=color] { width: 34px; height: 26px; }
 .value-pill { min-width: 92px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---------- pointer style picker ---------- */
@@ -241,14 +261,14 @@ input[type=range] { width: 220px; accent-color: var(--accent); }
 .check .text p { color: var(--muted); font-size: 13px; }
 
 /* ---------- keyboard ---------- */
-.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); transition: all .15s; }
+.legend { flex-flow: row wrap; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; align-items: center; justify-content: flex-start; max-width: 100%; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); transition: all .15s; max-width: 100%; overflow-wrap: anywhere; white-space: normal; min-width: 10px; }
 .chip i { width: 9px; height: 9px; border-radius: 50%; }
 .chip.active { color: var(--text); border-color: currentColor; }
 .keyboard-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-.keyboard { padding: 22px; container-type: inline-size; }
+.keyboard { padding: 22px 16px; container-type: inline-size; width: min(100%, max-content); max-width: 100%; overflow: hidden; display: block; height: fit-content; min-height: 0; contain-intrinsic-size: 0 800px; resize: none; position: relative; flex: 0 0 auto; align-self: flex-start; grid-row: auto; align-content: flex-start; writing-mode: horizontal-tb; direction: ltr; text-rendering: auto; font-feature-settings: normal; -webkit-mask-image: none; mask-image: none; -webkit-mask-size: auto; mask-size: auto; mask-repeat: no-repeat; mask-position: center; mask-clip: border-box; -webkit-mask-clip: border-box; mask-composite: add; -webkit-mask-composite: source-over; mask-origin: border-box; }
 /* One key unit: the widest row is 12.5 units + 11 gaps. */
-.kb { --gap: 6px; --u: clamp(34px, calc((100cqw - 11 * var(--gap)) / 12.5), 62px); width: fit-content; margin: 0 auto; }
+.kb { --gap: 6px; --u: clamp(20px, calc((100cqw - 11 * var(--gap)) / 12.75), 62px); width: fit-content; margin: 0 auto; }
 .kb-row { display: flex; gap: var(--gap); margin-bottom: var(--gap); }
 .kb-row:last-child { margin-bottom: 0; }
 .key {
@@ -345,8 +365,20 @@ td:first-child { width: 168px; white-space: nowrap; }
 .list li svg { width: 18px; height: 18px; color: var(--ok); flex: none; margin-top: 2px; }
 .list.info li svg { color: var(--accent); }
 
-.toast { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px); opacity: 0; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; transition: all .25s; pointer-events: none; z-index: 50; }
+.toast { position: fixed; left: 50%; bottom: 92px; transform: translate(-50%, 20px); opacity: 0; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; transition: all .25s; pointer-events: none; z-index: 50; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* Restart reminder: settings land live, but a restart is the sure thing. */
+.restart-hint { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 18px); opacity: 0;
+  pointer-events: none; display: flex; align-items: center; gap: 12px; z-index: 60;
+  max-width: min(620px, calc(100vw - 40px)); padding: 10px 12px 10px 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  transition: opacity .25s, transform .25s; }
+.restart-hint.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.restart-hint p { font-size: 13px; font-weight: 600; line-height: 1.35; }
+.restart-hint .btn { flex: none; padding: 7px 12px; }
+.restart-hint .close { flex: none; border: 0; background: none; cursor: pointer; color: var(--muted);
+  font: 600 18px/1 "Segoe UI", sans-serif; padding: 2px 4px; }
+.restart-hint .close:hover { color: var(--text); }
 
 @media (max-width: 1080px) {
   .hero-art { display: none; }
@@ -359,6 +391,40 @@ td:first-child { width: 168px; white-space: nowrap; }
   .page { padding: 26px 22px 40px; }
   .key .act { display: none; }
   .detail { flex-wrap: wrap; }
+}
+
+/* Narrow window: the sidebar becomes an icon rail so the page keeps its width. */
+@media (max-width: 860px) {
+  .app { grid-template-columns: 68px minmax(0, 1fr); }
+  .sidebar { padding: 14px 8px; gap: 12px; }
+  .brand { justify-content: center; padding: 0; }
+  .brand img { width: 34px; height: 34px; }
+  .brand div { display: none; }
+  .status { justify-content: center; padding: 9px 0; }
+  .status div { display: none; }
+  .side-restart { padding: 9px 0; }
+  .side-restart span { display: none; }
+  nav button { justify-content: center; padding: 10px 0; }
+  nav button span { display: none; }
+  .lang { flex-direction: column; }
+  .lang button { padding: 4px 0; font-size: 11px; }
+
+  /* Sliders and segmented controls drop below their label instead of
+     squeezing it into a column of single words. */
+  .setting { flex-wrap: wrap; row-gap: 10px; }
+  .setting > .row, .setting > .seg { flex: 1 1 100%; width: 100%; }
+  .setting > .row { justify-content: space-between; }
+  input[type=range] { flex: 1 1 auto; width: auto; min-width: 110px; }
+  .value-pill { min-width: 74px; }
+}
+
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 36px; }
+  .card, .keyboard { padding: 16px; }
+  .hero h1 { font-size: 26px; }
+  .hero { padding: 24px 20px; }
+  .style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail .top { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -394,6 +460,8 @@ td:first-child { width: 168px; white-space: nowrap; }
       <i class="dot"></i>
       <div><b id="status-title">Mouse mode off</b><small id="status-sub">Tap Caps Lock to start</small></div>
     </button>
+
+    <button class="side-restart" data-cmd="restartApp" type="button"><svg><use href="#i-power"/></svg><span data-t="settings.restart">Restart app</span></button>
 
     <nav id="nav">
       <button data-page="home" aria-current="page"><svg><use href="#i-home"/></svg><span data-t="nav.home">Start</span></button>
@@ -583,7 +651,11 @@ td:first-child { width: 168px; white-space: nowrap; }
     <section class="page" id="page-settings">
       <div class="page-head">
         <h1 data-t="settings.title">Settings</h1>
-        <p data-t="settings.lead">Changes apply instantly. Everything else (every key, every speed) lives in the settings file.</p>
+        <p data-t="settings.lead">Adjust a slider or a colour, then press Enter, click outside it, or press Apply. Everything else (every key, every speed) lives in the settings file.</p>
+      </div>
+      <div class="draft-bar" id="draft-bar" hidden>
+        <span data-t="settings.pending">Not applied yet</span>
+        <button class="btn primary" id="apply-settings" type="button" data-t="settings.apply">Apply</button>
       </div>
       <div class="stack">
         <div class="card">
@@ -596,8 +668,33 @@ td:first-child { width: 168px; white-space: nowrap; }
           </div>
           <div class="setting"><div><h3 data-t="settings.sizeT">Pointer size</h3><p data-t="settings.size">How big the indicator is.</p></div>
             <div class="row"><input type="range" id="dot-size" min="4" max="40" step="1"><span class="value-pill" id="dot-size-value">12 px</span></div></div>
+          <div class="setting"><div><h3 data-t="settings.colorT">Pointer colour</h3><p data-t="settings.color">The colour while mouse mode is on. Scroll, drag lock, precision, turbo and auto click keep their own colours.</p></div>
+            <div class="row"><input type="color" id="cursor-color" value="#2ecc71"><span class="value-pill" id="cursor-color-value">#2ecc71</span></div></div>
+          <div class="setting" style="display:block">
+            <div style="margin-bottom:10px"><h3 data-t="settings.statesT">State colours</h3><p data-t="settings.states">Each layer keeps its own colour, so you can tell at a glance what the pointer is doing.</p></div>
+            <div class="colour-row">
+              <label class="colour-cell"><input type="color" data-color="scrollColor"><span data-t="dot.scroll">Scrolling (D)</span></label>
+              <label class="colour-cell"><input type="color" data-color="precisionColor"><span data-t="dot.precision">Precise (S)</span></label>
+              <label class="colour-cell"><input type="color" data-color="turboColor"><span data-t="dot.turbo">Turbo (A)</span></label>
+              <label class="colour-cell"><input type="color" data-color="dragLockColor"><span data-t="dot.drag">Drag lock (V)</span></label>
+              <label class="colour-cell"><input type="color" data-color="autoClickColor"><span data-t="dot.auto">Auto clicking (B)</span></label>
+            </div>
+          </div>
           <div class="setting"><div><h3 data-t="settings.dotT">Show pointer indicator</h3><p data-t="settings.dot">Draw the indicator next to the pointer while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="cursorDot"><span></span></label></div>
           <div class="setting"><div><h3 data-t="settings.borderT">Screen border</h3><p data-t="settings.border">Thin colored frame around the screen while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="screenBorder"><span></span></label></div>
+          <div class="setting" style="display:block">
+            <div style="margin-bottom:10px"><h3 data-t="settings.borderLookT">Border look</h3><p data-t="settings.borderLook">Frame draws a clean line, Glow a soft edge, Corners just the four corners, None draws nothing.</p></div>
+            <div class="row" style="flex-wrap:wrap; gap:14px 22px">
+              <div class="seg" id="border-style">
+                <button data-border="frame" data-t="border.frame">Frame</button>
+                <button data-border="glow" data-t="border.glow">Glow</button>
+                <button data-border="corners" data-t="border.corners">Corners</button>
+                <button data-border="none" data-t="border.none">None</button>
+              </div>
+              <label class="colour-cell"><input type="color" id="border-color" value="#2ecc71"><span data-t="settings.borderColor">Colour</span></label>
+              <div class="row" style="gap:10px"><input type="range" id="border-thickness" min="2" max="12" step="1"><span class="value-pill" id="border-thickness-value">3 px</span></div>
+            </div>
+          </div>
           <div class="setting"><div><h3 data-t="settings.editT">Copy, paste, undo keys</h3><p data-t="settings.edit">Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.</p></div><label class="switch"><input type="checkbox" data-bind="editingExtras"><span></span></label></div>
         </div>
         <div class="card">
@@ -609,7 +706,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         </div>
         <div class="card">
           <h2 style="margin-bottom:10px" data-t="settings.advT">Advanced</h2>
-          <p class="muted" style="margin-bottom:14px" data-t="settings.adv">Remap any key, change speeds or the toggle key in settings.json, then reload.</p>
+          <p class="muted" style="margin-bottom:14px" data-t="settings.adv">Remap any key, change speeds or the toggle key in settings.json, then reload. Most changes apply at once; restart when something only takes effect on a fresh start.</p>
           <div class="row" style="flex-wrap:wrap; gap:10px">
             <button class="btn" data-cmd="openSettingsFile" type="button"><svg><use href="#i-file"/></svg><span data-t="settings.open">Open settings file</span></button>
             <button class="btn" data-cmd="reloadSettings" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.reload">Reload settings</span></button>
@@ -657,6 +754,11 @@ td:first-child { width: 168px; white-space: nowrap; }
       </div>
     </section>
   </main>
+</div>
+<div class="restart-hint" id="restart-hint" role="status" aria-live="polite">
+  <p data-t="settings.restartHint">Settings saved. Restart the app so every change is fully applied.</p>
+  <button class="btn primary" data-cmd="restartApp" type="button"><svg><use href="#i-power"/></svg><span data-t="settings.restart">Restart app</span></button>
+  <button class="close" id="restart-hint-close" type="button" aria-label="Dismiss">&times;</button>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -716,13 +818,20 @@ const T = {
     "practice.tip1t": "Use the grid", "practice.tip1": "Press G, then the box where the target is. Two presses usually land on it.",
     "practice.tip2t": "Try hints", "practice.tip2": "Press H — the target gets a label. Type it to click instantly.",
     "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
-    "settings.title": "Settings", "settings.lead": "Changes apply instantly. Everything else (every key, every speed) lives in the settings file.",
+    "settings.title": "Settings", "settings.lead": "Adjust a slider or a colour, then press Enter, click outside it, or press Apply. Everything else (every key, every speed) lives in the settings file.",
     "settings.general": "General",
     "settings.dotT": "Show pointer indicator", "settings.dot": "Draw the indicator next to the pointer while mouse mode is on.",
     "settings.styleT": "Pointer style", "settings.style": "The shape that follows the pointer. Its colour shows the active layer.",
     "settings.sizeT": "Pointer size", "settings.size": "How big the indicator is.",
+    "settings.colorT": "Pointer colour", "settings.color": "The colour while mouse mode is on. Scroll, drag lock, precision, turbo and auto click keep their own colours.",
+    "settings.statesT": "State colours", "settings.states": "Each layer keeps its own colour, so you can tell at a glance what the pointer is doing.",
+    "settings.restart": "Restart app",
+    "settings.restartHint": "Settings saved. Restart the app so every change is fully applied.",
+    "settings.pending": "Not applied yet", "settings.apply": "Apply",
+    "settings.borderLookT": "Border look", "settings.borderLook": "Frame draws a clean line, Glow a soft edge, Corners just the four corners, None draws nothing.", "settings.borderColor": "Colour",
+    "border.frame": "Frame", "border.glow": "Glow", "border.corners": "Corners", "border.none": "None",
     "style.dot": "Dot", "style.halo": "Halo", "style.spotlight": "Spotlight", "style.reticle": "Reticle",
-    "style.arrow": "Arrow", "style.comet": "Comet", "style.orbit": "Orbit", "style.buddy": "Buddy",
+    "style.arrow": "Arrow", "style.comet": "Comet", "style.orbit": "Orbit", "style.brackets": "Brackets",
     "settings.borderT": "Screen border", "settings.border": "Thin colored frame around the screen while mouse mode is on.",
     "settings.editT": "Copy, paste, undo keys", "settings.edit": "Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.",
     "settings.updateT": "Check for updates automatically", "settings.update": "Once a day, ask GitHub for a newer version. Nothing about you is sent. Off by default.",
@@ -789,13 +898,20 @@ const T = {
     "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G, rồi bấm ô có mục tiêu. Thường hai lần bấm là trúng.",
     "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
     "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
-    "settings.title": "Cài đặt", "settings.lead": "Thay đổi có hiệu lực ngay. Những thứ khác (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
+    "settings.title": "Cài đặt", "settings.lead": "Kéo thanh hoặc chọn màu, rồi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng. Còn lại (mọi phím, mọi tốc độ) nằm trong tệp cài đặt. Những thứ khác (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
     "settings.general": "Chung",
     "settings.dotT": "Hiện chỉ báo con trỏ", "settings.dot": "Vẽ chỉ báo cạnh con trỏ khi chế độ chuột đang bật.",
     "settings.styleT": "Kiểu con trỏ", "settings.style": "Hình dạng đi theo con trỏ. Màu của nó cho biết lớp đang dùng.",
     "settings.sizeT": "Cỡ chỉ báo", "settings.size": "Độ lớn của chỉ báo.",
+    "settings.colorT": "Màu con trỏ", "settings.color": "Màu khi bật mouse mode. Cuộn, khóa kéo, chính xác, tăng tốc và tự nhấn vẫn giữ màu riêng.",
+    "settings.statesT": "Màu từng trạng thái", "settings.states": "Mỗi lớp giữ màu riêng để bạn nhìn là biết con trỏ đang ở trạng thái nào.",
+    "settings.restart": "Khởi động lại",
+    "settings.restartHint": "Đã lưu cài đặt. Khởi động lại app để mọi thay đổi được áp dụng đầy đủ.",
+    "settings.pending": "Chưa áp dụng", "settings.apply": "Áp dụng",
+    "settings.borderLookT": "Kiểu viền", "settings.borderLook": "Frame là đường viền gọn, Glow là dải sáng mềm, Corners chỉ vẽ bốn góc, Không viền thì không vẽ gì.", "settings.borderColor": "Màu",
+    "border.frame": "Viền", "border.glow": "Phát sáng", "border.corners": "Bốn góc", "border.none": "Không viền",
     "style.dot": "Chấm", "style.halo": "Vòng sáng", "style.spotlight": "Đèn rọi", "style.reticle": "Tâm ngắm",
-    "style.arrow": "Mũi tên", "style.comet": "Sao chổi", "style.orbit": "Quỹ đạo", "style.buddy": "Bạn nhỏ",
+    "style.arrow": "Mũi tên", "style.comet": "Sao chổi", "style.orbit": "Quỹ đạo", "style.brackets": "Khung góc",
     "settings.borderT": "Viền màn hình", "settings.border": "Viền màu mỏng quanh màn hình khi chế độ chuột đang bật.",
     "settings.editT": "Phím copy, paste, undo", "settings.edit": "Y, P và Z gửi Ctrl+C, Ctrl+V và Ctrl+Z trong chế độ chuột.",
     "settings.updateT": "Tự kiểm tra bản cập nhật", "settings.update": "Mỗi ngày một lần, hỏi GitHub xem có bản mới không. Không gửi thông tin gì về bạn. Mặc định tắt.",
@@ -867,19 +983,19 @@ let selectedKey = null;
 let state = {
   version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
   shortcuts: { desktop: false, startMenu: false },
-  settings: { toggleKey: "CapsLock", editingExtras: true, cursorDot: true, cursorStyle: "dot", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
+  settings: { toggleKey: "CapsLock", editingExtras: true, cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
 };
 
 /* ---------------- pointer styles ---------------- */
 const CURSOR_STYLES = [
   { id: "dot", label: "style.dot", svg: `<circle cx="22" cy="21" r="7" fill="currentColor" opacity=".25"/><circle cx="21" cy="20" r="7" fill="currentColor" stroke="#fff" stroke-width="1.6"/>` },
-  { id: "halo", label: "style.halo", svg: `<circle cx="20" cy="20" r="12.5" fill="currentColor" opacity=".13"/><circle cx="20" cy="20" r="12.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M20 7.5a12.5 12.5 0 0 1 8.8 3.7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="20" r="1.8" fill="currentColor"/>` },
-  { id: "spotlight", label: "style.spotlight", svg: `<defs><radialGradient id="km-spot"><stop offset="0" stop-color="currentColor" stop-opacity=".8"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs><circle cx="20" cy="20" r="19" fill="url(#km-spot)"/><circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" stroke-width="1" opacity=".55"/><circle cx="20" cy="20" r="2.4" fill="currentColor"/>` },
-  { id: "reticle", label: "style.reticle", svg: `<circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 15V5M20 25v10M15 20H5M25 20h10"/></g><circle cx="20" cy="20" r="3.8" fill="none" stroke="currentColor" stroke-width="1.8"/>` },
-  { id: "arrow", label: "style.arrow", svg: `<path d="M11 4v25l6-5.5 4.2 9 4.3-2.1-4.2-8.8 8.7.2z" fill="currentColor" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>` },
-  { id: "comet", label: "style.comet", svg: `<circle cx="10" cy="27" r="1.8" fill="currentColor" opacity=".18"/><circle cx="15" cy="26" r="2.5" fill="currentColor" opacity=".32"/><circle cx="20.5" cy="23.5" r="3.2" fill="currentColor" opacity=".55"/><circle cx="27" cy="19" r="4.8" fill="currentColor" stroke="#fff" stroke-width="1.5"/>` },
+  { id: "halo", label: "style.halo", svg: `<circle cx="20" cy="20" r="13" fill="none" stroke="currentColor" stroke-width="6" opacity=".22"/><circle cx="20" cy="20" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="20" cy="20" r="2.2" fill="currentColor"/>` },
+  { id: "spotlight", label: "style.spotlight", svg: `<defs><radialGradient id="km-spot"><stop offset="0" stop-color="currentColor" stop-opacity=".75"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs><circle cx="20" cy="20" r="19" fill="url(#km-spot)"/><circle cx="20" cy="20" r="2.6" fill="currentColor"/>` },
+  { id: "reticle", label: "style.reticle", svg: `<g stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 11V4M20 29v7M9 20H2M31 20h7"/></g><circle cx="20" cy="20" r="1.8" fill="currentColor"/>` },
+  { id: "arrow", label: "style.arrow", svg: `<path d="M10 7 34 24 22 26 17 34Z" fill="currentColor" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>` },
+  { id: "comet", label: "style.comet", svg: `<path d="M7 8c6 2 10 5 13 9" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" opacity=".45"/><path d="M13 12c3 1.6 5.4 3.6 7 6" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" opacity=".7"/><circle cx="27" cy="26" r="5.6" fill="currentColor" stroke="#fff" stroke-width="1.6"/>` },
   { id: "orbit", label: "style.orbit", svg: `<ellipse cx="20" cy="21" rx="14" ry="10" fill="none" stroke="currentColor" stroke-width="1" opacity=".45"/><circle cx="20" cy="21" r="4.4" fill="currentColor" stroke="#fff" stroke-width="1.5"/><circle cx="32.5" cy="14.5" r="2.4" fill="currentColor" stroke="#fff" stroke-width="1"/><circle cx="9" cy="26.5" r="1.8" fill="currentColor" opacity=".8"/>` },
-  { id: "buddy", label: "style.buddy", svg: `<ellipse cx="20" cy="32.5" rx="11" ry="2.6" fill="currentColor" opacity=".18"/><rect x="8" y="10" width="24" height="20" rx="9.5" fill="currentColor" stroke="#fff" stroke-width="1.6"/><circle cx="15" cy="19" r="3.2" fill="#fff"/><circle cx="25" cy="19" r="3.2" fill="#fff"/><circle cx="16" cy="19.7" r="1.5" fill="#1f2430"/><circle cx="26" cy="19.7" r="1.5" fill="#1f2430"/>` }
+  { id: "brackets", label: "style.brackets", svg: `<g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M8 15V8h7M25 8h7v7M32 25v7h-7M15 32H8v-7"/></g>` }
 ];
 
 function load(key, fallback) { try { return localStorage.getItem("km." + key) ?? fallback; } catch { return fallback; } }
@@ -889,7 +1005,13 @@ function t(key, vars) {
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace("{" + k + "}", v);
   return s;
 }
-function send(msg) { if (host) host.postMessage(msg); }
+function send(msg) {
+  if (host) host.postMessage(msg);
+
+  // Every saved setting raises the restart reminder: a restart is the only way
+  // to be sure the change is in, so say it once and keep it in view.
+  if (msg && (msg.cmd === "setSetting" || msg.cmd === "setAutostart")) suggestRestart();
+}
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -925,6 +1047,12 @@ function keyOf(actionId) {
 function applyText() {
   document.documentElement.lang = lang;
   $$("[data-t]").forEach(el => { el.innerHTML = t(el.dataset.t); });
+  // Icon-only layouts hide these labels, so repeat them as tooltips.
+  $$("#nav button").forEach(b => { const label = b.querySelector("span"); if (label) b.title = label.textContent; });
+  const status = $("#status");
+  if (status) status.title = status.textContent.replace(/\s+/g, " ").trim();
+  const restart = $(".side-restart");
+  if (restart) restart.title = restart.textContent.trim();
   $$("#lang button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
   renderAll();
 }
@@ -1034,7 +1162,14 @@ function pressKey(name, down) {
 
 /* ---------------- dots ---------------- */
 function renderDots() {
-  const dots = [["#2ecc71", "dot.normal"], ["#3498db", "dot.scroll"], ["#9b59b6", "dot.precision"], ["#e74c3c", "dot.turbo"], ["#e67e22", "dot.drag"], ["#f1c40f", "dot.auto"]];
+  const dots = [
+    ["#" + cursorHex(), "dot.normal"],
+    ["#" + stateHex("scrollColor", "3498db"), "dot.scroll"],
+    ["#" + stateHex("precisionColor", "9b59b6"), "dot.precision"],
+    ["#" + stateHex("turboColor", "e74c3c"), "dot.turbo"],
+    ["#" + stateHex("dragLockColor", "e67e22"), "dot.drag"],
+    ["#" + stateHex("autoClickColor", "f1c40f"), "dot.auto"]
+  ];
   $("#dots").innerHTML = dots.map(([c, k]) => `<span class="dotrow"><i style="background:${c}"></i>${t(k)}</span>`).join("");
 }
 
@@ -1048,11 +1183,34 @@ function renderSettings() {
   $('[data-bind="updateCheckOnStart"]').checked = !!s.updateCheckOnStart;
   renderStyleGrid();
   const size = Math.max(4, Math.min(40, Math.round(s.dotSize || 12)));
-  if (document.activeElement !== $("#dot-size")) $("#dot-size").value = size;
-  $("#dot-size-value").textContent = size + " px";
+  if (!drafts.has("dotSize")) {
+    if (document.activeElement !== $("#dot-size")) $("#dot-size").value = size;
+    $("#dot-size-value").textContent = size + " px";
+  }
+  const hex = cursorHex();
+  if (!drafts.has("cursorColor")) {
+    if (document.activeElement !== $("#cursor-color")) $("#cursor-color").value = "#" + hex;
+    $("#cursor-color-value").textContent = "#" + hex;
+  }
+  $$("#border-style button").forEach(b => b.classList.toggle("active", b.dataset.border === String(s.borderStyle || "frame").toLowerCase()));
+  if (!drafts.has("borderColor") && document.activeElement !== $("#border-color")) {
+    $("#border-color").value = "#" + stateHex("borderColor", "2ecc71");
+  }
+  const thickness = Math.max(2, Math.min(12, Math.round(s.borderThickness || 3)));
+  if (!drafts.has("borderThickness")) {
+    if (document.activeElement !== $("#border-thickness")) $("#border-thickness").value = thickness;
+    $("#border-thickness-value").textContent = thickness + " px";
+  }
+  const fallbacks = { scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f" };
+  for (const [key, fallback] of Object.entries(fallbacks)) {
+    const input = document.querySelector(`[data-color="${key}"]`);
+    if (input && !drafts.has(key) && document.activeElement !== input) input.value = "#" + stateHex(key, fallback);
+  }
   const cps = Math.max(1, Math.min(50, Math.round(1000 / (s.autoClick.intervalMs || 100))));
-  if (document.activeElement !== $("#cps")) $("#cps").value = cps;
-  $("#cps-value").textContent = t("perSec", { n: cps });
+  if (!drafts.has("autoClick.intervalMs")) {
+    if (document.activeElement !== $("#cps")) $("#cps").value = cps;
+    $("#cps-value").textContent = t("perSec", { n: cps });
+  }
   $$("#auto-button button").forEach(b => b.classList.toggle("active", b.dataset.button.toLowerCase() === String(s.autoClick.button).toLowerCase()));
   $$("[data-shortcut]").forEach(b => {
     const done = !!state.shortcuts[b.dataset.shortcut];
@@ -1061,14 +1219,23 @@ function renderSettings() {
   });
 }
 
+/** One of the indicator colours, as six hex digits (the settings file format). */
+function stateHex(key, fallback) {
+  const raw = String(state.settings[key] || "").trim().replace(/^#/, "");
+  return /^[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : fallback;
+}
+
+function cursorHex() { return stateHex("cursorColor", "2ecc71"); }
+
 function renderStyleGrid() {
   const grid = $("#style-grid");
   if (!grid) return;
   const current = String(state.settings.cursorStyle || "dot").toLowerCase();
+  const tint = "#" + cursorHex();
   grid.innerHTML = CURSOR_STYLES.map(s => {
     const active = s.id === current;
     return `<button class="style-tile${active ? " active" : ""}" type="button" data-style="${s.id}" aria-pressed="${active}">` +
-      `<svg viewBox="0 0 40 40" aria-hidden="true">${s.svg}</svg><span>${t(s.label)}</span></button>`;
+      `<svg viewBox="0 0 40 40" aria-hidden="true" style="color:${tint}">${s.svg}</svg><span>${t(s.label)}</span></button>`;
   }).join("");
 }
 
@@ -1085,6 +1252,16 @@ function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
 }
+
+/* ---------------- restart reminder ---------------- */
+function suggestRestart() {
+  const el = document.getElementById("restart-hint");
+  if (el) el.classList.add("show");
+}
+
+document.getElementById("restart-hint-close").addEventListener("click", () => {
+  document.getElementById("restart-hint").classList.remove("show");
+});
 
 /* ---------------- demos ---------------- */
 function heroDemo() {
@@ -1275,9 +1452,109 @@ $$('[data-bind]').forEach(input => input.addEventListener("change", () => {
   const settingKey = key === "updateCheckOnStart" ? "update.checkOnStart" : key;
   if (key === "autostart") { send({ cmd: "setAutostart", on: input.checked }); state.autostart = input.checked; }
   else { send({ cmd: "setSetting", key: settingKey, value: input.checked }); state.settings[key] = input.checked; }
+  // Switching the border back on while the look is "None" would draw nothing.
+  if (key === "screenBorder" && input.checked && state.settings.borderStyle === "none") {
+    state.settings.borderStyle = "frame";
+    send({ cmd: "setSetting", key: "borderStyle", value: "frame" });
+  }
   renderSettings(); renderAll();
 }));
-$("#cps").addEventListener("input", e => { $("#cps-value").textContent = t("perSec", { n: e.target.value }); });
+
+function setScreenBorder(on) {
+  state.settings.screenBorder = on;
+  const toggle = document.querySelector('[data-bind="screenBorder"]');
+  if (toggle) toggle.checked = on;
+  send({ cmd: "setSetting", key: "screenBorder", value: on });
+}
+/* ---------------- deferred settings ----------------
+   Sliders and colour pickers edit a draft. Nothing reaches the app until the
+   field loses focus (a click outside), Enter is pressed, or Apply is used:
+   one drag or one changed digit no longer changes the setting. */
+const drafts = new Map();
+
+const draftPills = {
+  dotSize: "#dot-size-value",
+  borderThickness: "#border-thickness-value",
+  cursorColor: "#cursor-color-value"
+};
+
+function renderDraftBar() {
+  const bar = $("#draft-bar");
+  if (bar) bar.hidden = drafts.size === 0;
+}
+
+function queueDraft(key, value, pillSelector, pillText) {
+  drafts.set(key, value);
+  const pill = pillSelector ? $(pillSelector) : null;
+  if (pill) {
+    pill.textContent = pillText;
+    pill.classList.add("draft");
+  }
+  renderDraftBar();
+}
+
+function commitDraft(key) {
+  if (!drafts.has(key)) return;
+  const value = drafts.get(key);
+  drafts.delete(key);
+
+  if (key === "autoClick.intervalMs") state.settings.autoClick.intervalMs = value;
+  else state.settings[key] = value;
+
+  const pill = draftPills[key] ? $(draftPills[key]) : null;
+  if (pill) pill.classList.remove("draft");
+
+  if (key.endsWith("Color")) { renderStyleGrid(); renderDots(); }
+
+  send({ cmd: "setSetting", key, value });
+  renderDraftBar();
+}
+
+function commitAllDrafts() {
+  for (const key of [...drafts.keys()]) commitDraft(key);
+}
+
+/** Reads a control while dragging, commits it on blur or Enter. */
+function deferred(input, key, read, pillSelector, pillText) {
+  if (!input) return;
+  input.addEventListener("input", () => {
+    const value = read(input);
+    queueDraft(key, value, pillSelector, pillText ? pillText(value) : "");
+  });
+  input.addEventListener("blur", () => commitDraft(key));
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitDraft(key);
+      input.blur();
+    }
+  });
+}
+
+deferred($("#dot-size"), "dotSize",
+  el => Math.max(4, Math.min(40, Math.round(Number(el.value)) || 12)),
+  "#dot-size-value", value => value + " px");
+
+deferred($("#border-thickness"), "borderThickness",
+  el => Math.max(2, Math.min(12, Math.round(Number(el.value)) || 3)),
+  "#border-thickness-value", value => value + " px");
+
+deferred($("#cps"), "autoClick.intervalMs",
+  el => Math.round(1000 / Math.max(1, Math.min(50, Number(el.value) || 10))),
+  "#cps-value", value => t("perSec", { n: Math.max(1, Math.round(1000 / value)) }));
+
+deferred($("#cursor-color"), "cursorColor",
+  el => String(el.value || "").replace(/^#/, "").toLowerCase(),
+  "#cursor-color-value", value => "#" + value);
+
+deferred($("#border-color"), "borderColor",
+  el => String(el.value || "").replace(/^#/, "").toLowerCase());
+
+$$("[data-color]").forEach(input => deferred(input, input.dataset.color,
+  el => String(el.value || "").replace(/^#/, "").toLowerCase()));
+
+$("#apply-settings").addEventListener("click", commitAllDrafts);
+
 $("#style-grid").addEventListener("click", e => {
   const tile = e.target.closest("[data-style]");
   if (!tile) return;
@@ -1286,17 +1563,18 @@ $("#style-grid").addEventListener("click", e => {
   send({ cmd: "setSetting", key: "cursorStyle", value: id });
   renderStyleGrid();
 });
-$("#dot-size").addEventListener("input", e => { $("#dot-size-value").textContent = e.target.value + " px"; });
-$("#dot-size").addEventListener("change", e => {
-  const size = Math.round(Number(e.target.value)) || 12;
-  state.settings.dotSize = size;
-  send({ cmd: "setSetting", key: "dotSize", value: size });
-});
-$("#cps").addEventListener("change", e => {
-  const ms = Math.round(1000 / Number(e.target.value));
-  state.settings.autoClick.intervalMs = ms;
-  send({ cmd: "setSetting", key: "autoClick.intervalMs", value: ms });
-});
+
+$$("#border-style button").forEach(button => button.addEventListener("click", () => {
+  const id = button.dataset.border;
+  state.settings.borderStyle = id;
+  $$("#border-style button").forEach(b => b.classList.toggle("active", b === button));
+  send({ cmd: "setSetting", key: "borderStyle", value: id });
+  // "None" is the switch in another form: turning the frame off here keeps the
+  // switch honest instead of leaving it on with nothing drawn.
+  if (id === "none" && state.settings.screenBorder) setScreenBorder(false);
+  renderSettings();
+}));
+
 $$("#auto-button button").forEach(b => b.addEventListener("click", () => {
   state.settings.autoClick.button = b.dataset.button;
   send({ cmd: "setSetting", key: "autoClick.button", value: b.dataset.button });

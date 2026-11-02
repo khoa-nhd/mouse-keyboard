@@ -113,8 +113,13 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
 
         _cursorIndicator = new CursorIndicator(_state);
         _cursorIndicator.SetDotSize(_settings.Feedback.DotSize);
+        _cursorIndicator.SetPalette(_settings.Feedback.ToPalette());
         _cursorIndicator.SetStyle(ParseCursorStyle());
         _screenBorder = new ScreenBorder();
+        _screenBorder.Configure(
+            BorderStyles.ParseOrDefault(_settings.Feedback.BorderStyle),
+            CursorColors.ToColor(_settings.Feedback.BorderColor),
+            _settings.Feedback.BorderThickness);
         _screenBorder.Refresh(_monitors);
 
         _iconOn = LoadIcon("tray-on.ico", SystemInformation.SmallIconSize);
@@ -165,6 +170,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _menu.Items.Add(_autostartItem);
         _menu.Items.Add(CreateItem("Open log folder", OpenLogFolder));
         _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add(CreateItem("Restart KeyboardMouse", RestartApp));
         _menu.Items.Add(CreateItem("Exit", ExitThread));
 
         _tray = new NotifyIcon
@@ -301,6 +307,15 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
                 editingExtras = _settings.EditingExtras,
                 cursorDot = _settings.Feedback.CursorDot,
                 cursorStyle = _settings.Feedback.CursorStyle,
+                cursorColor = _settings.Feedback.CursorColor,
+                scrollColor = _settings.Feedback.ScrollColor,
+                precisionColor = _settings.Feedback.PrecisionColor,
+                turboColor = _settings.Feedback.TurboColor,
+                dragLockColor = _settings.Feedback.DragLockColor,
+                autoClickColor = _settings.Feedback.AutoClickColor,
+                borderStyle = _settings.Feedback.BorderStyle,
+                borderColor = _settings.Feedback.BorderColor,
+                borderThickness = _settings.Feedback.BorderThickness,
                 dotSize = _settings.Feedback.DotSize,
                 screenBorder = _settings.Feedback.ScreenBorder,
                 autoClick = new { intervalMs = _settings.AutoClick.IntervalMs, button = _settings.AutoClick.Button },
@@ -367,6 +382,10 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
                 OpenLogFolder();
                 break;
 
+            case "restartApp":
+                RestartApp();
+                break;
+
             case "openUrl":
                 // Only our own pages; the page cannot open arbitrary URLs.
                 GuideWindow.OpenUrl(command.GetString("id") == "issues" ? RepoUrl + "/issues" : RepoUrl);
@@ -408,6 +427,38 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
             case "dotSize" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int size):
                 _settings.Feedback.DotSize = size;
                 break;
+            case "cursorColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.CursorColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultHex);
+                break;
+            case "scrollColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.ScrollColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultScrollHex);
+                break;
+            case "precisionColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.PrecisionColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultPrecisionHex);
+                break;
+            case "turboColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.TurboColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultTurboHex);
+                break;
+            case "dragLockColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.DragLockColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultDragLockHex);
+                break;
+            case "autoClickColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.AutoClickColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultAutoClickHex);
+                break;
+            case "borderStyle" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                if (!BorderStyles.TryParse(v.GetString(), out var borderStyle))
+                {
+                    return;
+                }
+
+                _settings.Feedback.BorderStyle = BorderStyles.ToId(borderStyle);
+                break;
+            case "borderColor" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Feedback.BorderColor = CursorColors.Normalize(v.GetString(), CursorColors.DefaultHex);
+                break;
+            case "borderThickness" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int borderThickness):
+                _settings.Feedback.BorderThickness = Math.Clamp(borderThickness, 2, 12);
+                break;
             case "update.checkOnStart" when isBool:
                 _settings.Update.CheckOnStart = v.GetBoolean();
                 break;
@@ -441,6 +492,26 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
 
         ApplySettings();
         _guide?.Toast("toast.saved");
+    }
+
+    /// <summary>
+    /// Relaunches the exe: a helper waits for this process to end, then starts
+    /// it again. Used after changes that only apply on a fresh start.
+    /// </summary>
+    private void RestartApp()
+    {
+        Log.Info("Restart requested.");
+        if (!AppRestarter.Schedule())
+        {
+            MessageBox.Show(
+                "KeyboardMouse could not find its own exe, so it cannot restart itself. Close it and open it again.",
+                "KeyboardMouse",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
+        ExitThread();
     }
 
     /// <summary>Best-effort release from a crash handler on any thread.</summary>
@@ -511,7 +582,12 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
 
         bool feedbackOn = on && !_state.Paused;
         _cursorIndicator.SetEnabled(feedbackOn && _settings.Feedback.CursorDot);
-        _screenBorder.SetVisible(feedbackOn && _settings.Feedback.ScreenBorder);
+        // The "none" style is a second way to turn the frame off, so the switch
+        // and the style both have to agree before anything is drawn.
+        _screenBorder.SetVisible(
+            feedbackOn &&
+            _settings.Feedback.ScreenBorder &&
+            BorderStyles.ParseOrDefault(_settings.Feedback.BorderStyle) != ScreenBorderStyle.None);
         PushGuideState();
     }
 

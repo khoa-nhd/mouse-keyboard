@@ -489,3 +489,8 @@ HANDOFF*.md
 
 # Icon generator preview (tools/make-icons.ps1)
 tools/icon-preview.png
+
+# Local scratch: test exe, screenshots, scripts
+/KeyboardMouse.exe
+/*.png
+/.js-check.js

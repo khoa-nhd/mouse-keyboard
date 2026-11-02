@@ -99,6 +99,16 @@ public sealed class Settings
 
         Feedback.CursorStyle = CursorStyleNames.ToId(cursorStyle);
 
+        Feedback.CursorColor = CursorColors.Normalize(Feedback.CursorColor, CursorColors.DefaultHex);
+        Feedback.ScrollColor = CursorColors.Normalize(Feedback.ScrollColor, CursorColors.DefaultScrollHex);
+        Feedback.PrecisionColor = CursorColors.Normalize(Feedback.PrecisionColor, CursorColors.DefaultPrecisionHex);
+        Feedback.TurboColor = CursorColors.Normalize(Feedback.TurboColor, CursorColors.DefaultTurboHex);
+        Feedback.DragLockColor = CursorColors.Normalize(Feedback.DragLockColor, CursorColors.DefaultDragLockHex);
+        Feedback.AutoClickColor = CursorColors.Normalize(Feedback.AutoClickColor, CursorColors.DefaultAutoClickHex);
+        Feedback.BorderColor = CursorColors.Normalize(Feedback.BorderColor, CursorColors.DefaultHex);
+        Feedback.BorderThickness = Math.Clamp(Feedback.BorderThickness, 2, 12);
+        Feedback.BorderStyle = BorderStyles.ToId(BorderStyles.ParseOrDefault(Feedback.BorderStyle));
+
         if (!DateTimeOffset.TryParse(Update.LastCheckedUtc, out _))
         {
             Update.LastCheckedUtc = string.Empty;
@@ -246,6 +256,36 @@ public sealed class FeedbackSettings
 
     /// <summary>One of the <see cref="CursorStyleNames"/> ids, e.g. "halo" or "buddy".</summary>
     public string CursorStyle { get; set; } = "dot";
+
+    /// <summary>Colour of the indicator in the normal state, as six hex digits.</summary>
+    public string CursorColor { get; set; } = CursorColors.DefaultHex;
+
+    public string ScrollColor { get; set; } = CursorColors.DefaultScrollHex;
+
+    public string PrecisionColor { get; set; } = CursorColors.DefaultPrecisionHex;
+
+    public string TurboColor { get; set; } = CursorColors.DefaultTurboHex;
+
+    public string DragLockColor { get; set; } = CursorColors.DefaultDragLockHex;
+
+    public string AutoClickColor { get; set; } = CursorColors.DefaultAutoClickHex;
+
+    /// <summary>One of the <see cref="BorderStyles"/> ids: "frame", "glow", "corners" or "none".</summary>
+    public string BorderStyle { get; set; } = "frame";
+
+    public string BorderColor { get; set; } = CursorColors.DefaultHex;
+
+    /// <summary>Line thickness of the frame, in pixels.</summary>
+    public int BorderThickness { get; set; } = 3;
+
+    /// <summary>The six colours the pointer indicator can use.</summary>
+    public CursorPalette ToPalette() => new(
+        CursorColors.ToColor(CursorColor),
+        CursorColors.ToColor(ScrollColor),
+        CursorColors.ToColor(PrecisionColor),
+        CursorColors.ToColor(TurboColor),
+        CursorColors.ToColor(DragLockColor),
+        CursorColors.ToColor(AutoClickColor));
 }
 
 /// <summary>

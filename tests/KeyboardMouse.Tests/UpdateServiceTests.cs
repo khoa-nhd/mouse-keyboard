@@ -238,4 +238,18 @@ public class UpdateServiceTests
             // Best effort: the temp folder is disposable.
         }
     }
+
+    [Fact]
+    public void RestartScript_WaitsForThePidAndStartsTheExeAgain()
+    {
+        string exe = Path.Combine("C:", "Tools", "Mouse's", "KeyboardMouse.exe");
+        string directory = Path.Combine("C:", "Tools", "Mouse's");
+
+        string script = AppRestarter.BuildScript(4242, exe, directory);
+
+        Assert.Contains("Wait-Process -Id 4242", script);
+        Assert.Contains("-FilePath '" + exe.Replace("'", "''") + "'", script);
+        Assert.Contains("-WorkingDirectory '" + directory.Replace("'", "''") + "'", script);
+        Assert.Contains("Start-Sleep -Milliseconds 300", script);
+    }
 }

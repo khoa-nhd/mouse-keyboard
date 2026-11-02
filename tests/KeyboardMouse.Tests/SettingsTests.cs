@@ -1,4 +1,5 @@
 using KeyboardMouse.Config;
+using KeyboardMouse.Overlays;
 
 namespace KeyboardMouse.Tests;
 
@@ -143,13 +144,116 @@ public class SettingsTests
 
         var mixedCase = new Settings
         {
-            Feedback = new FeedbackSettings { CursorStyle = "Buddy" }
+            Feedback = new FeedbackSettings { CursorStyle = "Brackets" }
         };
         mixedCase.Normalize();
-        Assert.Equal("buddy", mixedCase.Feedback.CursorStyle);
+        Assert.Equal("brackets", mixedCase.Feedback.CursorStyle);
 
         var defaults = new Settings();
         defaults.Normalize();
         Assert.Equal("dot", defaults.Feedback.CursorStyle);
+    }
+
+    [Fact]
+    public void Normalize_RepairsCursorColor()
+    {
+        var mixedCase = new Settings
+        {
+            Feedback = new FeedbackSettings { CursorColor = "#3A7BD5" }
+        };
+        mixedCase.Normalize();
+        Assert.Equal("3a7bd5", mixedCase.Feedback.CursorColor);
+
+        foreach (string bad in new[] { "", "#12", "blue", "12345g", "1,2,3" })
+        {
+            var settings = new Settings
+            {
+                Feedback = new FeedbackSettings { CursorColor = bad }
+            };
+            settings.Normalize();
+            Assert.Equal(CursorColors.DefaultHex, settings.Feedback.CursorColor);
+        }
+
+        var defaults = new Settings();
+        defaults.Normalize();
+        Assert.Equal("2ecc71", defaults.Feedback.CursorColor);
+    }
+
+    [Fact]
+    public void Normalize_RepairsStateColours()
+    {
+        var settings = new Settings
+        {
+            Feedback = new FeedbackSettings
+            {
+                ScrollColor = "#123ABC",
+                PrecisionColor = "nope",
+                TurboColor = "",
+                DragLockColor = null!,
+                AutoClickColor = "ffd700"
+            }
+        };
+
+        settings.Normalize();
+
+        Assert.Equal("123abc", settings.Feedback.ScrollColor);
+        Assert.Equal("9b59b6", settings.Feedback.PrecisionColor);
+        Assert.Equal("e74c3c", settings.Feedback.TurboColor);
+        Assert.Equal("e67e22", settings.Feedback.DragLockColor);
+        Assert.Equal("ffd700", settings.Feedback.AutoClickColor);
+    }
+
+    [Fact]
+    public void ToPalette_MapsEveryColour()
+    {
+        var settings = new Settings
+        {
+            Feedback = new FeedbackSettings
+            {
+                CursorColor = "2ec9cc",
+                ScrollColor = "112233",
+                PrecisionColor = "445566",
+                TurboColor = "778899",
+                DragLockColor = "aabbcc",
+                AutoClickColor = "ddeeff"
+            }
+        };
+
+        var palette = settings.Feedback.ToPalette();
+
+        Assert.Equal(CursorColors.ToColor("2ec9cc"), palette.Normal);
+        Assert.Equal(CursorColors.ToColor("112233"), palette.Scroll);
+        Assert.Equal(CursorColors.ToColor("445566"), palette.Precision);
+        Assert.Equal(CursorColors.ToColor("778899"), palette.Turbo);
+        Assert.Equal(CursorColors.ToColor("aabbcc"), palette.DragLock);
+        Assert.Equal(CursorColors.ToColor("ddeeff"), palette.AutoClick);
+    }
+
+    [Fact]
+    public void Normalize_RepairsBorderSettings()
+    {
+        var settings = new Settings
+        {
+            Feedback = new FeedbackSettings
+            {
+                BorderStyle = "Glow",
+                BorderColor = "#AABBCC",
+                BorderThickness = 40
+            }
+        };
+
+        settings.Normalize();
+
+        Assert.Equal("glow", settings.Feedback.BorderStyle);
+        Assert.Equal("aabbcc", settings.Feedback.BorderColor);
+        Assert.Equal(12, settings.Feedback.BorderThickness);
+
+        var unknown = new Settings
+        {
+            Feedback = new FeedbackSettings { BorderStyle = "neon", BorderThickness = 0 }
+        };
+        unknown.Normalize();
+        Assert.Equal("frame", unknown.Feedback.BorderStyle);
+        Assert.Equal(2, unknown.Feedback.BorderThickness);
     }
 }

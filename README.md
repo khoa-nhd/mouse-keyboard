@@ -113,6 +113,7 @@ At sign-in the app starts silently in the tray, without opening the window.
 | Check for updates | Ask GitHub for a newer version (see below) |
 | Start with Windows | Toggle autostart |
 | Open log folder | Open the folder with `log.txt` (for bug reports) |
+| Restart KeyboardMouse | Close and start the app again (same exe, same settings) |
 | Exit | Quit the app; the keyboard goes back to normal immediately |
 
 ## 7. Update to a new version
@@ -306,7 +307,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
 - Every key can be remapped. A key can't be bound twice; the first binding wins.
 - The same file holds speeds, scroll feel, the pointer indicator
   (`feedback.cursorStyle` = `dot`, `halo`, `spotlight`, `reticle`, `arrow`,
-  `comet`, `orbit` or `buddy`, and `feedback.dotSize`), the tap timeout,
+  `comet`, `orbit` or `brackets`, and `feedback.dotSize`), the tap timeout,
   auto-off and grid depth.
 - To use a different toggle key, set `activation.toggleKey` (e.g. `"ScrollLock"`).
 - Key names are physical names (`I`, `Space`, `Apostrophe`, `Comma`, `PageUp`, …).

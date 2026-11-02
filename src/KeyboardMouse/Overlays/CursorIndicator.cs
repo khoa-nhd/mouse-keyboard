@@ -13,16 +13,20 @@ namespace KeyboardMouse.Overlays;
 /// </summary>
 public sealed class CursorIndicator : IDisposable
 {
-    private const int MaxTrail = 14;
-    private const int TrailSpacing = 3;
+    private const int MaxTrail = 90;
+    private const float MinTrailSpacing = 1.2f;
+
+    /// <summary>How long a comet sample stays visible, in seconds.</summary>
+    private const float TrailLife = 0.9f;
 
     private readonly AppState _state;
     private readonly CursorForm _form = new();
     private readonly System.Windows.Forms.Timer _timer;
-    private readonly List<PointF> _trail = new();
+    private readonly List<(int X, int Y, long Tick)> _trail = new();
 
     private CursorStyle _style = CursorStyle.Dot;
     private int _dotSize = 12;
+    private CursorPalette _palette = CursorPalette.Default;
     private bool _enabled;
     private bool _shown;
     private int _lastX = int.MinValue;
@@ -47,6 +51,22 @@ public sealed class CursorIndicator : IDisposable
         _dotSize = clamped;
         _lastX = int.MinValue;
         _trail.Clear();
+        if (_enabled)
+        {
+            UpdatePosition(force: true);
+        }
+    }
+
+    /// <summary>One colour per state; the active layer decides which one is drawn.</summary>
+    public void SetPalette(CursorPalette palette)
+    {
+        if (palette == _palette)
+        {
+            return;
+        }
+
+        _palette = palette;
+        _lastColor = Color.Empty;
         if (_enabled)
         {
             UpdatePosition(force: true);
@@ -103,16 +123,16 @@ public sealed class CursorIndicator : IDisposable
 
         var feedback = _state.GetFeedback();
         Color color = feedback.AutoClicking
-            ? Color.FromArgb(255, 241, 196, 15)   // yellow: auto clicker running
+            ? _palette.AutoClick
             : feedback.DragLock
-            ? Color.FromArgb(255, 230, 126, 34)   // orange: drag lock
-            : feedback.Scroll
-                ? Color.FromArgb(255, 52, 152, 219)  // blue: scroll layer
-                : feedback.Precision
-                    ? Color.FromArgb(255, 155, 89, 182) // purple: precision
-                    : feedback.Turbo
-                        ? Color.FromArgb(255, 231, 76, 60) // red: turbo
-                        : Color.FromArgb(255, 46, 204, 113); // green: normal
+                ? _palette.DragLock
+                : feedback.Scroll
+                    ? _palette.Scroll
+                    : feedback.Precision
+                        ? _palette.Precision
+                        : feedback.Turbo
+                            ? _palette.Turbo
+                            : _palette.Normal;
 
         bool moved = cursor.X != _lastX || cursor.Y != _lastY;
         if (!force && !moved && color == _lastColor && !CursorPainter.IsAnimated(_style))
@@ -120,9 +140,18 @@ public sealed class CursorIndicator : IDisposable
             return;
         }
 
+        long now = Environment.TickCount64;
+
         if (moved)
         {
-            TrackTrail(cursor.X, cursor.Y);
+            TrackTrail(cursor.X, cursor.Y, now);
+        }
+
+        // Comet samples age out even while the pointer rests, so the tail
+        // dissolves instead of freezing on screen.
+        if (_style == CursorStyle.Comet)
+        {
+            PruneTrail(now);
         }
 
         _lastX = cursor.X;
@@ -131,9 +160,9 @@ public sealed class CursorIndicator : IDisposable
 
         var visual = CursorPainter.Measure(_style, _dotSize);
         var pointer = new PointF(-visual.OffsetX, -visual.OffsetY);
-        float phase = (Environment.TickCount64 % 3600000) / 1000f;
+        float phase = (now % 3600000) / 1000f;
 
-        _form.Render(visual, _style, _dotSize, color, phase, pointer, BuildLocalTrail(pointer), cursor);
+        _form.Render(visual, _style, _dotSize, color, phase, pointer, BuildLocalTrail(pointer, now), cursor);
 
         if (!_shown)
         {
@@ -143,7 +172,7 @@ public sealed class CursorIndicator : IDisposable
     }
 
     /// <summary>Keeps a short history of pointer samples for the comet tail.</summary>
-    private void TrackTrail(int x, int y)
+    private void TrackTrail(int x, int y, long now)
     {
         if (_style != CursorStyle.Comet)
         {
@@ -155,31 +184,49 @@ public sealed class CursorIndicator : IDisposable
             var last = _trail[^1];
             float dx = x - last.X;
             float dy = y - last.Y;
-            if ((dx * dx) + (dy * dy) < TrailSpacing * TrailSpacing)
+            if ((dx * dx) + (dy * dy) < MinTrailSpacing * MinTrailSpacing)
             {
                 return;
             }
         }
 
-        _trail.Add(new PointF(x, y));
+        _trail.Add((x, y, now));
         if (_trail.Count > MaxTrail)
         {
             _trail.RemoveAt(0);
         }
     }
 
-    private PointF[] BuildLocalTrail(PointF pointer)
+    private void PruneTrail(long now)
+    {
+        for (int i = _trail.Count - 1; i >= 0; i--)
+        {
+            if (now - _trail[i].Tick > TrailLife * 1000f)
+            {
+                _trail.RemoveAt(i);
+            }
+        }
+    }
+
+    private TrailSample[] BuildLocalTrail(PointF pointer, long now)
     {
         if (_style != CursorStyle.Comet || _trail.Count == 0)
         {
-            return Array.Empty<PointF>();
+            return Array.Empty<TrailSample>();
         }
 
-        var local = new PointF[_trail.Count];
+        // Samples are pointer positions; the tail must follow the head, which
+        // is drawn at pointer + CometHeadInset. Without this shift the tail
+        // hangs off the cursor instead of trailing the head.
+        var head = new PointF(pointer.X + CursorPainter.CometHeadInset, pointer.Y + CursorPainter.CometHeadInset);
+
+        var local = new TrailSample[_trail.Count];
         for (int i = 0; i < _trail.Count; i++)
         {
             // _lastX/_lastY match the newest sample; translate into surface space.
-            local[i] = new PointF(_trail[i].X - _lastX + pointer.X, _trail[i].Y - _lastY + pointer.Y);
+            local[i] = new TrailSample(
+                new PointF(_trail[i].X - _lastX + head.X, _trail[i].Y - _lastY + head.Y),
+                Math.Clamp((now - _trail[i].Tick) / (TrailLife * 1000f), 0f, 1f));
         }
 
         return local;
@@ -201,14 +248,16 @@ public sealed class CursorIndicator : IDisposable
             Color color,
             float phase,
             PointF pointer,
-            IReadOnlyList<PointF> trail,
+            IReadOnlyList<TrailSample> trail,
             POINT cursor)
         {
+            CursorPainter.Gap(style, out int gapX, out int gapY);
+
             RenderSurface(
                 visual.Width,
                 visual.Height,
-                cursor.X + visual.OffsetX,
-                cursor.Y + visual.OffsetY,
+                cursor.X + visual.OffsetX + gapX,
+                cursor.Y + visual.OffsetY + gapY,
                 g => CursorPainter.Paint(g, style, size, color, phase, pointer, trail));
         }
     }
