@@ -3,6 +3,18 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.3] - 2026-11-02
+
+### Fixed
+- Every **Restart** button now uses a circular-arrow icon of its own
+  (`#i-restart`, a nearly closed ring with a corner arrowhead) instead of the
+  refresh glyph on the About tab, which read as a power button at small sizes,
+  and instead of the power glyph on the two Settings buttons.
+
+### Changed
+- The guide page is served with `Cache-Control: no-cache`, so an app update can
+  no longer be masked by an old cached page in the WebView2 user-data folder.
+
 ## [0.4.2] - 2026-11-02
 
 ### Fixed
