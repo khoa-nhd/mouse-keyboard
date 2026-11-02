@@ -3,6 +3,16 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.7] - 2026-11-02
+
+### Fixed
+- **A short guide window could not scroll to the end of a page.** The window
+  grid sized its only row from the content, so with a shrunk window the row
+  grew past the window and the clipped bottom (including several hundred
+  pixels of the Keys and Settings pages) was unreachable: the app grid row is
+  pinned now (`minmax(0, 1fr)`), the page list scrolls its full height and the
+  bottom padding is always visible.
+
 ## [0.4.6] - 2026-11-02
 
 ### Changed
