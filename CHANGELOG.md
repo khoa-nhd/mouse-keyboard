@@ -3,6 +3,14 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.4] - 2026-11-02
+
+### Added
+- A **Shutdown** button directly above the sidebar's Restart app button. It
+  stops the app completely (the same action as About → Shutdown and the tray
+  Exit item), so both app controls are visible on every guide page. Under
+  narrow windows it collapses to the icon only, like Restart does.
+
 ## [0.4.3] - 2026-11-02
 
 ### Fixed
