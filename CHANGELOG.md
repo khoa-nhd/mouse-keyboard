@@ -3,6 +3,14 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.6] - 2026-11-02
+
+### Changed
+- The three sidebar buttons (status, Shutdown, Restart) are now one tight
+  group with 6 px between buttons instead of the previous 26-28 px spread:
+  the sidebar's 18 px gaps now only separate the brand, the action group and
+  the page list, and the same holds in the narrow icon rail.
+
 ## [0.4.5] - 2026-11-02
 
 Full code audit; fixes ordered by impact.

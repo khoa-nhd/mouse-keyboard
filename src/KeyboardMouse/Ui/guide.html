@@ -100,11 +100,11 @@ button { font: inherit; color: inherit; }
 }
 .status:hover { border-color: var(--accent); }
 .status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--soft); flex: none; }
+.side-actions { display: flex; flex-direction: column; gap: 6px; }
 .side-shutdown, .side-restart { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-  margin-top: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--panel); color: var(--text); font: 600 13px/1.2 inherit; cursor: pointer;
   transition: border-color .15s, color .15s, background .15s; }
-.side-shutdown { margin-top: 10px; }
 .side-shutdown:hover { border-color: #ef4444; color: #ef4444; }
 .side-restart:hover { border-color: var(--accent); color: var(--accent); }
 .side-shutdown svg, .side-restart svg { width: 16px; height: 16px; }
@@ -460,13 +460,15 @@ td:first-child { width: 168px; white-space: nowrap; }
       <div><b>KeyboardMouse</b><span id="version">v—</span></div>
     </div>
 
-    <button class="status" id="status" type="button">
-      <i class="dot"></i>
-      <div><b id="status-title">Mouse mode off</b><small id="status-sub">Tap Caps Lock to start</small></div>
-    </button>
+    <div class="side-actions">
+      <button class="status" id="status" type="button">
+        <i class="dot"></i>
+        <div><b id="status-title">Mouse mode off</b><small id="status-sub">Tap Caps Lock to start</small></div>
+      </button>
 
-    <button class="side-shutdown" data-cmd="exitApp" type="button"><svg><use href="#i-power"/></svg><span data-t="about.shutdownBtn">Shutdown</span></button>
-    <button class="side-restart" data-cmd="restartApp" type="button"><svg><use href="#i-restart"/></svg><span data-t="settings.restart">Restart app</span></button>
+      <button class="side-shutdown" data-cmd="exitApp" type="button"><svg><use href="#i-power"/></svg><span data-t="about.shutdownBtn">Shutdown</span></button>
+      <button class="side-restart" data-cmd="restartApp" type="button"><svg><use href="#i-restart"/></svg><span data-t="settings.restart">Restart app</span></button>
+    </div>
 
     <nav id="nav">
       <button data-page="home" aria-current="page"><svg><use href="#i-home"/></svg><span data-t="nav.home">Start</span></button>
