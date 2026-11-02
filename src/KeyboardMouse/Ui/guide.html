@@ -293,6 +293,7 @@ td:first-child { width: 168px; white-space: nowrap; }
 .mode li { margin: 3px 0; }
 .demo { position: relative; height: 200px; border-radius: 12px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--line); }
 .demo .screen { position: absolute; inset: 12px; border-radius: 8px; background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, var(--panel)), var(--panel)); border: 1px solid var(--line); }
+.demo .screen.clip { overflow: hidden; }
 .gcell { position: absolute; border: 1px solid color-mix(in srgb, var(--c-jump) 55%, transparent); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--c-jump); transition: all .35s ease; }
 .gcell.hit { background: color-mix(in srgb, var(--c-jump) 22%, transparent); color: var(--text); }
 .gptr { position: absolute; width: 16px; height: 22px; transition: left .35s ease, top .35s ease; z-index: 3; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
@@ -517,7 +518,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         </div>
         <div class="card mode">
           <div class="head"><span class="kbd" data-key="scrollLayer">D</span><h2 data-t="modes.scrollT">Scroll layer</h2></div>
-          <div class="demo"><div class="screen"><div class="lines" id="scroll-lines"></div></div><div class="typed" id="scroll-keys"><kbd data-key="scrollLayer">D</kbd><span class="plus">+</span><kbd data-key="down">K</kbd></div></div>
+          <div class="demo"><div class="screen clip"><div class="lines" id="scroll-lines"></div></div><div class="typed" id="scroll-keys"><kbd data-key="scrollLayer">D</kbd><span class="plus">+</span><kbd data-key="down">K</kbd></div></div>
           <p data-t="modes.scroll">Hold D and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.</p>
           <ul>
             <li data-t="modes.scroll1"><kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways</li>
@@ -652,8 +653,11 @@ td:first-child { width: 168px; white-space: nowrap; }
         </div>
       </div>
       <div class="card row between" style="margin-top:16px">
-        <div><h3 data-t="about.quitT">Quit KeyboardMouse</h3><p class="muted" data-t="about.quit">Stops the app completely. Your keyboard goes back to normal right away.</p></div>
-        <button class="btn" data-cmd="exitApp" type="button"><svg><use href="#i-power"/></svg><span data-t="about.quitBtn">Quit</span></button>
+        <div><h3 data-t="about.powerT">Shutdown or restart</h3><p class="muted" data-t="about.power">Shutdown stops the app completely and your keyboard goes back to normal right away. Restart closes it and starts it again.</p></div>
+        <div class="stack" style="gap:8px">
+          <button class="btn" data-cmd="exitApp" type="button"><svg><use href="#i-power"/></svg><span data-t="about.shutdownBtn">Shutdown</span></button>
+          <button class="btn" data-cmd="restartApp" type="button"><svg><use href="#i-refresh"/></svg><span data-t="about.restartBtn">Restart</span></button>
+        </div>
       </div>
     </section>
   </main>
@@ -734,7 +738,7 @@ const T = {
     "about.license": "Free and open source (MIT)", "about.bug": "Report a problem",
     "about.privacyT": "Your privacy", "about.p1": "Never records or saves what you type.", "about.p2": "Stays offline unless you turn on update checks (GitHub only).", "about.p3": "All source code is public on GitHub.",
     "about.limitsT": "Good to know", "about.l1": "Admin windows (e.g. Task Manager) only respond if KeyboardMouse runs as administrator.", "about.l2": "Some games ignore simulated input.", "about.l3": "Works together with a TrackPoint, touchpad or mouse.",
-    "about.quitT": "Quit KeyboardMouse", "about.quit": "Stops the app completely. Your keyboard goes back to normal right away.", "about.quitBtn": "Quit",
+    "about.powerT": "Shutdown or restart", "about.power": "Shutdown stops the app completely and your keyboard goes back to normal right away. Restart closes it and starts it again.", "about.shutdownBtn": "Shutdown", "about.restartBtn": "Restart",
     "toast.saved": "Saved", "toast.reloaded": "Settings reloaded", "toast.shortcut": "Shortcut added", "toast.failed": "Something went wrong — see the log",
     "perSec": "{n} / s"
   },
@@ -807,7 +811,7 @@ const T = {
     "about.license": "Miễn phí và mã nguồn mở (MIT)", "about.bug": "Báo lỗi",
     "about.privacyT": "Quyền riêng tư", "about.p1": "Không bao giờ ghi lại hay lưu những gì bạn gõ.", "about.p2": "Không lên mạng, trừ khi bạn bật kiểm tra cập nhật (chỉ tới GitHub).", "about.p3": "Toàn bộ mã nguồn công khai trên GitHub.",
     "about.limitsT": "Nên biết", "about.l1": "Cửa sổ chạy quyền admin (vd. Task Manager) chỉ nhận lệnh nếu KeyboardMouse cũng chạy bằng quyền admin.", "about.l2": "Một số game bỏ qua thao tác chuột giả lập.", "about.l3": "Dùng chung được với TrackPoint, touchpad hoặc chuột thật.",
-    "about.quitT": "Thoát KeyboardMouse", "about.quit": "Tắt hẳn app. Bàn phím trở lại bình thường ngay lập tức.", "about.quitBtn": "Thoát",
+    "about.powerT": "Tắt hoặc khởi động lại", "about.power": "Shutdown tắt hẳn app và bàn phím trở lại bình thường ngay lập tức. Restart tắt app rồi chạy lại từ đầu.", "about.shutdownBtn": "Tắt", "about.restartBtn": "Khởi động lại",
     "toast.saved": "Đã lưu", "toast.reloaded": "Đã tải lại cài đặt", "toast.shortcut": "Đã tạo shortcut", "toast.failed": "Có lỗi xảy ra — xem file log",
     "perSec": "{n} / giây"
   }

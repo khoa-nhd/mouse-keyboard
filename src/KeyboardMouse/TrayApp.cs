@@ -376,6 +376,10 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
                 ExitThread();
                 return;
 
+            case "restartApp":
+                RestartApp();
+                return;
+
             default:
                 Log.Info($"Ignored unknown guide command '{command.Name}'.");
                 return;
@@ -985,6 +989,45 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         {
             Log.Error("Could not open the log folder", ex);
         }
+    }
+
+    /// <summary>
+    /// Exits and starts the exe again (no --background, so the guide reopens).
+    /// A hidden PowerShell helper waits for this process to end first: the
+    /// single-instance mutex has to be released before the new instance can
+    /// claim it. Restarting from the guide also avoids stale autostart state.
+    /// </summary>
+    private void RestartApp()
+    {
+        Log.Info("Restart requested.");
+        try
+        {
+            string exe = UpdateService.CurrentExePath;
+            string powershell = System.IO.Path.Combine(
+                Environment.SystemDirectory,
+                "WindowsPowerShell",
+                "v1.0",
+                "powershell.exe");
+            string script =
+                "Wait-Process -Id " + Environment.ProcessId + " -ErrorAction SilentlyContinue" +
+                "; Start-Sleep -Milliseconds 400" +
+                "; Start-Process -FilePath '" + exe.Replace("'", "''") + "'";
+            Process.Start(new ProcessStartInfo(
+                powershell,
+                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command " + script)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not schedule the restart", ex);
+            _tray.ShowBalloonTip(3000, "KeyboardMouse", "Could not restart the app.", ToolTipIcon.Error);
+            return;
+        }
+
+        ExitThread();
     }
 
     /// <summary>Loads an embedded .ico, picking the frame that fits <paramref name="size"/>

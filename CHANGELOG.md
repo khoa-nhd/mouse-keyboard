@@ -3,6 +3,18 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.1] - 2026-11-02
+
+### Added
+- **Shutdown** and **Restart** buttons in the About tab. Restart closes the
+  app and starts the exe again (the guide reopens); a tiny PowerShell helper
+  waits for this process to end first so the single-instance mutex is free.
+
+### Fixed
+- The scroll-layer demo in the guide drew its fake document lines outside the
+  screen frame, past the border onto the card background. The demo now clips
+  the lines inside the frame.
+
 ## [0.4.0] - 2026-11-02
 
 ### Added
