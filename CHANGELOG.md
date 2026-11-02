@@ -3,6 +3,36 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [0.4.0] - 2026-11-02
+
+### Added
+- Eight pointer indicator styles, so mouse mode no longer has to be a plain
+  dot: **Classic dot**, **Halo ring**, **Spotlight**, **Reticle**, **Arrow**,
+  **Comet trail**, **Orbit** and **Buddy** (a small face that blinks and bobs).
+  Pick one in **Settings → Pointer style** or from the tray menu; each tile in
+  the window previews the real design. Colour continues to show the active
+  layer, auto click and drag lock.
+- **Pointer size** slider in Settings, backed by `feedback.dotSize`.
+- `feedback.cursorStyle` in `settings.json` (`dot`, `halo`, `spotlight`,
+  `reticle`, `arrow`, `comet`, `orbit`, `buddy`); unknown values fall back to
+  `dot`.
+- Opt-in updates from GitHub Releases, off by default. **Check for updates**
+  in the tray menu or Settings asks GitHub for the latest stable release, and
+  **Check for updates automatically** repeats the check once a day, silently.
+  When a newer version exists it asks first, downloads the zip, verifies the
+  published SHA-256, then closes, swaps the exe and starts again.
+  `update.checkOnStart` in `settings.json` controls the automatic check;
+  settings, marks and autostart are untouched by an update.
+- The release workflow now publishes `<zip>.sha256` next to the zip; without it
+  the updater refuses to install anything.
+
+### Changed
+- The guide's "What the dot means" section is now "What the colours mean",
+  since the indicator is not always a dot.
+- `PRIVACY.md`, the About tab and the README no longer claim the app never
+  touches the network: they now say it stays offline unless you enable update
+  checks, and that a check sends nothing about the user.
+
 ## [0.3.0] - 2026-11-01
 
 ### Added

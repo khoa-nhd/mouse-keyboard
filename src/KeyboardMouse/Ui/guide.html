@@ -184,6 +184,18 @@ kbd.lg { min-width: 46px; height: 44px; font-size: 18px; border-radius: 10px; bo
 input[type=range] { width: 220px; accent-color: var(--accent); }
 .value-pill { min-width: 92px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+/* ---------- pointer style picker ---------- */
+.style-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 6px 0 4px; }
+.style-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px 10px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; color: var(--muted);
+  font: 600 12px/1.2 inherit; transition: border-color .15s, transform .12s, background .15s; }
+.style-tile:hover { transform: translateY(-1px); border-color: var(--accent); }
+.style-tile.active { border-color: var(--accent); color: var(--text); background: var(--panel);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow); }
+.style-tile svg { width: 40px; height: 40px; color: var(--accent); }
+.style-tile.active::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+@media (max-width: 720px) { .style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* ---------- home ---------- */
 .hero {
   position: relative; overflow: hidden;
@@ -517,7 +529,7 @@ td:first-child { width: 168px; white-space: nowrap; }
           <div class="demo"><div class="screen"></div><div class="ripple"></div><div class="counter" id="auto-count">0</div></div>
           <p data-t="modes.auto">Press B and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press B again to stop.</p>
           <ul>
-            <li data-t="modes.auto1">The dot turns <b style="color:#eab308">yellow</b> while it runs</li>
+            <li data-t="modes.auto1">The indicator turns <b style="color:#eab308">yellow</b> while it runs</li>
             <li data-t="modes.auto2">Speed and button: <b>Settings → Auto clicker</b></li>
           </ul>
         </div>
@@ -577,7 +589,14 @@ td:first-child { width: 168px; white-space: nowrap; }
         <div class="card">
           <h2 style="margin-bottom:10px" data-t="settings.general">General</h2>
           <div class="setting"><div><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div><label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label></div>
-          <div class="setting"><div><h3 data-t="settings.dotT">Pointer dot</h3><p data-t="settings.dot">Colored dot next to the pointer while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="cursorDot"><span></span></label></div>
+          <div class="setting"><div><h3 data-t="settings.updateT">Check for updates automatically</h3><p data-t="settings.update">Once a day, ask GitHub for a newer version. Nothing about you is sent. Off by default.</p></div><label class="switch"><input type="checkbox" data-bind="updateCheckOnStart"><span></span></label></div>
+          <div class="setting" style="display:block; border-bottom:0; padding-bottom:4px">
+            <div style="margin-bottom:12px"><h3 data-t="settings.styleT">Pointer style</h3><p data-t="settings.style">The shape that follows the pointer. Its colour shows the active layer.</p></div>
+            <div class="style-grid" id="style-grid"></div>
+          </div>
+          <div class="setting"><div><h3 data-t="settings.sizeT">Pointer size</h3><p data-t="settings.size">How big the indicator is.</p></div>
+            <div class="row"><input type="range" id="dot-size" min="4" max="40" step="1"><span class="value-pill" id="dot-size-value">12 px</span></div></div>
+          <div class="setting"><div><h3 data-t="settings.dotT">Show pointer indicator</h3><p data-t="settings.dot">Draw the indicator next to the pointer while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="cursorDot"><span></span></label></div>
           <div class="setting"><div><h3 data-t="settings.borderT">Screen border</h3><p data-t="settings.border">Thin colored frame around the screen while mouse mode is on.</p></div><label class="switch"><input type="checkbox" data-bind="screenBorder"><span></span></label></div>
           <div class="setting"><div><h3 data-t="settings.editT">Copy, paste, undo keys</h3><p data-t="settings.edit">Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.</p></div><label class="switch"><input type="checkbox" data-bind="editingExtras"><span></span></label></div>
         </div>
@@ -594,6 +613,7 @@ td:first-child { width: 168px; white-space: nowrap; }
           <div class="row" style="flex-wrap:wrap; gap:10px">
             <button class="btn" data-cmd="openSettingsFile" type="button"><svg><use href="#i-file"/></svg><span data-t="settings.open">Open settings file</span></button>
             <button class="btn" data-cmd="reloadSettings" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.reload">Reload settings</span></button>
+            <button class="btn" data-cmd="checkForUpdates" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.checkUpdate">Check for updates</span></button>
             <button class="btn" data-cmd="openLogFolder" type="button"><svg><use href="#i-folder"/></svg><span data-t="settings.log">Open log folder</span></button>
           </div>
         </div>
@@ -618,7 +638,7 @@ td:first-child { width: 168px; white-space: nowrap; }
           <h2 style="margin-bottom:8px" data-t="about.privacyT">Your privacy</h2>
           <ul class="list">
             <li><svg><use href="#i-check"/></svg><span data-t="about.p1">Never records or saves what you type.</span></li>
-            <li><svg><use href="#i-check"/></svg><span data-t="about.p2">Never connects to the internet.</span></li>
+            <li><svg><use href="#i-check"/></svg><span data-t="about.p2">Stays offline unless you turn on update checks (GitHub only).</span></li>
             <li><svg><use href="#i-check"/></svg><span data-t="about.p3">All source code is public on GitHub.</span></li>
           </ul>
         </div>
@@ -653,7 +673,7 @@ const T = {
     "home.lead": "Move, click, drag and scroll without lifting your hands from the home row. KeyboardMouse runs quietly in the system tray.",
     "home.turnOn": "Turn on mouse mode", "home.turnOff": "Turn off mouse mode", "home.orPress": "or press",
     "home.quick": "Get going in 30 seconds",
-    "home.s1t": "Turn it on", "home.s1": "Tap Caps Lock. A small green dot appears next to the pointer — you are in mouse mode.",
+    "home.s1t": "Turn it on", "home.s1": "Tap Caps Lock. A small green marker appears next to the pointer — you are in mouse mode.",
     "home.s2t": "Move", "home.s2": "Hold a key and the pointer glides, getting faster the longer you hold. Press two for diagonals.",
     "home.s3t": "Click", "home.s3": "Space is the left button. Hold it while moving to drag. Tap Caps Lock again to type normally.",
     "home.tray": "Closing this window does not stop the app. Find it in the system tray next to the clock (click <b>^</b> if it is hidden). Right-click the icon for the menu, double-click to reopen this guide.",
@@ -679,7 +699,7 @@ const T = {
     "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways",
     "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom",
     "modes.autoT": "Auto clicker", "modes.auto": "Press B and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press B again to stop.",
-    "modes.auto1": "The dot turns <b style=\"color:#eab308\">yellow</b> while it runs", "modes.auto2": "Speed and button: <b>Settings → Auto clicker</b>",
+    "modes.auto1": "The indicator turns <b style=\"color:#eab308\">yellow</b> while it runs", "modes.auto2": "Speed and button: <b>Settings → Auto clicker</b>",
     "modes.moreT": "More moves",
     "modes.dragT": "Drag lock", "modes.drag": "Holds the left button down so you can move freely. Press V or Space to drop.",
     "modes.typeT": "Click & type", "modes.type": "Clicks a text box and leaves mouse mode in one key, so you can start typing.",
@@ -687,7 +707,7 @@ const T = {
     "modes.jumpT": "Jumps", "modes.jump": "Center of the screen, center of the window, or the next monitor.",
     "modes.markT": "Marks", "modes.mark": "M then a letter saves the spot; ' then the letter jumps back. Saved across restarts.",
     "modes.panicT": "Panic", "modes.panic": "If a button ever feels stuck: releases everything and leaves mouse mode.",
-    "modes.dotT": "What the dot means",
+    "modes.dotT": "What the colours mean",
     "dot.normal": "Mouse mode on", "dot.scroll": "Scrolling (D)", "dot.precision": "Precise (S)", "dot.turbo": "Turbo (A)", "dot.drag": "Drag lock (V)", "dot.auto": "Auto clicking (B)",
     "practice.title": "Practice range", "practice.lead": "Hit 10 targets without touching the mouse. Turn on mouse mode first, then click Start with Space.",
     "practice.hits": "Hits", "practice.time": "Time", "practice.best": "Best", "practice.size": "Target size", "practice.big": "Big", "practice.small": "Small",
@@ -698,15 +718,21 @@ const T = {
     "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
     "settings.title": "Settings", "settings.lead": "Changes apply instantly. Everything else (every key, every speed) lives in the settings file.",
     "settings.general": "General",
-    "settings.dotT": "Pointer dot", "settings.dot": "Colored dot next to the pointer while mouse mode is on.",
+    "settings.dotT": "Show pointer indicator", "settings.dot": "Draw the indicator next to the pointer while mouse mode is on.",
+    "settings.styleT": "Pointer style", "settings.style": "The shape that follows the pointer. Its colour shows the active layer.",
+    "settings.sizeT": "Pointer size", "settings.size": "How big the indicator is.",
+    "style.dot": "Dot", "style.halo": "Halo", "style.spotlight": "Spotlight", "style.reticle": "Reticle",
+    "style.arrow": "Arrow", "style.comet": "Comet", "style.orbit": "Orbit", "style.buddy": "Buddy",
     "settings.borderT": "Screen border", "settings.border": "Thin colored frame around the screen while mouse mode is on.",
     "settings.editT": "Copy, paste, undo keys", "settings.edit": "Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.",
+    "settings.updateT": "Check for updates automatically", "settings.update": "Once a day, ask GitHub for a newer version. Nothing about you is sent. Off by default.",
+    "settings.checkUpdate": "Check for updates",
     "settings.autoT": "Auto clicker", "settings.speedT": "Speed", "settings.speed": "How many clicks per second while auto click is on.",
     "settings.buttonT": "Button", "settings.button": "Which mouse button gets clicked.", "settings.left": "Left", "settings.right": "Right", "settings.middle": "Middle",
     "settings.advT": "Advanced", "settings.adv": "Remap any key, change speeds or the toggle key in settings.json, then reload.",
     "settings.open": "Open settings file", "settings.reload": "Reload settings", "settings.log": "Open log folder",
     "about.license": "Free and open source (MIT)", "about.bug": "Report a problem",
-    "about.privacyT": "Your privacy", "about.p1": "Never records or saves what you type.", "about.p2": "Never connects to the internet.", "about.p3": "All source code is public on GitHub.",
+    "about.privacyT": "Your privacy", "about.p1": "Never records or saves what you type.", "about.p2": "Stays offline unless you turn on update checks (GitHub only).", "about.p3": "All source code is public on GitHub.",
     "about.limitsT": "Good to know", "about.l1": "Admin windows (e.g. Task Manager) only respond if KeyboardMouse runs as administrator.", "about.l2": "Some games ignore simulated input.", "about.l3": "Works together with a TrackPoint, touchpad or mouse.",
     "about.quitT": "Quit KeyboardMouse", "about.quit": "Stops the app completely. Your keyboard goes back to normal right away.", "about.quitBtn": "Quit",
     "toast.saved": "Saved", "toast.reloaded": "Settings reloaded", "toast.shortcut": "Shortcut added", "toast.failed": "Something went wrong — see the log",
@@ -720,7 +746,7 @@ const T = {
     "home.lead": "Di chuột, click, kéo thả và cuộn trang mà không cần rời tay khỏi hàng phím chính. KeyboardMouse chạy ngầm ở khay hệ thống.",
     "home.turnOn": "Bật chế độ chuột", "home.turnOff": "Tắt chế độ chuột", "home.orPress": "hoặc bấm",
     "home.quick": "Bắt đầu trong 30 giây",
-    "home.s1t": "Bật lên", "home.s1": "Bấm Caps Lock. Một chấm xanh nhỏ hiện cạnh con trỏ — bạn đang ở chế độ chuột.",
+    "home.s1t": "Bật lên", "home.s1": "Bấm Caps Lock. Một chỉ báo xanh nhỏ hiện cạnh con trỏ — bạn đang ở chế độ chuột.",
     "home.s2t": "Di chuyển", "home.s2": "Giữ phím để con trỏ lướt đi, giữ càng lâu càng nhanh. Bấm hai phím cùng lúc để đi chéo.",
     "home.s3t": "Click", "home.s3": "Space là nút chuột trái. Giữ Space trong lúc di để kéo thả. Bấm Caps Lock lần nữa để gõ chữ bình thường.",
     "home.tray": "Đóng cửa sổ này không làm tắt app. App nằm ở khay hệ thống cạnh đồng hồ (bấm <b>^</b> nếu bị ẩn). Chuột phải vào icon để mở menu, nhấp đúp để mở lại hướng dẫn này.",
@@ -746,7 +772,7 @@ const T = {
     "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> lên/xuống · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sang ngang",
     "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> lật trang · thêm <kbd>Ctrl</kbd> để phóng to",
     "modes.autoT": "Auto click", "modes.auto": "Bấm B là app tự click liên tục tại vị trí con trỏ. Vẫn di chuột được trong lúc đó. Bấm B lần nữa để dừng.",
-    "modes.auto1": "Chấm cạnh con trỏ chuyển <b style=\"color:#eab308\">màu vàng</b> khi đang chạy", "modes.auto2": "Tốc độ và nút chuột: <b>Cài đặt → Auto click</b>",
+    "modes.auto1": "Chỉ báo chuyển <b style=\"color:#eab308\">màu vàng</b> khi đang chạy", "modes.auto2": "Tốc độ và nút chuột: <b>Cài đặt → Auto click</b>",
     "modes.moreT": "Thêm vài chiêu",
     "modes.dragT": "Khóa kéo", "modes.drag": "Giữ nút trái xuống để bạn di thoải mái. Bấm V hoặc Space để thả.",
     "modes.typeT": "Click rồi gõ", "modes.type": "Click vào ô nhập chữ và thoát chế độ chuột chỉ bằng một phím, để gõ ngay.",
@@ -754,7 +780,7 @@ const T = {
     "modes.jumpT": "Nhảy", "modes.jump": "Tới giữa màn hình, giữa cửa sổ, hoặc sang màn hình kế tiếp.",
     "modes.markT": "Đánh dấu", "modes.mark": "M rồi một chữ để lưu vị trí; ' rồi chữ đó để nhảy về. Vẫn nhớ sau khi khởi động lại.",
     "modes.panicT": "Khẩn cấp", "modes.panic": "Nếu chuột có vẻ bị kẹt nút: thả hết các nút và thoát chế độ chuột.",
-    "modes.dotT": "Màu của chấm nghĩa là gì",
+    "modes.dotT": "Màu sắc nghĩa là gì",
     "dot.normal": "Đang bật chế độ chuột", "dot.scroll": "Đang cuộn (D)", "dot.precision": "Chính xác (S)", "dot.turbo": "Siêu nhanh (A)", "dot.drag": "Khóa kéo (V)", "dot.auto": "Đang auto click (B)",
     "practice.title": "Sân luyện tập", "practice.lead": "Bắn trúng 10 mục tiêu mà không đụng tới chuột. Bật chế độ chuột trước, rồi bấm Bắt đầu bằng phím Space.",
     "practice.hits": "Trúng", "practice.time": "Thời gian", "practice.best": "Kỷ lục", "practice.size": "Cỡ mục tiêu", "practice.big": "To", "practice.small": "Nhỏ",
@@ -765,15 +791,21 @@ const T = {
     "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
     "settings.title": "Cài đặt", "settings.lead": "Thay đổi có hiệu lực ngay. Những thứ khác (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
     "settings.general": "Chung",
-    "settings.dotT": "Chấm cạnh con trỏ", "settings.dot": "Chấm màu cạnh con trỏ khi chế độ chuột đang bật.",
+    "settings.dotT": "Hiện chỉ báo con trỏ", "settings.dot": "Vẽ chỉ báo cạnh con trỏ khi chế độ chuột đang bật.",
+    "settings.styleT": "Kiểu con trỏ", "settings.style": "Hình dạng đi theo con trỏ. Màu của nó cho biết lớp đang dùng.",
+    "settings.sizeT": "Cỡ chỉ báo", "settings.size": "Độ lớn của chỉ báo.",
+    "style.dot": "Chấm", "style.halo": "Vòng sáng", "style.spotlight": "Đèn rọi", "style.reticle": "Tâm ngắm",
+    "style.arrow": "Mũi tên", "style.comet": "Sao chổi", "style.orbit": "Quỹ đạo", "style.buddy": "Bạn nhỏ",
     "settings.borderT": "Viền màn hình", "settings.border": "Viền màu mỏng quanh màn hình khi chế độ chuột đang bật.",
     "settings.editT": "Phím copy, paste, undo", "settings.edit": "Y, P và Z gửi Ctrl+C, Ctrl+V và Ctrl+Z trong chế độ chuột.",
+    "settings.updateT": "Tự kiểm tra bản cập nhật", "settings.update": "Mỗi ngày một lần, hỏi GitHub xem có bản mới không. Không gửi thông tin gì về bạn. Mặc định tắt.",
+    "settings.checkUpdate": "Kiểm tra cập nhật",
     "settings.autoT": "Auto click", "settings.speedT": "Tốc độ", "settings.speed": "Số lần click mỗi giây khi auto click đang chạy.",
     "settings.buttonT": "Nút chuột", "settings.button": "Nút chuột nào sẽ được click.", "settings.left": "Trái", "settings.right": "Phải", "settings.middle": "Giữa",
     "settings.advT": "Nâng cao", "settings.adv": "Đổi bất kỳ phím nào, chỉnh tốc độ hoặc phím bật/tắt trong settings.json, rồi tải lại.",
     "settings.open": "Mở file cài đặt", "settings.reload": "Tải lại cài đặt", "settings.log": "Mở thư mục log",
     "about.license": "Miễn phí và mã nguồn mở (MIT)", "about.bug": "Báo lỗi",
-    "about.privacyT": "Quyền riêng tư", "about.p1": "Không bao giờ ghi lại hay lưu những gì bạn gõ.", "about.p2": "Không bao giờ kết nối internet.", "about.p3": "Toàn bộ mã nguồn công khai trên GitHub.",
+    "about.privacyT": "Quyền riêng tư", "about.p1": "Không bao giờ ghi lại hay lưu những gì bạn gõ.", "about.p2": "Không lên mạng, trừ khi bạn bật kiểm tra cập nhật (chỉ tới GitHub).", "about.p3": "Toàn bộ mã nguồn công khai trên GitHub.",
     "about.limitsT": "Nên biết", "about.l1": "Cửa sổ chạy quyền admin (vd. Task Manager) chỉ nhận lệnh nếu KeyboardMouse cũng chạy bằng quyền admin.", "about.l2": "Một số game bỏ qua thao tác chuột giả lập.", "about.l3": "Dùng chung được với TrackPoint, touchpad hoặc chuột thật.",
     "about.quitT": "Thoát KeyboardMouse", "about.quit": "Tắt hẳn app. Bàn phím trở lại bình thường ngay lập tức.", "about.quitBtn": "Thoát",
     "toast.saved": "Đã lưu", "toast.reloaded": "Đã tải lại cài đặt", "toast.shortcut": "Đã tạo shortcut", "toast.failed": "Có lỗi xảy ra — xem file log",
@@ -835,8 +867,20 @@ let selectedKey = null;
 let state = {
   version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
   shortcuts: { desktop: false, startMenu: false },
-  settings: { toggleKey: "CapsLock", editingExtras: true, cursorDot: true, screenBorder: true, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
+  settings: { toggleKey: "CapsLock", editingExtras: true, cursorDot: true, cursorStyle: "dot", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
 };
+
+/* ---------------- pointer styles ---------------- */
+const CURSOR_STYLES = [
+  { id: "dot", label: "style.dot", svg: `<circle cx="22" cy="21" r="7" fill="currentColor" opacity=".25"/><circle cx="21" cy="20" r="7" fill="currentColor" stroke="#fff" stroke-width="1.6"/>` },
+  { id: "halo", label: "style.halo", svg: `<circle cx="20" cy="20" r="12.5" fill="currentColor" opacity=".13"/><circle cx="20" cy="20" r="12.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M20 7.5a12.5 12.5 0 0 1 8.8 3.7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="20" r="1.8" fill="currentColor"/>` },
+  { id: "spotlight", label: "style.spotlight", svg: `<defs><radialGradient id="km-spot"><stop offset="0" stop-color="currentColor" stop-opacity=".8"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs><circle cx="20" cy="20" r="19" fill="url(#km-spot)"/><circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" stroke-width="1" opacity=".55"/><circle cx="20" cy="20" r="2.4" fill="currentColor"/>` },
+  { id: "reticle", label: "style.reticle", svg: `<circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 15V5M20 25v10M15 20H5M25 20h10"/></g><circle cx="20" cy="20" r="3.8" fill="none" stroke="currentColor" stroke-width="1.8"/>` },
+  { id: "arrow", label: "style.arrow", svg: `<path d="M11 4v25l6-5.5 4.2 9 4.3-2.1-4.2-8.8 8.7.2z" fill="currentColor" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>` },
+  { id: "comet", label: "style.comet", svg: `<circle cx="10" cy="27" r="1.8" fill="currentColor" opacity=".18"/><circle cx="15" cy="26" r="2.5" fill="currentColor" opacity=".32"/><circle cx="20.5" cy="23.5" r="3.2" fill="currentColor" opacity=".55"/><circle cx="27" cy="19" r="4.8" fill="currentColor" stroke="#fff" stroke-width="1.5"/>` },
+  { id: "orbit", label: "style.orbit", svg: `<ellipse cx="20" cy="21" rx="14" ry="10" fill="none" stroke="currentColor" stroke-width="1" opacity=".45"/><circle cx="20" cy="21" r="4.4" fill="currentColor" stroke="#fff" stroke-width="1.5"/><circle cx="32.5" cy="14.5" r="2.4" fill="currentColor" stroke="#fff" stroke-width="1"/><circle cx="9" cy="26.5" r="1.8" fill="currentColor" opacity=".8"/>` },
+  { id: "buddy", label: "style.buddy", svg: `<ellipse cx="20" cy="32.5" rx="11" ry="2.6" fill="currentColor" opacity=".18"/><rect x="8" y="10" width="24" height="20" rx="9.5" fill="currentColor" stroke="#fff" stroke-width="1.6"/><circle cx="15" cy="19" r="3.2" fill="#fff"/><circle cx="25" cy="19" r="3.2" fill="#fff"/><circle cx="16" cy="19.7" r="1.5" fill="#1f2430"/><circle cx="26" cy="19.7" r="1.5" fill="#1f2430"/>` }
+];
 
 function load(key, fallback) { try { return localStorage.getItem("km." + key) ?? fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem("km." + key, value); } catch { /* private mode */ } }
@@ -1001,6 +1045,11 @@ function renderSettings() {
   $('[data-bind="cursorDot"]').checked = !!s.cursorDot;
   $('[data-bind="screenBorder"]').checked = !!s.screenBorder;
   $('[data-bind="editingExtras"]').checked = !!s.editingExtras;
+  $('[data-bind="updateCheckOnStart"]').checked = !!s.updateCheckOnStart;
+  renderStyleGrid();
+  const size = Math.max(4, Math.min(40, Math.round(s.dotSize || 12)));
+  if (document.activeElement !== $("#dot-size")) $("#dot-size").value = size;
+  $("#dot-size-value").textContent = size + " px";
   const cps = Math.max(1, Math.min(50, Math.round(1000 / (s.autoClick.intervalMs || 100))));
   if (document.activeElement !== $("#cps")) $("#cps").value = cps;
   $("#cps-value").textContent = t("perSec", { n: cps });
@@ -1010,6 +1059,17 @@ function renderSettings() {
     b.classList.toggle("done", done);
     b.querySelector("span").textContent = done ? t("home.added") : t("home.add");
   });
+}
+
+function renderStyleGrid() {
+  const grid = $("#style-grid");
+  if (!grid) return;
+  const current = String(state.settings.cursorStyle || "dot").toLowerCase();
+  grid.innerHTML = CURSOR_STYLES.map(s => {
+    const active = s.id === current;
+    return `<button class="style-tile${active ? " active" : ""}" type="button" data-style="${s.id}" aria-pressed="${active}">` +
+      `<svg viewBox="0 0 40 40" aria-hidden="true">${s.svg}</svg><span>${t(s.label)}</span></button>`;
+  }).join("");
 }
 
 function renderAll() {
@@ -1212,11 +1272,26 @@ $("#status").addEventListener("click", () => { if (state.paused) send({ cmd: "se
 $("#hero-toggle").addEventListener("click", () => { send({ cmd: "setMouseMode", on: !state.mouseMode }); if (!host) { state.mouseMode = !state.mouseMode; renderStatus(); } });
 $$('[data-bind]').forEach(input => input.addEventListener("change", () => {
   const key = input.dataset.bind;
+  const settingKey = key === "updateCheckOnStart" ? "update.checkOnStart" : key;
   if (key === "autostart") { send({ cmd: "setAutostart", on: input.checked }); state.autostart = input.checked; }
-  else { send({ cmd: "setSetting", key, value: input.checked }); state.settings[key] = input.checked; }
+  else { send({ cmd: "setSetting", key: settingKey, value: input.checked }); state.settings[key] = input.checked; }
   renderSettings(); renderAll();
 }));
 $("#cps").addEventListener("input", e => { $("#cps-value").textContent = t("perSec", { n: e.target.value }); });
+$("#style-grid").addEventListener("click", e => {
+  const tile = e.target.closest("[data-style]");
+  if (!tile) return;
+  const id = tile.dataset.style;
+  state.settings.cursorStyle = id;
+  send({ cmd: "setSetting", key: "cursorStyle", value: id });
+  renderStyleGrid();
+});
+$("#dot-size").addEventListener("input", e => { $("#dot-size-value").textContent = e.target.value + " px"; });
+$("#dot-size").addEventListener("change", e => {
+  const size = Math.round(Number(e.target.value)) || 12;
+  state.settings.dotSize = size;
+  send({ cmd: "setSetting", key: "dotSize", value: size });
+});
 $("#cps").addEventListener("change", e => {
   const ms = Math.round(1000 / Number(e.target.value));
   state.settings.autoClick.intervalMs = ms;

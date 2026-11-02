@@ -1,5 +1,6 @@
 using KeyboardMouse.Core;
 using KeyboardMouse.Input;
+using KeyboardMouse.Overlays;
 
 namespace KeyboardMouse.Config;
 
@@ -26,6 +27,8 @@ public sealed class Settings
 
     public AutoClickSettings AutoClick { get; set; } = new();
 
+    public UpdateSettings Update { get; set; } = new();
+
     public bool EditingExtras { get; set; } = true;
 
     /// <summary>
@@ -43,6 +46,7 @@ public sealed class Settings
         Scroll ??= new ScrollSettings();
         Feedback ??= new FeedbackSettings();
         AutoClick ??= new AutoClickSettings();
+        Update ??= new UpdateSettings();
 
         AutoClick.IntervalMs = Math.Clamp(AutoClick.IntervalMs, AutoClicker.MinIntervalMs, AutoClicker.MaxIntervalMs);
         AutoClick.Button = AutoClicker.ParseButton(AutoClick.Button).ToString();
@@ -87,6 +91,20 @@ public sealed class Settings
         Scroll.Accel = Math.Max(0, Scroll.Accel);
 
         Feedback.DotSize = Math.Clamp(Feedback.DotSize, 2, 64);
+
+        if (!CursorStyleNames.TryParse(Feedback.CursorStyle, out var cursorStyle))
+        {
+            cursorStyle = CursorStyle.Dot;
+        }
+
+        Feedback.CursorStyle = CursorStyleNames.ToId(cursorStyle);
+
+        if (!DateTimeOffset.TryParse(Update.LastCheckedUtc, out _))
+        {
+            Update.LastCheckedUtc = string.Empty;
+        }
+
+        Update.SkippedVersion = Update.SkippedVersion?.Trim() ?? string.Empty;
     }
 
     private static SpeedConfig NormalizeSpeed(SpeedConfig? config, SpeedConfig fallback)
@@ -225,4 +243,21 @@ public sealed class FeedbackSettings
     public bool ScreenBorder { get; set; } = true;
 
     public int DotSize { get; set; } = 12;
+
+    /// <summary>One of the <see cref="CursorStyleNames"/> ids, e.g. "halo" or "buddy".</summary>
+    public string CursorStyle { get; set; } = "dot";
+}
+
+/// <summary>
+/// Auto-update is off by default: the app promises not to use the network
+/// unless the user turns this on. Only the public GitHub release JSON is
+/// fetched, never anything about the user.
+/// </summary>
+public sealed class UpdateSettings
+{
+    public bool CheckOnStart { get; set; }
+
+    public string LastCheckedUtc { get; set; } = string.Empty;
+
+    public string SkippedVersion { get; set; } = string.Empty;
 }

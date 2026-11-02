@@ -110,13 +110,35 @@ At sign-in the app starts silently in the tray, without opening the window.
 | Show keymap | Open the guide on the Keys tab |
 | Open settings file | Open `settings.json` in Notepad |
 | Reload settings | Apply changes made to `settings.json` |
+| Check for updates | Ask GitHub for a newer version (see below) |
 | Start with Windows | Toggle autostart |
 | Open log folder | Open the folder with `log.txt` (for bug reports) |
 | Exit | Quit the app; the keyboard goes back to normal immediately |
 
 ## 7. Update to a new version
 
-1. Right-click the tray icon → **Exit** (or **About → Quit** in the window).
+### In the app (opt-in)
+
+Right-click the tray icon, then **Check for updates**, or use **Settings ->
+Check for updates** in the window. If a newer version exists, KeyboardMouse
+asks before downloading anything, verifies the SHA-256 published with the
+release, then closes, swaps the exe and starts again. Settings, marks and
+autostart are kept.
+
+To have it check by itself (once a day, silently), turn on **Settings -> Check
+for updates automatically**, which is the same as:
+
+```json
+{ "update": { "checkOnStart": true } }
+```
+
+Update checks are the only network access the app has, and they are **off by
+default**. Each check requests one public GitHub file and sends nothing about
+you; see [PRIVACY.md](PRIVACY.md).
+
+### By hand
+
+1. Right-click the tray icon, then **Exit** (or **About -> Quit** in the window).
 2. Download the new zip from [Releases](https://github.com/khoa-nhd/mouse-keyboard/releases/latest).
 3. Replace the old `KeyboardMouse.exe` in your folder with the new one.
 4. Run it again. Your settings, marks and autostart are kept.
@@ -254,9 +276,10 @@ On first run, a default `settings.json` is created at
 `%APPDATA%\KeyboardMouse\settings.json`. For a portable setup, put
 `settings.json` next to the exe instead.
 
-The common options (auto-click speed and button, pointer dot, screen border,
-copy/paste keys) can be changed in the window's **Settings** tab. Everything
-else is in the file.
+The common options (auto-click speed and button, pointer style and size,
+screen border, copy/paste keys) can be changed in the window's **Settings**
+tab. The pointer style is also in the tray menu under **Pointer style**.
+Everything else is in the file.
 
 Tray icon → **Open settings file**, edit it, save, then tray icon →
 **Reload settings**. No restart is needed.
@@ -281,7 +304,9 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
 ```
 
 - Every key can be remapped. A key can't be bound twice; the first binding wins.
-- The same file holds speeds, scroll feel, the feedback dot, the tap timeout,
+- The same file holds speeds, scroll feel, the pointer indicator
+  (`feedback.cursorStyle` = `dot`, `halo`, `spotlight`, `reticle`, `arrow`,
+  `comet`, `orbit` or `buddy`, and `feedback.dotSize`), the tap timeout,
   auto-off and grid depth.
 - To use a different toggle key, set `activation.toggleKey` (e.g. `"ScrollLock"`).
 - Key names are physical names (`I`, `Space`, `Apostrophe`, `Comma`, `PageUp`, …).
@@ -292,7 +317,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
 | Problem | Fix |
 |---|---|
 | Nothing happens when I tap Caps Lock | Check the app is running (tray icon, or Task Manager → *KeyboardMouse*). Make sure it isn't **Paused** in the tray menu. |
-| Letters don't type | Mouse mode is on (green dot). Tap Caps Lock or press Esc. |
+| Letters don't type | Mouse mode is on (green indicator). Tap Caps Lock or press Esc. |
 | Doesn't work in Task Manager or an admin window | Windows blocks normal apps from controlling admin windows. Run KeyboardMouse as administrator if you need that. |
 | Doesn't work in a game | Many games ignore simulated input. This isn't supported. |
 | Hints show nothing in Chrome / VS Code | Press H again (see Hint mode above). |

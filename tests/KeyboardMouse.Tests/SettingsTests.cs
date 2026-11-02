@@ -130,4 +130,26 @@ public class SettingsTests
         valid.Normalize();
         Assert.Equal("ScrollLock", valid.Activation.ToggleKey);
     }
+
+    [Fact]
+    public void Normalize_RepairsCursorStyle()
+    {
+        var unknown = new Settings
+        {
+            Feedback = new FeedbackSettings { CursorStyle = "sparkle-dragon" }
+        };
+        unknown.Normalize();
+        Assert.Equal("dot", unknown.Feedback.CursorStyle);
+
+        var mixedCase = new Settings
+        {
+            Feedback = new FeedbackSettings { CursorStyle = "Buddy" }
+        };
+        mixedCase.Normalize();
+        Assert.Equal("buddy", mixedCase.Feedback.CursorStyle);
+
+        var defaults = new Settings();
+        defaults.Normalize();
+        Assert.Equal("dot", defaults.Feedback.CursorStyle);
+    }
 }

@@ -40,6 +40,10 @@ public sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _modeItem;
     private readonly ToolStripMenuItem _pauseItem;
     private readonly ToolStripMenuItem _autostartItem;
+    private readonly ToolStripMenuItem _pointerStyleItem;
+    private readonly Dictionary<CursorStyle, ToolStripMenuItem> _pointerStyleItems = new();
+    private readonly ToolStripMenuItem _checkUpdatesItem;
+    private readonly UpdateService _updates = new();
 
     private const string RepoUrl = "https://github.com/khoa-nhd/mouse-keyboard";
 
@@ -50,6 +54,8 @@ public sealed class TrayApp : ApplicationContext
     private bool _shutdown;
     private GuideWindow? _guide;
     private bool _toldAboutTray;
+    private bool _checkingForUpdates;
+    private bool _downloadingUpdate;
 
     public TrayApp(bool showGuide = false)
     {
@@ -107,6 +113,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
 
         _cursorIndicator = new CursorIndicator(_state);
         _cursorIndicator.SetDotSize(_settings.Feedback.DotSize);
+        _cursorIndicator.SetStyle(ParseCursorStyle());
         _screenBorder = new ScreenBorder();
         _screenBorder.Refresh(_monitors);
 
@@ -125,6 +132,22 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _autostartItem = new ToolStripMenuItem("Start with Windows");
         _autostartItem.Click += (_, _) => ToggleAutostart();
 
+        _pointerStyleItem = new ToolStripMenuItem("Pointer style");
+        foreach (var style in CursorStyleNames.All)
+        {
+            var chosen = style;
+            var item = new ToolStripMenuItem(CursorStyleNames.DisplayName(chosen))
+            {
+                CheckOnClick = false
+            };
+            item.Click += (_, _) => SetCursorStyle(chosen);
+            _pointerStyleItems[chosen] = item;
+            _pointerStyleItem.DropDownItems.Add(item);
+        }
+
+        _checkUpdatesItem = new ToolStripMenuItem("Check for updates…");
+        _checkUpdatesItem.Click += (_, _) => _ = CheckForUpdatesAsync(silent: false);
+
         _menu = new ContextMenuStrip();
         var openItem = CreateItem("Open KeyboardMouse", () => ShowGuide());
         openItem.Font = new Font(openItem.Font, FontStyle.Bold);
@@ -132,10 +155,12 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_modeItem);
         _menu.Items.Add(_pauseItem);
+        _menu.Items.Add(_pointerStyleItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(CreateItem("Show keymap", () => ShowGuide("keys")));
         _menu.Items.Add(CreateItem("Open settings file", OpenSettingsFile));
         _menu.Items.Add(CreateItem("Reload settings", ReloadSettings));
+        _menu.Items.Add(_checkUpdatesItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_autostartItem);
         _menu.Items.Add(CreateItem("Open log folder", OpenLogFolder));
@@ -154,6 +179,7 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _state.MouseModeChanged += ScheduleUiUpdate;
         _state.PausedChanged += ScheduleUiUpdate;
         _autostartItem.Checked = Autostart.IsEnabled();
+        UpdatePointerStyleChecks();
 
         _hook.Error += ex => Log.Error("Keyboard hook callback error", ex);
         try
@@ -177,6 +203,11 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         {
             // Open once the message loop runs.
             DispatchToUi(() => ShowGuide());
+        }
+
+        if (_settings.Update.CheckOnStart)
+        {
+            DispatchToUi(() => _ = CheckForUpdatesAsync(silent: true));
         }
     }
 
@@ -269,8 +300,11 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
                 toggleKey = _settings.Activation.ToggleKey,
                 editingExtras = _settings.EditingExtras,
                 cursorDot = _settings.Feedback.CursorDot,
+                cursorStyle = _settings.Feedback.CursorStyle,
+                dotSize = _settings.Feedback.DotSize,
                 screenBorder = _settings.Feedback.ScreenBorder,
                 autoClick = new { intervalMs = _settings.AutoClick.IntervalMs, button = _settings.AutoClick.Button },
+                updateCheckOnStart = _settings.Update.CheckOnStart,
                 keys = _settings.Keys
             }
         });
@@ -325,6 +359,10 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
                 _guide?.Toast("toast.reloaded");
                 break;
 
+            case "checkForUpdates":
+                _ = CheckForUpdatesAsync(silent: false);
+                break;
+
             case "openLogFolder":
                 OpenLogFolder();
                 break;
@@ -358,6 +396,20 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         {
             case "cursorDot" when isBool:
                 _settings.Feedback.CursorDot = v.GetBoolean();
+                break;
+            case "cursorStyle" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                if (!CursorStyleNames.TryParse(v.GetString(), out var style))
+                {
+                    return;
+                }
+
+                _settings.Feedback.CursorStyle = CursorStyleNames.ToId(style);
+                break;
+            case "dotSize" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int size):
+                _settings.Feedback.DotSize = size;
+                break;
+            case "update.checkOnStart" when isBool:
+                _settings.Update.CheckOnStart = v.GetBoolean();
                 break;
             case "screenBorder" when isBool:
                 _settings.Feedback.ScreenBorder = v.GetBoolean();
@@ -570,6 +622,213 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
             _settingsStore.LastError is null ? ToolTipIcon.Info : ToolTipIcon.Warning);
     }
 
+    private static string FormatVersion(Version version) =>
+        $"{version.Major}.{version.Minor}.{version.Build}";
+
+    /// <summary>Startup checks are silent and throttled to once a day.</summary>
+    private bool ShouldCheckOnStart()
+    {
+        if (!_settings.Update.CheckOnStart)
+        {
+            return false;
+        }
+
+        if (!DateTimeOffset.TryParse(_settings.Update.LastCheckedUtc, out var last))
+        {
+            return true;
+        }
+
+        return DateTimeOffset.UtcNow - last >= TimeSpan.FromHours(24);
+    }
+
+    /// <summary>Opt-in: the only network call the app ever makes.</summary>
+    private async Task CheckForUpdatesAsync(bool silent)
+    {
+        if (_shutdown || _checkingForUpdates || _downloadingUpdate)
+        {
+            return;
+        }
+
+        if (silent && !ShouldCheckOnStart())
+        {
+            return;
+        }
+
+        _checkingForUpdates = true;
+        _checkUpdatesItem.Enabled = false;
+        string originalText = _checkUpdatesItem.Text ?? "Check for updates…";
+        _checkUpdatesItem.Text = "Checking for updates…";
+
+        try
+        {
+            var result = await _updates.CheckAsync(CancellationToken.None);
+
+            _settings.Update.LastCheckedUtc = DateTimeOffset.UtcNow.ToString("O");
+            SaveSettingsQuietly();
+
+            if (!result.UpdateAvailable || result.Release is not { } release)
+            {
+                if (!silent)
+                {
+                    string message = result.Error switch
+                    {
+                        "rate-limited" => "GitHub is limiting update checks right now. Try again later.",
+                        "offline" => "Could not reach GitHub. Check your connection and try again.",
+                        "cancelled" => "The update check was cancelled.",
+                        "missing-assets" => "A newer release exists, but it is missing its checksum file, so it will not be installed automatically. You can download it from GitHub instead.",
+                        "too-large" => "The newer release is much larger than expected. Download it from GitHub instead.",
+                        _ => $"You are on the newest version ({FormatVersion(UpdateService.CurrentVersion)})."
+                    };
+                    MessageBox.Show(message, "KeyboardMouse update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                return;
+            }
+
+            _checkUpdatesItem.Text = $"Update to {release.Tag}…";
+
+            if (!silent && release.Tag == _settings.Update.SkippedVersion)
+            {
+                // The user already said "not now" to this exact version; the
+                // manual menu entry still offers it.
+            }
+
+            if (silent)
+            {
+                if (release.Tag != _settings.Update.SkippedVersion)
+                {
+                    _tray.ShowBalloonTip(
+                        6000,
+                        "KeyboardMouse update",
+                        $"Version {FormatVersion(release.Version)} is available. Right-click the tray icon → Check for updates.",
+                        ToolTipIcon.Info);
+                }
+
+                return;
+            }
+
+            long megabytes = release.SizeBytes > 0 ? release.SizeBytes / (1024 * 1024) : 0;
+            string size = megabytes > 0 ? $"\r\n\r\nAbout {megabytes} MB to download." : string.Empty;
+            var answer = MessageBox.Show(
+                $"Version {FormatVersion(release.Version)} is available (you have {FormatVersion(UpdateService.CurrentVersion)}).{size}\r\n\r\nDownload and install it now? KeyboardMouse will restart when the update is ready.",
+                "KeyboardMouse update",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (answer != DialogResult.Yes)
+            {
+                _settings.Update.SkippedVersion = release.Tag;
+                SaveSettingsQuietly();
+                return;
+            }
+
+            await DownloadAndInstallAsync(release);
+        }
+        finally
+        {
+            _checkingForUpdates = false;
+            if (!_shutdown)
+            {
+                _checkUpdatesItem.Enabled = true;
+                if (_checkUpdatesItem.Text == "Checking for updates…")
+                {
+                    _checkUpdatesItem.Text = originalText;
+                }
+
+                UpdateUi();
+            }
+        }
+    }
+
+    private async Task DownloadAndInstallAsync(ReleaseInfo release)
+    {
+        _downloadingUpdate = true;
+        _checkUpdatesItem.Enabled = false;
+        _tray.Text = "KeyboardMouse — downloading update";
+
+        var progress = new Progress<int>(percent =>
+        {
+            _tray.Text = $"KeyboardMouse — update {percent}%";
+        });
+
+        try
+        {
+            var prepared = await _updates.DownloadAsync(release, progress, CancellationToken.None);
+
+            _settings.Update.SkippedVersion = string.Empty;
+            SaveSettingsQuietly();
+
+            var answer = MessageBox.Show(
+                $"Version {FormatVersion(release.Version)} is downloaded and verified.\r\n\r\nKeyboardMouse will close, swap the file and start again. Continue?",
+                "KeyboardMouse update",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (answer == DialogResult.Yes)
+            {
+                InstallPreparedUpdate(prepared);
+                return;
+            }
+
+            Log.Info("Update downloaded but not installed.");
+            try
+            {
+                File.Delete(prepared.StagedExePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Info($"Could not remove the staged update: {ex.GetType().Name}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not download the update", ex);
+            _tray.ShowBalloonTip(
+                5000,
+                "KeyboardMouse update",
+                "The update could not be downloaded or verified. Nothing was changed — see the log for details.",
+                ToolTipIcon.Error);
+        }
+        finally
+        {
+            _downloadingUpdate = false;
+            if (!_shutdown)
+            {
+                _checkUpdatesItem.Enabled = true;
+                _tray.Text = "KeyboardMouse";
+                UpdateUi();
+            }
+        }
+    }
+
+    private void InstallPreparedUpdate(PreparedUpdate update)
+    {
+        string[] arguments = Environment.GetCommandLineArgs().Skip(1).ToArray();
+        if (!UpdateService.InstallOnExit(update, arguments))
+        {
+            MessageBox.Show(
+                "The update was downloaded, but the file could not be replaced.\r\n\r\nIf KeyboardMouse lives in Program Files, move it to a folder you own or run it as administrator.",
+                "KeyboardMouse update",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
+        ExitThread();
+    }
+
+    private void SaveSettingsQuietly()
+    {
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save settings", ex);
+        }
+    }
+
     /// <summary>Pushes the current <see cref="_settings"/> into every component.</summary>
     private void ApplySettings()
     {
@@ -579,6 +838,8 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _autostartItem.Checked = Autostart.IsEnabled();
 
         _cursorIndicator.SetDotSize(_settings.Feedback.DotSize);
+        _cursorIndicator.SetStyle(ParseCursorStyle());
+        UpdatePointerStyleChecks();
         _screenBorder.Refresh(_monitors);
         _router.UpdateGrid(_settings.Grid);
         _router.UpdateKeys(_settings.Keys);
@@ -602,6 +863,37 @@ _movement = new MovementEngine(_mouse, _profiles, _monitors);
         KeyNames.TryParse(settings.Activation.ToggleKey, out var key)
             ? key
             : PhysicalKey.CapsLock;
+
+    private CursorStyle ParseCursorStyle() =>
+        CursorStyleNames.TryParse(_settings.Feedback.CursorStyle, out var style)
+            ? style
+            : CursorStyle.Dot;
+
+    /// <summary>Tray submenu: switch the pointer indicator without opening the guide.</summary>
+    private void SetCursorStyle(CursorStyle style)
+    {
+        _settings.Feedback.CursorStyle = CursorStyleNames.ToId(style);
+
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save the pointer style", ex);
+        }
+
+        ApplySettings();
+    }
+
+    private void UpdatePointerStyleChecks()
+    {
+        var current = ParseCursorStyle();
+        foreach (var (style, item) in _pointerStyleItems)
+        {
+            item.Checked = style == current;
+        }
+    }
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {

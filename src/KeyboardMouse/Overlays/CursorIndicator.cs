@@ -5,19 +5,23 @@ using KeyboardMouse.Native;
 namespace KeyboardMouse.Overlays;
 
 /// <summary>
-/// Small dot near the pointer, visible while mouse mode is on. Its colour
-/// shows the active layer, which is the quickest way to confirm that A/S/D
-/// and drag lock are engaged. Follows the TrackPoint too, via a 30 Hz timer.
+/// Indicator that follows the pointer while mouse mode is on. Its colour shows
+/// the active layer, which is the quickest way to confirm that A/S/D and drag
+/// lock are engaged. The shape is chosen with <see cref="CursorStyle"/>; some
+/// styles animate, so the 30 Hz timer also drives motion. Follows the
+/// TrackPoint too, because it reads the real cursor position every tick.
 /// </summary>
 public sealed class CursorIndicator : IDisposable
 {
-    private const int DotOffset = 16;
-    private const int DotMargin = 4;
+    private const int MaxTrail = 14;
+    private const int TrailSpacing = 3;
 
     private readonly AppState _state;
-    private readonly CursorDotForm _form = new();
+    private readonly CursorForm _form = new();
     private readonly System.Windows.Forms.Timer _timer;
+    private readonly List<PointF> _trail = new();
 
+    private CursorStyle _style = CursorStyle.Dot;
     private int _dotSize = 12;
     private bool _enabled;
     private bool _shown;
@@ -42,6 +46,23 @@ public sealed class CursorIndicator : IDisposable
 
         _dotSize = clamped;
         _lastX = int.MinValue;
+        _trail.Clear();
+        if (_enabled)
+        {
+            UpdatePosition(force: true);
+        }
+    }
+
+    public void SetStyle(CursorStyle style)
+    {
+        if (_style == style)
+        {
+            return;
+        }
+
+        _style = style;
+        _lastX = int.MinValue;
+        _trail.Clear();
         if (_enabled)
         {
             UpdatePosition(force: true);
@@ -61,6 +82,7 @@ public sealed class CursorIndicator : IDisposable
         {
             _shown = false;
             _lastX = int.MinValue;
+            _trail.Clear();
             _timer.Start();
             UpdatePosition(force: true);
         }
@@ -92,25 +114,75 @@ public sealed class CursorIndicator : IDisposable
                         ? Color.FromArgb(255, 231, 76, 60) // red: turbo
                         : Color.FromArgb(255, 46, 204, 113); // green: normal
 
-        if (!force &&
-            cursor.X == _lastX &&
-            cursor.Y == _lastY &&
-            color == _lastColor)
+        bool moved = cursor.X != _lastX || cursor.Y != _lastY;
+        if (!force && !moved && color == _lastColor && !CursorPainter.IsAnimated(_style))
         {
             return;
+        }
+
+        if (moved)
+        {
+            TrackTrail(cursor.X, cursor.Y);
         }
 
         _lastX = cursor.X;
         _lastY = cursor.Y;
         _lastColor = color;
 
-        _form.RenderDot(cursor.X, cursor.Y, _dotSize, color);
+        var visual = CursorPainter.Measure(_style, _dotSize);
+        var pointer = new PointF(-visual.OffsetX, -visual.OffsetY);
+        float phase = (Environment.TickCount64 % 3600000) / 1000f;
+
+        _form.Render(visual, _style, _dotSize, color, phase, pointer, BuildLocalTrail(pointer), cursor);
 
         if (!_shown)
         {
             _form.ShowOverlay();
             _shown = true;
         }
+    }
+
+    /// <summary>Keeps a short history of pointer samples for the comet tail.</summary>
+    private void TrackTrail(int x, int y)
+    {
+        if (_style != CursorStyle.Comet)
+        {
+            return;
+        }
+
+        if (_trail.Count > 0)
+        {
+            var last = _trail[^1];
+            float dx = x - last.X;
+            float dy = y - last.Y;
+            if ((dx * dx) + (dy * dy) < TrailSpacing * TrailSpacing)
+            {
+                return;
+            }
+        }
+
+        _trail.Add(new PointF(x, y));
+        if (_trail.Count > MaxTrail)
+        {
+            _trail.RemoveAt(0);
+        }
+    }
+
+    private PointF[] BuildLocalTrail(PointF pointer)
+    {
+        if (_style != CursorStyle.Comet || _trail.Count == 0)
+        {
+            return Array.Empty<PointF>();
+        }
+
+        var local = new PointF[_trail.Count];
+        for (int i = 0; i < _trail.Count; i++)
+        {
+            // _lastX/_lastY match the newest sample; translate into surface space.
+            local[i] = new PointF(_trail[i].X - _lastX + pointer.X, _trail[i].Y - _lastY + pointer.Y);
+        }
+
+        return local;
     }
 
     public void Dispose()
@@ -120,25 +192,24 @@ public sealed class CursorIndicator : IDisposable
         _form.Dispose();
     }
 
-    private sealed class CursorDotForm : OverlayForm
+    private sealed class CursorForm : OverlayForm
     {
-        public void RenderDot(int x, int y, int dotSize, Color color)
+        public void Render(
+            CursorVisual visual,
+            CursorStyle style,
+            int size,
+            Color color,
+            float phase,
+            PointF pointer,
+            IReadOnlyList<PointF> trail,
+            POINT cursor)
         {
-            int size = DotOffset + dotSize + DotMargin;
-            int left = DotOffset;
-            int top = DotOffset;
-
-            RenderSurface(size, size, x, y, g =>
-            {
-                using var shadow = new SolidBrush(Color.FromArgb(90, 0, 0, 0));
-                g.FillEllipse(shadow, left + 1.5f, top + 1.5f, dotSize, dotSize);
-
-                using var fill = new SolidBrush(color);
-                g.FillEllipse(fill, left, top, dotSize, dotSize);
-
-                using var outline = new Pen(Color.FromArgb(235, 255, 255, 255), 1.2f);
-                g.DrawEllipse(outline, left, top, dotSize, dotSize);
-            });
+            RenderSurface(
+                visual.Width,
+                visual.Height,
+                cursor.X + visual.OffsetX,
+                cursor.Y + visual.OffsetY,
+                g => CursorPainter.Paint(g, style, size, color, phase, pointer, trail));
         }
     }
 }

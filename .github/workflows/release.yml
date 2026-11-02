@@ -40,10 +40,18 @@ jobs:
           Compress-Archive -Path publish/* -DestinationPath "$name.zip"
           Write-Output "zip_name=$name.zip" >> $env:GITHUB_ENV
 
+      # The updater only installs a download that matches this hash.
+      - name: Checksum
+        run: |
+          $hash = (Get-FileHash "$env:zip_name" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $env:zip_name" | Out-File -Encoding ascii "$env:zip_name.sha256"
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.zip_name }}
+          files: |
+            ${{ env.zip_name }}
+            ${{ env.zip_name }}.sha256
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(env.GITHUB_REF_NAME, '-') }}
