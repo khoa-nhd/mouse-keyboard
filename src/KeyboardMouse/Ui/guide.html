@@ -76,6 +76,7 @@ h2 { font-size: 20px; font-weight: 650; }
 h3 { font-size: 15px; font-weight: 650; }
 p { margin: 0; }
 button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .muted { color: var(--muted); }
 
 /* ---------- layout ---------- */
@@ -231,7 +232,9 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .hero .actions { margin-top: 22px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .hero .btn { border: 0; }
 .hero .btn.light { background: #fff; color: #3730a3; box-shadow: 0 8px 20px rgba(15, 23, 42, .2); }
+.hero .btn.light:hover { background: #f8fafc; }
 .hero .btn.ghost { background: rgba(255,255,255,.16); color: #fff; }
+.hero .btn.ghost:hover { background: rgba(255,255,255,.24); }
 .hero .hint { font-size: 13px; opacity: .9; display: flex; align-items: center; gap: 8px; }
 .hero kbd { background: rgba(255,255,255,.95); color: #312e81; border-color: transparent; border-bottom-color: rgba(30, 27, 75, .35); }
 .hero-art { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); width: 270px; height: 190px; pointer-events: none; }
@@ -263,12 +266,12 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .check .text p { color: var(--muted); font-size: 13px; }
 
 /* ---------- keyboard ---------- */
-.legend { flex-flow: row wrap; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; align-items: center; justify-content: flex-start; max-width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; align-items: center; max-width: 100%; }
 .chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); transition: all .15s; max-width: 100%; overflow-wrap: anywhere; white-space: normal; min-width: 10px; }
 .chip i { width: 9px; height: 9px; border-radius: 50%; }
 .chip.active { color: var(--text); border-color: currentColor; }
 .keyboard-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-.keyboard { padding: 22px 16px; container-type: inline-size; width: min(100%, max-content); max-width: 100%; overflow: hidden; display: block; height: fit-content; min-height: 0; contain-intrinsic-size: 0 800px; resize: none; position: relative; flex: 0 0 auto; align-self: flex-start; grid-row: auto; align-content: flex-start; writing-mode: horizontal-tb; direction: ltr; text-rendering: auto; font-feature-settings: normal; -webkit-mask-image: none; mask-image: none; -webkit-mask-size: auto; mask-size: auto; mask-repeat: no-repeat; mask-position: center; mask-clip: border-box; -webkit-mask-clip: border-box; mask-composite: add; -webkit-mask-composite: source-over; mask-origin: border-box; }
+.keyboard { padding: 22px 16px; container-type: inline-size; width: min(100%, max-content); max-width: 100%; overflow: hidden; }
 /* One key unit: the widest row is 12.5 units + 11 gaps. */
 .kb { --gap: 6px; --u: clamp(20px, calc((100cqw - 11 * var(--gap)) / 12.75), 62px); width: fit-content; margin: 0 auto; }
 .kb-row { display: flex; gap: var(--gap); margin-bottom: var(--gap); }
@@ -908,7 +911,7 @@ const T = {
     "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G, rồi bấm ô có mục tiêu. Thường hai lần bấm là trúng.",
     "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
     "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
-    "settings.title": "Cài đặt", "settings.lead": "Kéo thanh hoặc chọn màu, rồi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng. Còn lại (mọi phím, mọi tốc độ) nằm trong tệp cài đặt. Những thứ khác (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
+    "settings.title": "Cài đặt", "settings.lead": "Kéo thanh hoặc chọn màu, rồi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng. Còn lại (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
     "settings.general": "Chung",
     "settings.dotT": "Hiện chỉ báo con trỏ", "settings.dot": "Vẽ chỉ báo cạnh con trỏ khi chế độ chuột đang bật.",
     "settings.styleT": "Kiểu con trỏ", "settings.style": "Hình dạng đi theo con trỏ. Màu của nó cho biết lớp đang dùng.",

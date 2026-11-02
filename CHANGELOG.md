@@ -3,6 +3,16 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.0] - 2026-11-02
+
+### Changed
+- **Final public release polish pass:**
+  - Fixed category filter chips layout on Keys page (`.legend` missing flex display causing 0 px gap).
+  - Cleaned dead CSS declarations on `.keyboard`.
+  - Added `:focus-visible` styling across all interactive elements for accessible keyboard navigation.
+  - Added subtle hover highlights to hero action buttons (light and ghost variants).
+  - Fixed duplicate lead description sentence in Vietnamese localization.
+
 ## [0.4.7] - 2026-11-02
 
 ### Fixed
