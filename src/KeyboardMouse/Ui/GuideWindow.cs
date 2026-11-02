@@ -142,7 +142,11 @@ public sealed class GuideWindow : Form
         var stream = file is null ? null : typeof(GuideWindow).Assembly.GetManifestResourceStream(file.Value.resource);
         e.Response = stream is null
             ? environment.CreateWebResourceResponse(null, 404, "Not Found", "")
-            : environment.CreateWebResourceResponse(stream, 200, "OK", $"Content-Type: {file!.Value.type}");
+            : environment.CreateWebResourceResponse(
+                stream,
+                200,
+                "OK",
+                $"Content-Type: {file!.Value.type}\r\nCache-Control: no-cache");
     }
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
