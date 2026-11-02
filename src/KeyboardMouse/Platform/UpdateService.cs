@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -57,7 +56,9 @@ public sealed class UpdateService
                 return process;
             }
 
-            return Assembly.GetEntryAssembly()?.Location ?? process ?? string.Empty;
+            // Hosted (or launched through the dotnet muxer): the app folder is
+            // the only reliable answer, since a single-file app has no Location.
+            return Path.Combine(AppContext.BaseDirectory, "KeyboardMouse.exe");
         }
     }
 
