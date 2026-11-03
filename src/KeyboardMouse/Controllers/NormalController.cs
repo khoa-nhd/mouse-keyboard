@@ -50,6 +50,7 @@ public sealed class NormalController : IModeController
         Copy,
         Paste,
         Undo,
+        Redo,
         AutoClick
     }
 
@@ -68,7 +69,6 @@ public sealed class NormalController : IModeController
 
     private SpeedProfiles _profiles;
     private KeysSettings _settings = new();
-    private bool _editingExtras;
     private readonly Dictionary<PhysicalKey, NormalAction> _bindings = new();
     private bool _rightButtonDown;
 
@@ -86,7 +86,6 @@ public sealed class NormalController : IModeController
         Action beginMarkSave,
         Action beginMarkJump,
         Action exitMode,
-        bool editingExtras = false,
         Action? toggleAutoClick = null)
     {
         _state = state;
@@ -102,7 +101,6 @@ public sealed class NormalController : IModeController
         _beginMarkJump = beginMarkJump;
         _exitMode = exitMode;
         _toggleAutoClick = toggleAutoClick;
-        _editingExtras = editingExtras;
 
         UpdateKeys(settings);
         ApplyEngine();
@@ -121,17 +119,6 @@ public sealed class NormalController : IModeController
     {
         ArgumentNullException.ThrowIfNull(settings);
         _settings = settings;
-        RebuildBindings();
-    }
-
-    public void UpdateEditingExtras(bool enabled)
-    {
-        if (_editingExtras == enabled)
-        {
-            return;
-        }
-
-        _editingExtras = enabled;
         RebuildBindings();
     }
 
@@ -194,12 +181,10 @@ public sealed class NormalController : IModeController
             Bind(s.AutoClick, PhysicalKey.B, NormalAction.AutoClick);
         }
 
-        if (_editingExtras)
-        {
-            Bind(s.Copy, PhysicalKey.Y, NormalAction.Copy);
-            Bind(s.Paste, PhysicalKey.P, NormalAction.Paste);
-            Bind(s.Undo, PhysicalKey.Z, NormalAction.Undo);
-        }
+        Bind(s.Copy, PhysicalKey.Y, NormalAction.Copy);
+        Bind(s.Paste, PhysicalKey.P, NormalAction.Paste);
+        Bind(s.Undo, PhysicalKey.Z, NormalAction.Undo);
+        Bind(s.Redo, PhysicalKey.W, NormalAction.Redo);
 
         // Swap in the finished map: a key arriving mid-rebuild always sees a
         // complete map, never a half-built one.
@@ -390,6 +375,7 @@ public sealed class NormalController : IModeController
             case NormalAction.Copy:
             case NormalAction.Paste:
             case NormalAction.Undo:
+            case NormalAction.Redo:
                 if (keyEvent.IsDown && !keyEvent.IsRepeat)
                 {
                     SendEditingChord(action);
@@ -429,7 +415,8 @@ public sealed class NormalController : IModeController
         {
             NormalAction.Copy => PhysicalKey.C,
             NormalAction.Paste => PhysicalKey.V,
-            _ => PhysicalKey.Z
+            NormalAction.Undo => PhysicalKey.Z,
+            _ => PhysicalKey.Y
         };
 
         _keys.SendChord(ctrl: true, key);

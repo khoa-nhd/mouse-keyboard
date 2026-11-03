@@ -62,7 +62,6 @@ public sealed class InputRouter
         Func<IntPtr>? foreground = null,
         Action<Action>? dispatch = null,
         Func<Point>? cursor = null,
-        bool editingExtras = false,
         int autoOffSeconds = 0,
         PhysicalKey toggleKey = PhysicalKey.CapsLock,
         AutoClickSettings? autoClick = null,
@@ -124,7 +123,6 @@ public sealed class InputRouter
             () => _pending.BeginSave(),
             () => _pending.BeginJump(),
             () => SetMode(false),
-            editingExtras,
             _autoClicker.Toggle);
 
         _controllers = [_hint, _grid, _pending, _normal];
@@ -150,10 +148,6 @@ public sealed class InputRouter
         _hint.UpdateSettings(settings);
     }
 
-    public void UpdateEditingExtras(bool enabled)
-    {
-        _normal.UpdateEditingExtras(enabled);
-    }
 
     public void UpdateAutoClick(AutoClickSettings settings)
     {

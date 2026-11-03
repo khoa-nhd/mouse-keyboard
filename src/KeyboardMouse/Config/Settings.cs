@@ -29,7 +29,6 @@ public sealed class Settings
 
     public UpdateSettings Update { get; set; } = new();
 
-    public bool EditingExtras { get; set; } = true;
 
     /// <summary>
     /// Repairs missing or out-of-range values so a hand-edited settings file
@@ -176,6 +175,7 @@ public sealed class KeysSettings
     public string Copy { get; set; } = "Y";
     public string Paste { get; set; } = "P";
     public string Undo { get; set; } = "Z";
+    public string Redo { get; set; } = "W";
 
     public string AutoClick { get; set; } = "B";
 }

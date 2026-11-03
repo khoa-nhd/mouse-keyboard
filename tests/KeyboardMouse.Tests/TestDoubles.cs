@@ -347,7 +347,7 @@ internal sealed class RouterHarness
 
     public long Now { get; set; }
 
-    public RouterHarness(int tapTimeoutMs = 200, FakeMonitorService? monitors = null, bool editingExtras = true)
+    public RouterHarness(int tapTimeoutMs = 200, FakeMonitorService? monitors = null)
     {
         Monitors = monitors ?? FakeMonitorService.Single();
         Mouse.OnMove = (x, y) => Pointer = new Point(x, y);
@@ -370,7 +370,6 @@ internal sealed class RouterHarness
             foreground: () => Foreground,
             dispatch: action => action(),
             cursor: () => Pointer,
-            editingExtras: editingExtras,
             autoClick: AutoClickSettings,
             autoClickScheduler: AutoClickTimer.Start);
     }

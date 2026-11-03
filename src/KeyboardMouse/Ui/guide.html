@@ -705,7 +705,7 @@ td:first-child { width: 168px; white-space: nowrap; }
               <div class="row" style="gap:10px"><input type="range" id="border-thickness" min="2" max="12" step="1"><span class="value-pill" id="border-thickness-value">3 px</span></div>
             </div>
           </div>
-          <div class="setting"><div><h3 data-t="settings.editT">Copy, paste, undo keys</h3><p data-t="settings.edit">Y, P and Z send Ctrl+C, Ctrl+V and Ctrl+Z in mouse mode.</p></div><label class="switch"><input type="checkbox" data-bind="editingExtras"><span></span></label></div>
+
         </div>
         <div class="card">
           <h2 style="margin-bottom:10px" data-t="settings.autoT">Auto clicker</h2>
@@ -970,9 +970,10 @@ const ACTIONS = [
   { id: "nextMonitor", cat: "jump", def: "N", en: ["Monitor", "Jump to the next monitor."], vi: ["MH kế", "Nhảy sang màn hình kế tiếp."] },
   { id: "markSave", cat: "jump", def: "M", en: ["Save mark", "Then a letter: remember this spot."], vi: ["Lưu", "Rồi một chữ cái: ghi nhớ vị trí này."] },
   { id: "markJump", cat: "jump", def: "Apostrophe", en: ["Go to mark", "Then a letter: jump to a saved spot."], vi: ["Tới dấu", "Rồi một chữ cái: nhảy tới vị trí đã lưu."] },
-  { id: "copy", cat: "edit", def: "Y", extra: true, en: ["Copy", "Sends Ctrl+C."], vi: ["Copy", "Gửi Ctrl+C."] },
-  { id: "paste", cat: "edit", def: "P", extra: true, en: ["Paste", "Sends Ctrl+V."], vi: ["Paste", "Gửi Ctrl+V."] },
-  { id: "undo", cat: "edit", def: "Z", extra: true, en: ["Undo", "Sends Ctrl+Z."], vi: ["Undo", "Gửi Ctrl+Z."] }
+  { id: "copy", cat: "edit", def: "Y", en: ["Copy", "Sends Ctrl+C."], vi: ["Copy", "Gửi Ctrl+C."] },
+  { id: "paste", cat: "edit", def: "P", en: ["Paste", "Sends Ctrl+V."], vi: ["Paste", "Gửi Ctrl+V."] },
+  { id: "undo", cat: "edit", def: "Z", en: ["Undo", "Sends Ctrl+Z."], vi: ["Undo", "Gửi Ctrl+Z."] },
+  { id: "redo", cat: "edit", def: "W", en: ["Redo", "Sends Ctrl+Y."], vi: ["Redo", "Gửi Ctrl+Y."] }
 ];
 const ALIASES = { ";": "Semicolon", "'": "Apostrophe", ",": "Comma", ".": "Period", "/": "Slash", "ESC": "Escape", "CAPS": "CapsLock", "CAPSLOCK": "CapsLock", "SPACE": "Space" };
 const LABELS = { Semicolon: ";", Apostrophe: "'", Comma: ",", Period: ".", Slash: "/", Space: "Space", CapsLock: "Caps Lock", Escape: "Esc", LeftShift: "Shift", Backspace: "⌫", ScrollLock: "Scroll Lock" };
@@ -996,7 +997,7 @@ let selectedKey = null;
 let state = {
   version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
   shortcuts: { desktop: false, startMenu: false },
-  settings: { toggleKey: "CapsLock", editingExtras: true, cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
+  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {} }
 };
 
 /* ---------------- pointer styles ---------------- */
@@ -1044,7 +1045,6 @@ function bindings() {
   const map = new Map();
   const keys = state.settings.keys || {};
   for (const a of ACTIONS) {
-    if (a.extra && !state.settings.editingExtras) continue;
     const name = a.id === "toggle" ? norm(state.settings.toggleKey || a.def) : a.fixed ? a.def : norm(keys[a.id] || a.def);
     if (!map.has(name)) map.set(name, a);
   }
@@ -1191,7 +1191,6 @@ function renderSettings() {
   $$('[data-bind="autostart"]').forEach(i => i.checked = !!state.autostart);
   $('[data-bind="cursorDot"]').checked = !!s.cursorDot;
   $('[data-bind="screenBorder"]').checked = !!s.screenBorder;
-  $('[data-bind="editingExtras"]').checked = !!s.editingExtras;
   $('[data-bind="updateCheckOnStart"]').checked = !!s.updateCheckOnStart;
   renderStyleGrid();
   const size = Math.max(4, Math.min(40, Math.round(s.dotSize || 12)));

@@ -3,6 +3,13 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.7] - 2026-11-03
+
+### Added & Updated
+- **Copy, Paste, Undo, and Redo as Main Features:**
+  - Promoted copy, paste, undo, and added **redo** (`Ctrl+Y`) from optional extras to first-class main features with full remappable key bindings (`KeysSettings`).
+  - Updated UI (`guide.html`) to display copy, paste, undo, and redo keys directly in the keys reference and settings UI.
+
 ## [1.0.6] - 2026-11-03
 
 ### Fixed & Enhanced

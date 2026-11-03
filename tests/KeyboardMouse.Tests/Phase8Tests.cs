@@ -5,43 +5,33 @@ using KeyboardMouse.Output;
 
 namespace KeyboardMouse.Tests;
 
-/// <summary>Editing extras: Y / P / Z send Ctrl+C / Ctrl+V / Ctrl+Z.</summary>
-public class EditingExtrasTests
+public class EditingFeaturesTests
 {
     [Fact]
-    public void YThenPThenZ_SendTheCopyPasteUndoChords()
+    public void CopyPasteUndoRedo_SendTheirRespectiveChords()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         h.TapCaps();
 
         Assert.True(h.Down(PhysicalKey.Y));
         Assert.True(h.Down(PhysicalKey.P));
         Assert.True(h.Down(PhysicalKey.Z));
-        Assert.True(h.Up(PhysicalKey.Y));
+        Assert.True(h.Down(PhysicalKey.W));
 
         var expected = new[]
         {
             (true, PhysicalKey.C),
             (true, PhysicalKey.V),
-            (true, PhysicalKey.Z)
+            (true, PhysicalKey.Z),
+            (true, PhysicalKey.Y)
         };
         Assert.Equal(expected, h.Keys.Chords);
     }
 
     [Fact]
-    public void Disabled_YPassesThroughToTheApp()
-    {
-        var h = new RouterHarness(editingExtras: false);
-        h.TapCaps();
-
-        Assert.False(h.Down(PhysicalKey.Y));
-        Assert.Empty(h.Keys.Chords);
-    }
-
-    [Fact]
     public void Repeat_DoesNotSendAnotherChord()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         h.TapCaps();
 
         h.Down(PhysicalKey.Y);
@@ -173,7 +163,7 @@ public class RemapTests
     [Fact]
     public void AllBindings_FollowTheSettings()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         h.KeySettings.Up = "Y";
         h.KeySettings.LeftClick = "Semicolon";
         h.KeySettings.TurboLayer = "B";
@@ -197,7 +187,7 @@ public class RemapTests
     [Fact]
     public void OldDefaultKeys_PassThroughOnceRemapped()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         h.KeySettings.Up = "Y";
         h.KeySettings.LeftClick = "Semicolon";
         h.KeySettings.Copy = "Backtick";
@@ -219,7 +209,7 @@ public class RemapTests
     [Fact]
     public void DuplicateBindings_FirstBindingWins()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         // Hint would be bound after Left, so the movement key keeps the key
         // and Hint ends up unbound.
         h.KeySettings.Left = "Q";
@@ -236,7 +226,7 @@ public class RemapTests
     [Fact]
     public void InvalidKeyName_FallsBackToTheDefault()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         h.KeySettings.DoubleClick = "NotARealKey";
         h.Router.UpdateKeys(h.KeySettings);
         h.TapCaps();
@@ -248,7 +238,7 @@ public class RemapTests
     [Fact]
     public void ModifierKeys_NeverBecomeBindings()
     {
-        var h = new RouterHarness(editingExtras: true);
+        var h = new RouterHarness();
         // A settings mistake must not turn Ctrl into a swallow-everything
         // mouse button: modifiers always pass through untouched.
         h.KeySettings.RightClick = "LeftCtrl";

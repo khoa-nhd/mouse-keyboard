@@ -99,7 +99,6 @@ public sealed class TrayApp : ApplicationContext
             hintSettings: _settings.Hint,
             foreground: User32.GetForegroundWindow,
             dispatch: DispatchToUi,
-            editingExtras: _settings.EditingExtras,
             autoOffSeconds: _settings.Activation.AutoOffSeconds,
             toggleKey: ParseToggleKey(_settings),
             autoClick: _settings.AutoClick);
@@ -305,7 +304,6 @@ public sealed class TrayApp : ApplicationContext
             settings = new
             {
                 toggleKey = _settings.Activation.ToggleKey,
-                editingExtras = _settings.EditingExtras,
                 cursorDot = _settings.Feedback.CursorDot,
                 cursorStyle = _settings.Feedback.CursorStyle,
                 cursorColor = _settings.Feedback.CursorColor,
@@ -465,9 +463,6 @@ public sealed class TrayApp : ApplicationContext
                 break;
             case "screenBorder" when isBool:
                 _settings.Feedback.ScreenBorder = v.GetBoolean();
-                break;
-            case "editingExtras" when isBool:
-                _settings.EditingExtras = v.GetBoolean();
                 break;
             case "autoClick.intervalMs" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int ms):
                 _settings.AutoClick.IntervalMs = ms;
@@ -931,7 +926,6 @@ public sealed class TrayApp : ApplicationContext
         _router.UpdateGrid(_settings.Grid);
         _router.UpdateKeys(_settings.Keys);
         _router.UpdateHint(_settings.Hint);
-        _router.UpdateEditingExtras(_settings.EditingExtras);
         _router.UpdateAutoOff(_settings.Activation.AutoOffSeconds);
         _router.UpdateAutoClick(_settings.AutoClick);
         _router.SetToggleKey(ParseToggleKey(_settings));
