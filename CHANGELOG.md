@@ -3,6 +3,17 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.9] - 2026-11-03
+
+### Fixed & Enhanced
+- **Comet Trail: One Connected Tail Again:**
+  - The tail is now capped by real path length (280 px normal, 330 px Turbo) instead of several seconds of history. After a fast U-turn the old pass can no longer re-enter the window as a second, disconnected trail.
+  - A large pointer jump (center-screen/monitor jump or a stalled frame) starts a fresh tail instead of drawing a long streak across the screen.
+  - The tail is painted as one smooth, tapered ribbon with Chaikin corner cutting and a head-to-tail gradient, removing the dashed/segmented look of the old per-segment strokes.
+- **Smoother Overlay Rendering:**
+  - The overlay now reuses a top-down 32 bpp DIB section and memory DC instead of creating and copying an HBitmap every frame, cutting GDI churn and stutter during fast movement.
+- **README:** Copy / paste / undo / redo are documented as normal, remappable main keys.
+
 ## [1.0.8] - 2026-11-03
 
 ### Fixed & Enhanced

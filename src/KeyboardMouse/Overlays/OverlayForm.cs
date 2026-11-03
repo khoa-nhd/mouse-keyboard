@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using KeyboardMouse.Native;
 
 namespace KeyboardMouse.Overlays;
@@ -13,6 +14,10 @@ namespace KeyboardMouse.Overlays;
 public abstract class OverlayForm : Form
 {
     private Bitmap? _surface;
+    private IntPtr _screenDc;
+    private IntPtr _memoryDc;
+    private IntPtr _dib;
+    private IntPtr _oldBitmap;
 
     protected OverlayForm()
     {
@@ -50,10 +55,9 @@ public abstract class OverlayForm : Form
             return;
         }
 
-        if (_surface is null || _surface.Width != width || _surface.Height != height)
+        if (!EnsureSurface(width, height) || _surface is null)
         {
-            _surface?.Dispose();
-            _surface = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            return;
         }
 
         using (var graphics = Graphics.FromImage(_surface))
@@ -95,72 +99,136 @@ public abstract class OverlayForm : Form
         }
     }
 
+    /// <summary>
+    /// Reuses one top-down 32bpp DIB and one memory DC for the lifetime of the
+    /// surface. Recreating and copying a 700x700 bitmap every frame was the
+    /// main source of GDI churn and stutter in the animated comet overlay.
+    /// </summary>
+    private bool EnsureSurface(int width, int height)
+    {
+        if (_surface is not null && _surface.Width == width && _surface.Height == height)
+        {
+            return true;
+        }
+
+        ReleaseSurface();
+
+        _screenDc = Gdi32.GetDC(IntPtr.Zero);
+        if (_screenDc == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _memoryDc = Gdi32.CreateCompatibleDC(_screenDc);
+        if (_memoryDc == IntPtr.Zero)
+        {
+            ReleaseSurface();
+            return false;
+        }
+
+        var info = new BITMAPINFO
+        {
+            bmiHeader = new BITMAPINFOHEADER
+            {
+                biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>(),
+                biWidth = width,
+                biHeight = -height, // top-down: row 0 is the top of the image
+                biPlanes = 1,
+                biBitCount = 32,
+                biCompression = Gdi32.BI_RGB,
+                biSizeImage = (uint)(width * height * 4)
+            }
+        };
+
+        _dib = Gdi32.CreateDIBSection(
+            _screenDc,
+            ref info,
+            Gdi32.DIB_RGB_COLORS,
+            out IntPtr bits,
+            IntPtr.Zero,
+            0);
+
+        if (_dib == IntPtr.Zero || bits == IntPtr.Zero)
+        {
+            ReleaseSurface();
+            return false;
+        }
+
+        _oldBitmap = Gdi32.SelectObject(_memoryDc, _dib);
+        if (_oldBitmap == IntPtr.Zero)
+        {
+            ReleaseSurface();
+            return false;
+        }
+
+        // Wrapping the DIB bits keeps GDI+ drawing directly into the bitmap
+        // that UpdateLayeredWindow later composites: no per-frame HBitmap copy.
+        _surface = new Bitmap(width, height, width * 4, PixelFormat.Format32bppPArgb, bits);
+        return true;
+    }
+
+    private void ReleaseSurface()
+    {
+        _surface?.Dispose();
+        _surface = null;
+
+        if (_memoryDc != IntPtr.Zero)
+        {
+            if (_oldBitmap != IntPtr.Zero)
+            {
+                Gdi32.SelectObject(_memoryDc, _oldBitmap);
+                _oldBitmap = IntPtr.Zero;
+            }
+
+            if (_dib != IntPtr.Zero)
+            {
+                Gdi32.DeleteObject(_dib);
+                _dib = IntPtr.Zero;
+            }
+
+            Gdi32.DeleteDC(_memoryDc);
+            _memoryDc = IntPtr.Zero;
+        }
+
+        if (_screenDc != IntPtr.Zero)
+        {
+            Gdi32.ReleaseDC(IntPtr.Zero, _screenDc);
+            _screenDc = IntPtr.Zero;
+        }
+    }
+
     private void PushSurface(int x, int y)
     {
-        if (_surface is null)
+        if (_surface is null || _memoryDc == IntPtr.Zero || _screenDc == IntPtr.Zero)
         {
             return;
         }
 
         _ = Handle;
 
-        IntPtr screenDc = Gdi32.GetDC(IntPtr.Zero);
-        IntPtr memoryDc = IntPtr.Zero;
-        IntPtr hBitmap = IntPtr.Zero;
-        IntPtr oldBitmap = IntPtr.Zero;
-
-        try
+        var destination = new POINT(x, y);
+        var source = new POINT(0, 0);
+        var size = new SIZE(_surface.Width, _surface.Height);
+        var blend = new BLENDFUNCTION
         {
-            memoryDc = Gdi32.CreateCompatibleDC(screenDc);
-            hBitmap = _surface.GetHbitmap(Color.FromArgb(0));
-            oldBitmap = Gdi32.SelectObject(memoryDc, hBitmap);
+            BlendOp = Gdi32.AC_SRC_OVER,
+            BlendFlags = 0,
+            SourceConstantAlpha = 255,
+            AlphaFormat = Gdi32.AC_SRC_ALPHA
+        };
 
-            var destination = new POINT(x, y);
-            var source = new POINT(0, 0);
-            var size = new SIZE(_surface.Width, _surface.Height);
-            var blend = new BLENDFUNCTION
-            {
-                BlendOp = Gdi32.AC_SRC_OVER,
-                BlendFlags = 0,
-                SourceConstantAlpha = 255,
-                AlphaFormat = Gdi32.AC_SRC_ALPHA
-            };
-
-            if (!User32.UpdateLayeredWindow(
-                    Handle,
-                    screenDc,
-                    ref destination,
-                    ref size,
-                    memoryDc,
-                    ref source,
-                    0,
-                    ref blend,
-                    User32.ULW_ALPHA))
-            {
-                Debug.WriteLine($"[Overlay] UpdateLayeredWindow failed: {System.Runtime.InteropServices.Marshal.GetLastWin32Error()}");
-            }
-        }
-        finally
+        if (!User32.UpdateLayeredWindow(
+                Handle,
+                _screenDc,
+                ref destination,
+                ref size,
+                _memoryDc,
+                ref source,
+                0,
+                ref blend,
+                User32.ULW_ALPHA))
         {
-            if (oldBitmap != IntPtr.Zero)
-            {
-                Gdi32.SelectObject(memoryDc, oldBitmap);
-            }
-
-            if (hBitmap != IntPtr.Zero)
-            {
-                Gdi32.DeleteObject(hBitmap);
-            }
-
-            if (memoryDc != IntPtr.Zero)
-            {
-                Gdi32.DeleteDC(memoryDc);
-            }
-
-            if (screenDc != IntPtr.Zero)
-            {
-                Gdi32.ReleaseDC(IntPtr.Zero, screenDc);
-            }
+            Debug.WriteLine($"[Overlay] UpdateLayeredWindow failed: {Marshal.GetLastWin32Error()}");
         }
     }
 
@@ -168,8 +236,7 @@ public abstract class OverlayForm : Form
     {
         if (disposing)
         {
-            _surface?.Dispose();
-            _surface = null;
+            ReleaseSurface();
         }
 
         base.Dispose(disposing);

@@ -15,9 +15,12 @@ public sealed class CursorIndicator : IDisposable
 {
     private const int MaxTrailNormal = 180;
     private const int MaxTrailTurbo = 350;
-    private const float MinTrailSpacing = 0.8f;
+    private const float MinTrailSpacing = 3.0f;
     private const float TrailLifeNormal = 1.4f;
     private const float TrailLifeTurbo  = 3.0f;
+    private const float MaxTrailDistanceNormal = 280f;
+    private const float MaxTrailDistanceTurbo = 330f;
+    private const float MaxTrailJump = 240f;
     private const int Reach = 350; // Fixed window half-size (700x700 total window, zero resize flicker)
 
     private readonly AppState _state;
@@ -158,7 +161,16 @@ public sealed class CursorIndicator : IDisposable
             var last = _trail[^1];
             float dx = x - last.X;
             float dy = y - last.Y;
-            if ((dx * dx) + (dy * dy) < MinTrailSpacing * MinTrailSpacing)
+            float distanceSq = (dx * dx) + (dy * dy);
+
+            // A jump this large is a teleport (center screen, monitor change,
+            // a stall) rather than movement: start a fresh tail instead of
+            // drawing one long streak across the screen.
+            if (distanceSq > MaxTrailJump * MaxTrailJump)
+            {
+                _trail.Clear();
+            }
+            else if (distanceSq < MinTrailSpacing * MinTrailSpacing)
             {
                 return;
             }
@@ -194,18 +206,65 @@ public sealed class CursorIndicator : IDisposable
 
         float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
         float lifeMs = life * 1000f;
+        float maxDistance = turbo ? MaxTrailDistanceTurbo : MaxTrailDistanceNormal;
 
-        var result = new List<TrailSample>(_trail.Count);
-        for (int i = 0; i < _trail.Count; i++)
+        // Walk the history from newest to oldest. Stop at the first sample
+        // that would push the tail past its maximum length: older samples can
+        // re-enter the window after a fast U-turn and were what looked like
+        // several disconnected trails on screen.
+        var newestFirst = new List<TrailSample>(_trail.Count);
+        var distances = new List<float>(_trail.Count);
+        float lastX = float.NaN;
+        float lastY = float.NaN;
+        float distance = 0f;
+
+        for (int i = _trail.Count - 1; i >= 0; i--)
         {
             var (px, py, tick) = _trail[i];
             float localX = px - cx + headLocal.X;
             float localY = py - cy + headLocal.Y;
-            float age = Math.Clamp((now - tick) / lifeMs, 0f, 1f);
-            result.Add(new TrailSample(new PointF(localX, localY), age));
+
+            if (localX < 2f || localY < 2f ||
+                localX > (Reach * 2) - 2f || localY > (Reach * 2) - 2f)
+            {
+                break;
+            }
+
+            if (!float.IsNaN(lastX))
+            {
+                float dx = localX - lastX;
+                float dy = localY - lastY;
+                distance += MathF.Sqrt((dx * dx) + (dy * dy));
+                if (distance > maxDistance)
+                {
+                    break;
+                }
+            }
+
+            float timeAge = Math.Clamp((now - tick) / lifeMs, 0f, 1f);
+            newestFirst.Add(new TrailSample(new PointF(localX, localY), timeAge));
+            distances.Add(distance);
+            lastX = localX;
+            lastY = localY;
         }
 
-        return result.ToArray();
+        if (newestFirst.Count == 0)
+            return Array.Empty<TrailSample>();
+
+        // Fade by actual trail length as well as age, so a tail cut short by
+        // the distance cap still ends in a transparent point instead of a
+        // blunt, blocky edge.
+        float total = Math.Max(distances[^1], 0.001f);
+        var result = new TrailSample[newestFirst.Count];
+        for (int i = 0; i < newestFirst.Count; i++)
+        {
+            int target = newestFirst.Count - 1 - i; // oldest first
+            float spatialAge = Math.Clamp(distances[target] / total, 0f, 1f);
+            float age = Math.Clamp(Math.Max(newestFirst[target].Age, spatialAge), 0f, 1f);
+            result[i] = newestFirst[target] with { Age = age };
+        }
+
+        return result;
     }
 
     public void Dispose()

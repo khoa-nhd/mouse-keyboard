@@ -480,57 +480,102 @@ public static class CursorPainter
     }
 
     /// <summary>
-    /// Draws the comet's tail with AntiAlias and smooth tapering.
+    /// Draws the comet's tail as one smooth, tapered ribbon. A single filled
+    /// shape avoids the dashed/segmented look of drawing many short caps, and
+    /// Chaikin corner cutting rounds the path without the overshoot that a
+    /// spline can produce on sharp, fast turns.
     /// </summary>
     private static void DrawTrail(Graphics g, List<TrailVertex> points, int s, Color color)
     {
+        var smooth = Smooth(points, iterations: 1);
+        if (smooth.Count < 2)
+        {
+            return;
+        }
+
         var prevSmoothing = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        var smooth = Subdivide(points);
-        using var pen = new Pen(color, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        int count = smooth.Count;
+        var polygon = new PointF[count * 2];
 
-        for (int i = 1; i < smooth.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            var a = smooth[i - 1];
-            var b = smooth[i];
+            var current = smooth[i];
+            var prev = smooth[Math.Max(0, i - 1)];
+            var next = smooth[Math.Min(count - 1, i + 1)];
 
-            float fade = (a.Fade + b.Fade) * 0.5f;
-            float eased = fade * fade * (3f - (2f * fade)); // Smoothstep for ultra-silky fade
-
-            int alpha = (int)(230f * eased);
-            if (alpha < 3)
+            float dx = next.P.X - prev.P.X;
+            float dy = next.P.Y - prev.P.Y;
+            float len = MathF.Sqrt((dx * dx) + (dy * dy));
+            if (len < 0.001f)
             {
-                continue;
+                dx = 1f;
+                dy = 0f;
+                len = 1f;
             }
 
-            pen.Color = Color.FromArgb(alpha, color);
-            pen.Width = 0.8f + (s * 0.5f * eased);
-            g.DrawLine(pen, a.P, b.P);
+            float nx = -dy / len;
+            float ny = dx / len;
+            float half = (0.8f + (s * 0.5f * current.Fade)) * 0.5f;
+
+            polygon[i] = new PointF(current.P.X + (nx * half), current.P.Y + (ny * half));
+            polygon[(count * 2) - 1 - i] = new PointF(current.P.X - (nx * half), current.P.Y - (ny * half));
+        }
+
+        using var path = new GraphicsPath();
+        path.FillMode = FillMode.Winding;
+        path.AddPolygon(polygon);
+
+        var head = smooth[0].P;
+        var tail = smooth[^1].P;
+        float spanX = tail.X - head.X;
+        float spanY = tail.Y - head.Y;
+
+        if ((spanX * spanX) + (spanY * spanY) < 0.25f)
+        {
+            using var solid = new SolidBrush(Color.FromArgb(215, color));
+            g.FillPath(solid, path);
+        }
+        else
+        {
+            using var brush = new LinearGradientBrush(
+                head,
+                tail,
+                Color.FromArgb(230, color),
+                Color.FromArgb(0, color));
+            g.FillPath(brush, path);
         }
 
         g.SmoothingMode = prevSmoothing;
     }
 
-    private static List<TrailVertex> Subdivide(List<TrailVertex> points)
+    /// <summary>One round of Chaikin corner cutting per iteration, endpoints kept.</summary>
+    private static List<TrailVertex> Smooth(List<TrailVertex> points, int iterations)
     {
-        if (points.Count < 3)
+        if (points.Count < 3 || iterations <= 0)
         {
             return points;
         }
 
-        var result = new List<TrailVertex>((points.Count * 2) + 2) { points[0] };
-
-        for (int i = 0; i < points.Count - 1; i++)
+        var current = points;
+        for (int iteration = 0; iteration < iterations; iteration++)
         {
-            var a = points[i];
-            var b = points[i + 1];
-            result.Add(TrailVertex.Lerp(a, b, 0.25f));
-            result.Add(TrailVertex.Lerp(a, b, 0.75f));
+            var next = new List<TrailVertex>((current.Count * 2) - 1) { current[0] };
+
+            for (int i = 0; i < current.Count - 1; i++)
+            {
+                var a = current[i];
+                var b = current[i + 1];
+                next.Add(TrailVertex.Lerp(a, b, 0.25f));
+                next.Add(TrailVertex.Lerp(a, b, 0.75f));
+            }
+
+            next.Add(current[^1]);
+            current = next;
         }
 
-        result.Add(points[^1]);
-        return result;
+        return current;
     }
 
     private readonly record struct TrailVertex(PointF P, float Fade)

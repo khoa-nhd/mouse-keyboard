@@ -50,7 +50,7 @@ The **KeyboardMouse window** opens with an illustrated guide:
 | **Keys** | An interactive keyboard. Hover a key to see what it does; in mouse mode the keys you press light up |
 | **Power moves** | Animated demos of grid jump, hints, scrolling and the auto clicker |
 | **Practice** | A target range to practise clicking without the mouse, with your best time |
-| **Settings** | Auto-click speed and button, pointer dot, screen border, copy/paste keys |
+| **Settings** | Auto-click speed and button, pointer dot, screen border, copy/paste/undo/redo keys |
 | **About** | Version, privacy, links, and Quit |
 
 The guide is available in **English and Tiếng Việt** (switch at the bottom left).
@@ -203,7 +203,7 @@ AZERTY and QWERTZ keyboards.
 | **V** | Drag lock: left button stays down until V or Space |
 | **T** | Left click, then leave mouse mode |
 | **B** | **Auto clicker** on/off (see below) |
-| **Y / P / Z** | Ctrl+C / Ctrl+V / Ctrl+Z (can be turned off in settings) |
+| **Y / P / Z / W** | Copy / paste / undo / redo (Ctrl+C / Ctrl+V / Ctrl+Z / Ctrl+Y) |
 
 Shift, Ctrl and Alt pass through, so `Shift+Space`, `Ctrl+Space` and so on work
 like modifier clicks on a real mouse. Keys that aren't mapped (Enter, Tab,
@@ -278,7 +278,7 @@ On first run, a default `settings.json` is created at
 `settings.json` next to the exe instead.
 
 The common options (auto-click speed and button, pointer style and size,
-screen border, copy/paste keys) can be changed in the window's **Settings**
+screen border, copy/paste/undo/redo keys) can be changed in the window's **Settings**
 tab. The pointer style is also in the tray menu under **Pointer style**.
 Everything else is in the file.
 
