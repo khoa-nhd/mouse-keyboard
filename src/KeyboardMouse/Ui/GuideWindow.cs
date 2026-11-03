@@ -225,6 +225,26 @@ public sealed class GuideWindow : Form
     /// <summary>Lights up a key on the Keys page. Only called while this window is active.</summary>
     public void PostKey(string key, bool down) => Post(new { type = "key", key, down });
 
+    public void PostCaptureResult(
+        string id,
+        bool cancelled,
+        bool ok,
+        string? error,
+        string? key,
+        string? swappedId,
+        string? swappedKey) =>
+        Post(new
+        {
+            type = "capture",
+            id,
+            cancelled,
+            ok,
+            error,
+            key,
+            swappedId,
+            swappedKey
+        });
+
     private void Post(object message)
     {
         if (!_ready || IsDisposed || _web.CoreWebView2 is null)

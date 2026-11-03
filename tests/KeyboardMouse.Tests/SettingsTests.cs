@@ -108,7 +108,7 @@ public class SettingsTests
             Activation = new ActivationSettings { ToggleKey = "" }
         };
         bad.Normalize();
-        Assert.Equal("CapsLock", bad.Activation.ToggleKey);
+        Assert.Equal("", bad.Activation.ToggleKey);
 
         var modifier = new Settings
         {

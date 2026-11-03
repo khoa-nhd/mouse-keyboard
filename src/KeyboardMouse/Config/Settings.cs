@@ -56,13 +56,10 @@ public sealed class Settings
             Activation.AutoOffSeconds = 0;
         }
 
-        if (string.IsNullOrWhiteSpace(Activation.ToggleKey) ||
-            !KeyNames.TryParse(Activation.ToggleKey, out var toggleKey) ||
-            toggleKey == KeyboardMouse.Input.PhysicalKey.None ||
-            toggleKey.IsModifier())
-        {
-            Activation.ToggleKey = "CapsLock";
-        }
+        // Every editable binding shares one normalizer: canonical key names,
+        // empty values kept as "unbound", invalid values repaired, and no
+        // duplicates inside the normal or grid pool.
+        KeyBindingCatalog.Normalize(this);
 
         Speed.Normal = NormalizeSpeed(Speed.Normal, SpeedConfig.Normal);
         Speed.Precision = NormalizeSpeed(Speed.Precision, SpeedConfig.Precision);
@@ -73,16 +70,7 @@ public sealed class Settings
             Grid.MaxDepth = 3;
         }
 
-        if (Grid.Keys is null || Grid.Keys.Length != 9)
-        {
-            Grid.Keys = new GridSettings().Keys;
-        }
-
-        if (string.IsNullOrWhiteSpace(Hint.Alphabet) || Hint.Alphabet.Distinct().Count() < 2)
-        {
-            Hint.Alphabet = "asdfjkl;";
-        }
-
+        Hint.Alphabet = KeyNames.NormalizeHintAlphabet(Hint.Alphabet);
         Hint.MaxElements = Math.Clamp(Hint.MaxElements, 1, 2000);
 
         Scroll.Base = Math.Max(0, Scroll.Base);

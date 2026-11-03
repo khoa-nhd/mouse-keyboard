@@ -134,8 +134,15 @@ public sealed class NormalController : IModeController
 
         void Bind(string? name, PhysicalKey fallback, NormalAction action)
         {
+            // An empty value is deliberately unbound; only an invalid value
+            // falls back, and Normalize repairs those before they reach here.
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
             var key = KeyNames.TryParse(name, out var parsed) ? parsed : fallback;
-            if (key == PhysicalKey.None)
+            if (key == PhysicalKey.None || key == PhysicalKey.Escape)
             {
                 return;
             }

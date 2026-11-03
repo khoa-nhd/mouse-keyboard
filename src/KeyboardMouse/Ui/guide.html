@@ -219,6 +219,66 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .style-tile.active::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 @media (max-width: 720px) { .style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* ---------- keymap ---------- */
+.keymap-head { align-items: flex-start; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; }
+.keymap-head > div:first-child { flex: 1 1 260px; min-width: 0; }
+.keymap-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.keymap-search { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; min-width: 200px; }
+.keymap-search input { border: 0; background: none; outline: none; padding: 8px 0; color: var(--text); width: 100%; font: inherit; }
+.keymap-search input::placeholder { color: var(--soft); }
+.capture-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: 12px; margin-bottom: 14px;
+  border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.capture-banner[hidden] { display: none; }
+.capture-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; flex: none; }
+.capture-banner b { display: block; font-size: 13px; }
+.capture-banner span { color: var(--muted); font-size: 12.5px; }
+.keymap-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .keymap-groups { grid-template-columns: 1fr; } }
+.keymap-group { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.keymap-group h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.keymap-group h3 i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.keymap-group .binding-row + .binding-row { border-top: 1px solid var(--line); }
+.binding-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 8px 0; }
+.binding-row.hidden { display: none; }
+.binding-name b { display: block; font-size: 13px; font-weight: 650; }
+.binding-name span { color: var(--muted); font-size: 12px; }
+.binding-row.capturing { background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 8px; margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+.key-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 92px; justify-content: center;
+  border: 1px solid var(--line); background: var(--panel); border-radius: 9px; padding: 4px 8px;
+  cursor: pointer; color: var(--text); font: 600 12.5px/1.2 inherit; transition: border-color .15s;
+}
+.key-btn:hover { border-color: var(--accent); }
+.key-btn.unbound { border-style: dashed; color: var(--muted); }
+.key-btn.locked { cursor: default; opacity: .75; }
+.key-btn kbd { min-width: 0; height: 22px; padding: 0 6px; font-size: 12px; }
+.row-act { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; width: 28px; height: 28px; padding: 0; cursor: pointer; color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; }
+.row-act:hover { border-color: var(--accent); color: var(--accent); }
+.row-act.danger { border-color: #ef4444; color: #ef4444; }
+.grid-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; }
+.grid-cell {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 62px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer;
+  font: 600 13px/1.2 inherit; color: var(--text); transition: border-color .15s, transform .12s;
+}
+.grid-cell:hover { border-color: var(--accent); transform: translateY(-1px); }
+.grid-cell.unbound { border-style: dashed; color: var(--muted); }
+.grid-cell .pos { font-size: 10px; color: var(--soft); font-weight: 500; }
+.grid-cell.capturing { border-color: var(--accent); background: var(--accent-soft); }
+.hint-editor { display: flex; flex-direction: column; gap: 10px; }
+.hint-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hint-row input { flex: 1 1 220px; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; background: var(--panel); color: var(--text); font: 600 13px/1.2 monospace; outline: none; }
+.hint-row input:focus { border-color: var(--accent); }
+.hint-preview { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.hint-preview kbd { height: 22px; padding: 0 6px; font-size: 12px; }
+.hint-preview .sep { color: var(--soft); }
+.fixed-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--muted); font-size: 13px; }
+.fixed-row kbd { min-width: 0; height: 22px; padding: 0 6px; font-size: 12px; }
+.keymap-note { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+
 /* ---------- home ---------- */
 .hero {
   position: relative; overflow: hidden;
@@ -668,6 +728,38 @@ td:first-child { width: 168px; white-space: nowrap; }
         <button class="btn primary" id="apply-settings" type="button" data-t="settings.apply">Apply</button>
       </div>
       <div class="stack">
+        <div class="card keymap-card">
+          <div class="keymap-head">
+            <div>
+              <h2 style="margin-bottom:4px" data-t="keymap.title">Keymap</h2>
+              <p class="muted" data-t="keymap.lead">Every key that runs in mouse mode can be changed. Click a key, then press the replacement.</p>
+            </div>
+            <div class="keymap-tools">
+              <div class="keymap-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="keymap-search" type="search" data-t-placeholder="keymap.search" placeholder="Search keys or actions"></div>
+              <button class="btn" id="keymap-reset-all" type="button" data-t="keymap.resetAll">Reset all</button>
+            </div>
+          </div>
+          <div class="capture-banner" id="capture-banner" hidden>
+            <div class="row" style="gap:10px"><span class="capture-dot"></span><div><b id="capture-action"></b><span data-t="keymap.listeningSub">Esc cancels. Modifier-only presses are ignored.</span></div></div>
+            <button class="btn" id="capture-cancel" type="button" data-t="keymap.cancel">Cancel</button>
+          </div>
+          <div class="keymap-groups" id="keymap-groups"></div>
+          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.gridT">Grid cells</h3><span data-t="keymap.gridLead">Click a cell, then press the key that should pick it. Empty cells cannot be selected.</span></div>
+          <div class="grid-pad" id="keymap-grid"></div>
+          <p class="keymap-note" data-t="keymap.gridMode">Grid mode keys: {grid} opens, {next} moves to the next monitor, {left} clicks, {right} right-clicks.</p>
+          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.hintT">Hint characters</h3><span data-t="keymap.hintLead">Letters, digits and punctuation the hint labels can use. At least two different characters.</span></div>
+          <div class="hint-editor">
+            <div class="hint-row">
+              <input id="hint-alphabet" type="text" spellcheck="false" autocomplete="off">
+              <button class="btn primary" id="hint-save" type="button" data-t="keymap.hintSave">Save</button>
+            </div>
+            <div class="row" style="gap:6px; flex-wrap:wrap">
+              <span class="muted" style="font-size:12px" data-t="keymap.hintPreview">Preview</span>
+              <div class="hint-preview" id="hint-preview"></div>
+            </div>
+          </div>
+          <div class="fixed-row"><kbd>Esc</kbd> <span data-t="keymap.fixed">Fixed</span> <span class="muted" data-t="keymap.fixedLead">Esc and Backspace stay fixed in grid and hint modes.</span></div>
+        </div>
         <div class="card">
           <h2 style="margin-bottom:10px" data-t="settings.general">General</h2>
           <div class="setting"><div><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div><label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label></div>
@@ -831,7 +923,7 @@ const T = {
     "practice.tip1t": "Use the grid", "practice.tip1": "Press G, then the box where the target is. Two presses usually land on it.",
     "practice.tip2t": "Try hints", "practice.tip2": "Press H — the target gets a label. Type it to click instantly.",
     "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
-    "settings.title": "Settings", "settings.lead": "Adjust a slider or a colour, then press Enter, click outside it, or press Apply. Everything else (every key, every speed) lives in the settings file.",
+    "settings.title": "Settings", "settings.lead": "Adjust a slider, a colour or any key below. Sliders and colours apply on Enter, blur or Apply; keys apply immediately.",
     "settings.general": "General",
     "settings.dotT": "Show pointer indicator", "settings.dot": "Draw the indicator next to the pointer while mouse mode is on.",
     "settings.styleT": "Pointer style", "settings.style": "The shape that follows the pointer. Its colour shows the active layer.",
@@ -858,7 +950,10 @@ const T = {
     "about.limitsT": "Good to know", "about.l1": "Admin windows (e.g. Task Manager) only respond if KeyboardMouse runs as administrator.", "about.l2": "Some games ignore simulated input.", "about.l3": "Works together with a TrackPoint, touchpad or mouse.",
     "about.powerT": "Shutdown or restart", "about.power": "Shutdown stops the app completely and your keyboard goes back to normal right away. Restart closes it and starts it again.", "about.shutdownBtn": "Shutdown", "about.restartBtn": "Restart",
     "toast.saved": "Saved", "toast.reloaded": "Settings reloaded", "toast.shortcut": "Shortcut added", "toast.failed": "Something went wrong — see the log",
-    "perSec": "{n} / s"
+    "toast.bindingReset": "Key reset", "toast.bindingUnbound": "Key unbound", "toast.allReset": "All keys reset", "toast.hintSaved": "Hint characters saved", "toast.hintInvalid": "Use at least two different supported characters",
+    "perSec": "{n} / s",
+    "keymap.title": "Keymap", "keymap.lead": "Every key that runs in mouse mode can be changed. Click a key, then press the replacement.",
+    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed in grid and hint modes.", "keymap.gridT": "Grid cells", "keymap.gridLead": "Click a cell, then press the key that should pick it. Empty cells cannot be selected.", "keymap.gridMode": "Grid mode keys: {grid} opens, {next} moves to the next monitor, {left} clicks, {right} right-clicks.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid cells"
   },
   vi: {
     "nav.home": "Bắt đầu", "nav.keys": "Phím", "nav.modes": "Tuyệt chiêu", "nav.practice": "Luyện tập", "nav.settings": "Cài đặt", "nav.about": "Giới thiệu",
@@ -911,7 +1006,7 @@ const T = {
     "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G, rồi bấm ô có mục tiêu. Thường hai lần bấm là trúng.",
     "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
     "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
-    "settings.title": "Cài đặt", "settings.lead": "Kéo thanh hoặc chọn màu, rồi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng. Còn lại (mọi phím, mọi tốc độ) nằm trong file cài đặt.",
+    "settings.title": "Cài đặt", "settings.lead": "Kéo thanh, chọn màu hoặc đổi bất kỳ phím nào bên dưới. Thanh và màu áp dụng khi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng; phím áp dụng ngay.",
     "settings.general": "Chung",
     "settings.dotT": "Hiện chỉ báo con trỏ", "settings.dot": "Vẽ chỉ báo cạnh con trỏ khi chế độ chuột đang bật.",
     "settings.styleT": "Kiểu con trỏ", "settings.style": "Hình dạng đi theo con trỏ. Màu của nó cho biết lớp đang dùng.",
@@ -938,7 +1033,10 @@ const T = {
     "about.limitsT": "Nên biết", "about.l1": "Cửa sổ chạy quyền admin (vd. Task Manager) chỉ nhận lệnh nếu KeyboardMouse cũng chạy bằng quyền admin.", "about.l2": "Một số game bỏ qua thao tác chuột giả lập.", "about.l3": "Dùng chung được với TrackPoint, touchpad hoặc chuột thật.",
     "about.powerT": "Tắt hoặc khởi động lại", "about.power": "Shutdown tắt hẳn app và bàn phím trở lại bình thường ngay lập tức. Restart tắt app rồi chạy lại từ đầu.", "about.shutdownBtn": "Tắt", "about.restartBtn": "Khởi động lại",
     "toast.saved": "Đã lưu", "toast.reloaded": "Đã tải lại cài đặt", "toast.shortcut": "Đã tạo shortcut", "toast.failed": "Có lỗi xảy ra — xem file log",
-    "perSec": "{n} / giây"
+    "toast.bindingReset": "Đã đặt lại phím", "toast.bindingUnbound": "Đã bỏ gán phím", "toast.allReset": "Đã đặt lại mọi phím", "toast.hintSaved": "Đã lưu ký tự gợi ý", "toast.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau",
+    "perSec": "{n} / giây",
+    "keymap.title": "Bản đồ phím", "keymap.lead": "Mọi phím chạy trong chế độ chuột đều đổi được. Bấm vào phím, rồi bấm phím thay thế.",
+    "keymap.search": "Tìm phím hoặc chức năng", "keymap.resetAll": "Đặt lại tất cả", "keymap.confirmReset": "Bấm lần nữa để đặt lại", "keymap.change": "Đổi", "keymap.reset": "Đặt lại", "keymap.unbind": "Bỏ gán", "keymap.unbound": "Chưa gán", "keymap.listening": "Bấm một phím cho {action}", "keymap.listeningSub": "Esc hủy. Phím chỉ chứa modifier sẽ bị bỏ qua.", "keymap.cancel": "Hủy", "keymap.swapped": "{action} giờ là {key}. {other} nhận {old}.", "keymap.bound": "{action} giờ là {key}.", "keymap.captureCancelled": "Đã hủy đổi phím", "keymap.fixed": "Cố định", "keymap.fixedLead": "Esc và Backspace luôn cố định trong chế độ lưới và gợi ý.", "keymap.gridT": "Các ô lưới", "keymap.gridLead": "Bấm vào ô, rồi bấm phím chọn ô đó. Ô trống không thể chọn.", "keymap.gridMode": "Phím chế độ lưới: {grid} mở, {next} sang màn hình kế, {left} click, {right} click phải.", "keymap.hintT": "Ký tự gợi ý", "keymap.hintLead": "Chữ cái, chữ số và dấu câu nhãn gợi ý có thể dùng. Ít nhất hai ký tự khác nhau.", "keymap.hintSave": "Lưu", "keymap.hintPreview": "Xem trước", "keymap.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau.", "keymap.group.toggle": "Chế độ chuột", "keymap.group.move": "Di chuyển", "keymap.group.layer": "Giữ để đổi", "keymap.group.click": "Click", "keymap.group.nav": "Lùi / tới", "keymap.group.jump": "Nhảy & chế độ", "keymap.group.edit": "Chỉnh sửa", "keymap.group.grid": "Các ô lưới"
   }
 };
 
@@ -977,6 +1075,7 @@ const ACTIONS = [
 ];
 const ALIASES = { ";": "Semicolon", "'": "Apostrophe", ",": "Comma", ".": "Period", "/": "Slash", "ESC": "Escape", "CAPS": "CapsLock", "CAPSLOCK": "CapsLock", "SPACE": "Space" };
 const LABELS = { Semicolon: ";", Apostrophe: "'", Comma: ",", Period: ".", Slash: "/", Space: "Space", CapsLock: "Caps Lock", Escape: "Esc", LeftShift: "Shift", Backspace: "⌫", ScrollLock: "Scroll Lock" };
+const KEY_LABELS = { D0: "0", D1: "1", D2: "2", D3: "3", D4: "4", D5: "5", D6: "6", D7: "7", D8: "8", D9: "9", Minus: "-", Equal: "=", LeftBracket: "[", RightBracket: "]", Backtick: "`", Backslash: "\\\\", Numpad0: "Num 0", Numpad1: "Num 1", Numpad2: "Num 2", Numpad3: "Num 3", Numpad4: "Num 4", Numpad5: "Num 5", Numpad6: "Num 6", Numpad7: "Num 7", Numpad8: "Num 8", Numpad9: "Num 9", NumpadDecimal: "Num .", NumpadPlus: "Num +", NumpadMinus: "Num -", NumpadDivide: "Num /", NumpadMultiply: "Num *", NumpadEnter: "Num Enter", PageUp: "PgUp", PageDown: "PgDn", LeftCtrl: "LCtrl", RightCtrl: "RCtrl", RightShift: "RShift", LeftAlt: "LAlt", RightAlt: "RAlt", PrintScreen: "PrtSc", NumLock: "Num Lock", Insert: "Ins", Delete: "Del", Home: "Home", End: "End" };
 const LAYOUT = [
   [["Escape", "w15"]],
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"].map(k => [k]),
@@ -1035,25 +1134,42 @@ function norm(name) {
   const up = raw.toUpperCase();
   if (ALIASES[raw]) return ALIASES[raw];
   if (ALIASES[up]) return ALIASES[up];
-  const known = LAYOUT.flat().map(k => k[0]).concat(Object.keys(LABELS));
+  const known = LAYOUT.flat().map(k => k[0]).concat(Object.keys(LABELS)).concat(Object.keys(KEY_LABELS));
   return known.find(k => k.toUpperCase() === up) || raw;
 }
-function label(name) { return LABELS[name] || name; }
+function label(name) {
+  if (!name) return t("keymap.unbound");
+  return LABELS[name] || KEY_LABELS[name] || name;
+}
 
 /** physical key -> action, honoring remaps and the "first binding wins" rule */
+function bindingValue(id) {
+  if (id === "toggle") {
+    const raw = state.settings.toggleKey;
+    if (raw == null) return "CapsLock";
+    return raw === "" ? "" : norm(raw);
+  }
+  if (id === "escape") return "Escape";
+  const keys = state.settings.keys || {};
+  const raw = keys[id];
+  if (raw == null) {
+    const a = ACTIONS.find(x => x.id === id);
+    return a ? a.def : "";
+  }
+  return raw === "" ? "" : norm(raw);
+}
 function bindings() {
   const map = new Map();
-  const keys = state.settings.keys || {};
   for (const a of ACTIONS) {
-    const name = a.id === "toggle" ? norm(state.settings.toggleKey || a.def) : a.fixed ? a.def : norm(keys[a.id] || a.def);
+    const name = bindingValue(a.id);
+    if (!name) continue;
     if (!map.has(name)) map.set(name, a);
   }
   return map;
 }
 function keyOf(actionId) {
   for (const [k, a] of bindings()) if (a.id === actionId) return k;
-  const a = ACTIONS.find(x => x.id === actionId);
-  return a ? a.def : "";
+  return bindingValue(actionId);
 }
 
 /* ---------------- i18n ---------------- */
@@ -1080,7 +1196,7 @@ function showPage(id) {
 /* ---------------- status ---------------- */
 function renderStatus() {
   const el = $("#status");
-  const toggle = label(norm(state.settings.toggleKey || "CapsLock"));
+  const toggle = label(bindingValue("toggle"));
   el.classList.toggle("on", state.mouseMode && !state.autoClicking);
   el.classList.toggle("auto", state.autoClicking);
   let title, sub;
@@ -1230,6 +1346,142 @@ function renderSettings() {
   });
 }
 
+function actionName(id) {
+  if (id.startsWith("grid")) return (t("keymap.gridT") + " " + (Number(id.slice(4)) + 1));
+  const a = ACTIONS.find(x => x.id === id);
+  return a ? a[lang][0] : id;
+}
+function actionDesc(id) {
+  if (id.startsWith("grid")) return t("keymap.gridLead");
+  const a = ACTIONS.find(x => x.id === id);
+  return a ? a[lang][1] : "";
+}
+
+let capture = null; // { id }
+let resetAllPending = false;
+let resetAllTimer = null;
+
+function renderKeymap() {
+  const groupsEl = $("#keymap-groups");
+  if (!groupsEl) return;
+  const q = String($("#keymap-search")?.value || "").trim().toLowerCase();
+  const groups = [
+    { id: "system", label: t("keymap.group.toggle"), actions: ["toggle", "escape"] },
+    { id: "move", label: t("keymap.group.move"), actions: ["up", "left", "down", "right"] },
+    { id: "layer", label: t("keymap.group.layer"), actions: ["turboLayer", "precisionLayer", "scrollLayer"] },
+    { id: "click", label: t("keymap.group.click"), actions: ["leftClick", "rightClick", "middleClick", "doubleClick", "clickAndExit", "dragLock", "autoClick"] },
+    { id: "nav", label: t("keymap.group.nav"), actions: ["back", "forward"] },
+    { id: "jump", label: t("keymap.group.jump"), actions: ["grid", "hint", "centerScreen", "centerWindow", "nextMonitor", "markSave", "markJump"] },
+    { id: "edit", label: t("keymap.group.edit"), actions: ["copy", "paste", "undo", "redo"] }
+  ];
+  const groupHtml = groups.map(g => {
+    const rows = g.actions.map(id => {
+      const fixed = id === "escape";
+      const key = fixed ? "Escape" : bindingValue(id);
+      const match = !q || g.label.toLowerCase().includes(q) || actionName(id).toLowerCase().includes(q) || actionDesc(id).toLowerCase().includes(q) || id.includes(q) || label(key).toLowerCase().includes(q);
+      const rowClass = "binding-row" + (capture && capture.id === id ? " capturing" : "") + (match ? "" : " hidden");
+      const keyClass = "key-btn" + (fixed ? " locked" : "") + (key ? "" : " unbound");
+      const keyHtml = fixed
+        ? `<button class="${keyClass}" type="button" disabled>${esc(label(key))}</button>`
+        : `<button class="${keyClass}" type="button" data-capture="${id}"><kbd>${esc(label(key))}</kbd><span>${t("keymap.change")}</span></button>`;
+      const resetBtn = fixed ? "" : `<button class="row-act" type="button" data-reset="${id}" title="${esc(t("keymap.reset"))}">↺</button>`;
+      const unbindBtn = fixed ? "" : `<button class="row-act" type="button" data-unbind="${id}" title="${esc(t("keymap.unbind"))}">×</button>`;
+      return `<div class="${rowClass}" data-id="${id}">
+        <div class="binding-name"><b>${esc(actionName(id))}</b><span>${esc(actionDesc(id))}</span></div>
+        ${keyHtml}
+        ${resetBtn}
+        ${unbindBtn}
+      </div>`;
+    }).join("");
+    // hide whole group if no visible rows
+    const visible = g.actions.some(id => {
+      const a = ACTIONS.find(x => x.id === id);
+      return !q || g.label.toLowerCase().includes(q) || actionName(id).toLowerCase().includes(q) || actionDesc(id).toLowerCase().includes(q) || id.includes(q) || label(bindingValue(id)).toLowerCase().includes(q);
+    });
+    const colorKey = g.id === "system" ? "system" : g.id === "move" ? "move" : g.id === "layer" ? "layer" : g.id === "click" ? "click" : g.id === "nav" ? "nav" : g.id === "jump" ? "jump" : "edit";
+    const color = "var(" + CAT_COLORS[colorKey] + ")";
+    return `<div class="keymap-group${visible ? "" : " hidden"}" data-group="${g.id}"><h3><i style="background:${color}"></i>${esc(g.label)}</h3>${rows}</div>`;
+  }).join("");
+  groupsEl.innerHTML = groupHtml;
+
+  // grid pad
+  const gridEl = $("#keymap-grid");
+  if (gridEl) {
+    const gridKeys = state.settings.gridKeys || [];
+    gridEl.innerHTML = Array.from({ length: 9 }, (_, i) => {
+      const key = gridKeys[i] == null ? "" : norm(gridKeys[i]);
+      const unbound = !key;
+      const cls = "grid-cell" + (unbound ? " unbound" : "") + (capture && capture.id === "grid" + i ? " capturing" : "");
+      return `<button class="${cls}" type="button" data-capture="grid${i}">
+        <span class="pos">${i + 1}</span>
+        <kbd>${esc(label(key))}</kbd>
+      </button>`;
+    }).join("");
+  }
+
+  // hint alphabet
+  const input = $("#hint-alphabet");
+  if (input && document.activeElement !== input) {
+    input.value = state.settings.hintAlphabet || "";
+  }
+  const preview = $("#hint-preview");
+  if (preview) {
+    const chars = normalizeAlphabet(state.settings.hintAlphabet || "");
+    const charArr = [...chars];
+    preview.innerHTML = charArr.map(c => `<kbd>${esc(c)}</kbd>`).join("") + (charArr.length ? `<span class="sep">→</span>` + hintLabelsPreview(chars).map(l => `<kbd>${esc(l)}</kbd>`).join(" ") : "");
+  }
+
+  // capture banner
+  const banner = $("#capture-banner");
+  if (banner) {
+    if (capture) {
+      banner.hidden = false;
+      $("#capture-action").textContent = t("keymap.listening", { action: actionName(capture.id) });
+    } else {
+      banner.hidden = true;
+    }
+  }
+
+  // reset-all button text
+  const resetBtn = $("#keymap-reset-all");
+  if (resetBtn) {
+    resetBtn.textContent = resetAllPending ? t("keymap.confirmReset") : t("keymap.resetAll");
+    resetBtn.classList.toggle("danger", resetAllPending);
+  }
+}
+
+function normalizeAlphabet(value) {
+  const seen = new Set();
+  const out = [];
+  for (const ch of String(value || "").toLowerCase()) {
+    if (!/\s/.test(ch) && !seen.has(ch)) { seen.add(ch); out.push(ch); }
+  }
+  return out.join("");
+}
+// simple supported filter mirrors backend support; backend is authoritative
+function supportedAlphabet(value) {
+  return [...new Set(String(value || "").toLowerCase().replace(/\s/g, "").split(""))].filter(c => /[a-z0-9;,.\\/'\-=\[\]`]/.test(c)).join("");
+}
+
+function hintLabelsPreview(chars) {
+  // interleave
+  const half = Math.ceil(chars.length / 2);
+  const inter = [];
+  for (let i = 0; i < half; i++) {
+    inter.push(chars[i]);
+    if (half + i < chars.length) inter.push(chars[half + i]);
+  }
+  const out = [];
+  for (let i = 0; i < Math.min(6, inter.length * inter.length); i++) {
+    let v = i, s = "";
+    const len = Math.max(1, Math.ceil(Math.log(7) / Math.log(inter.length)));
+    for (let p = 0; p < len; p++) { s += inter[v % inter.length]; v = Math.floor(v / inter.length); }
+    out.push(s);
+    if (out.length >= 6) break;
+  }
+  return [...new Set(out)].slice(0, 6);
+}
+
 /** One of the indicator colours, as six hex digits (the settings file format). */
 function stateHex(key, fallback) {
   const raw = String(state.settings[key] || "").trim().replace(/^#/, "");
@@ -1251,7 +1503,7 @@ function renderStyleGrid() {
 }
 
 function renderAll() {
-  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderDots(); renderSettings(); renderStatus(); renderPracticeBest();
+  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderDots(); renderSettings(); renderKeymap(); renderStatus(); renderPracticeBest();
 }
 
 /* ---------------- toast ---------------- */
@@ -1445,7 +1697,43 @@ function onHost(msg) {
   } else if (msg.type === "key") {
     pressKey(String(msg.key), !!msg.down);
   } else if (msg.type === "toast") {
-    toast(t(msg.text));
+    toast(t(msg.text, msg.vars));
+  } else if (msg.type === "capture") {
+    const c = msg;
+    if (capture && capture.id === c.id) capture = null;
+    if (c.cancelled) {
+      // cancelled
+    } else if (c.ok) {
+      if (c.key != null) {
+        if (c.id === "toggle") state.settings.toggleKey = c.key;
+        else if (c.id.startsWith("grid")) {
+          const idx = Number(c.id.slice(4));
+          (state.settings.gridKeys = state.settings.gridKeys || [])[idx] = c.key;
+        } else {
+          (state.settings.keys = state.settings.keys || {})[c.id] = c.key;
+        }
+        if (c.swappedId) {
+          const old = c.swappedKey;
+          if (c.swappedId === "toggle") state.settings.toggleKey = old;
+          else if (c.swappedId.startsWith("grid")) {
+            const idx = Number(c.swappedId.slice(4));
+            (state.settings.gridKeys = state.settings.gridKeys || [])[idx] = old;
+          } else {
+            (state.settings.keys = state.settings.keys || {})[c.swappedId] = old;
+          }
+        }
+      }
+      const action = actionName(c.id);
+      const keyLabel = label(c.key);
+      if (c.swappedId) {
+        toast(t("keymap.swapped", { action, key: keyLabel, other: actionName(c.swappedId), old: label(c.swappedKey) }));
+      } else {
+        toast(t("keymap.bound", { action, key: keyLabel }));
+      }
+    } else if (c.error) {
+      toast(t(c.error === "invalid" ? "keymap.hintInvalid" : "toast.failed"));
+    }
+    renderKeymap();
   } else if (msg.type === "page") {
     showPage(msg.page);
   }
@@ -1597,6 +1885,98 @@ $$("[data-url]").forEach(b => b.addEventListener("click", () => send({ cmd: "ope
 $("#p-start").addEventListener("click", startPractice);
 $$("#p-size button").forEach(b => b.addEventListener("click", () => { practice.size = b.dataset.size; save("size", practice.size); renderPracticeBest(); }));
 document.addEventListener("contextmenu", e => e.preventDefault());
+
+// ---- keymap wiring ----
+const keymapSearch = $("#keymap-search");
+if (keymapSearch) {
+  keymapSearch.addEventListener("input", () => renderKeymap());
+  keymapSearch.addEventListener("focus", () => send({ cmd: "setTextInput", on: true }));
+  keymapSearch.addEventListener("blur", () => send({ cmd: "setTextInput", on: false }));
+  keymapSearch.placeholder = t("keymap.search");
+}
+const hintInput = $("#hint-alphabet");
+if (hintInput) {
+  hintInput.addEventListener("focus", () => send({ cmd: "setTextInput", on: true }));
+  hintInput.addEventListener("blur", () => send({ cmd: "setTextInput", on: false }));
+  hintInput.addEventListener("input", () => {
+    const preview = $("#hint-preview");
+    if (preview) {
+      const chars = supportedAlphabet(hintInput.value);
+      preview.innerHTML = chars.split("").map(c => `<kbd>${esc(c)}</kbd>`).join("") + (chars.length >= 2 ? `<span class="sep">→</span>` + hintLabelsPreview(chars).map(l => `<kbd>${esc(l)}</kbd>`).join(" ") : "");
+    }
+  });
+  hintInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); $("#hint-save")?.click(); }
+  });
+}
+$("#hint-save")?.addEventListener("click", () => {
+  send({ cmd: "setHintAlphabet", value: $("#hint-alphabet").value });
+});
+$("#capture-cancel")?.addEventListener("click", () => {
+  if (capture) {
+    send({ cmd: "cancelCapture" });
+    capture = null;
+    renderKeymap();
+  }
+});
+$("#keymap-reset-all")?.addEventListener("click", () => {
+  if (!resetAllPending) {
+    resetAllPending = true;
+    renderKeymap();
+    clearTimeout(resetAllTimer);
+    resetAllTimer = setTimeout(() => { resetAllPending = false; renderKeymap(); }, 4000);
+  } else {
+    resetAllPending = false;
+    clearTimeout(resetAllTimer);
+    send({ cmd: "resetAllBindings" });
+  }
+});
+
+document.addEventListener("click", e => {
+  const cap = e.target.closest("[data-capture]");
+  if (cap) {
+    const id = cap.dataset.capture;
+    // blur any text input first
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    capture = { id };
+    send({ cmd: "beginCapture", id });
+    renderKeymap();
+    return;
+  }
+  const reset = e.target.closest("[data-reset]");
+  if (reset) {
+    send({ cmd: "resetBinding", id: reset.dataset.reset });
+    return;
+  }
+  const unbind = e.target.closest("[data-unbind]");
+  if (unbind) {
+    send({ cmd: "unbindBinding", id: unbind.dataset.unbind });
+    return;
+  }
+});
+
+window.addEventListener("blur", () => {
+  if (capture) {
+    send({ cmd: "cancelCapture" });
+    capture = null;
+    renderKeymap();
+  }
+  send({ cmd: "setTextInput", on: false });
+});
+
+// capture keydown safety: block default while capturing
+document.addEventListener("keydown", e => {
+  if (capture) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      send({ cmd: "cancelCapture" });
+      capture = null;
+      renderKeymap();
+    } else {
+      e.preventDefault();
+    }
+  }
+});
 
 if (host) host.addEventListener("message", e => onHost(e.data));
 

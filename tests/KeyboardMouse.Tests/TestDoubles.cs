@@ -335,6 +335,8 @@ internal sealed class RouterHarness
 
     public KeysSettings KeySettings { get; } = new();
 
+    public GridSettings GridSettings { get; } = new();
+
     public HintSettings HintSettings { get; } = new();
 
     public IntPtr Foreground { get; set; } = new(4242);
@@ -364,6 +366,7 @@ internal sealed class RouterHarness
             gridOverlay: Grid,
             marks: Marks,
             keys: KeySettings,
+            gridSettings: GridSettings,
             clickableScanner: HintScanner,
             hintOverlay: HintOverlay,
             hintSettings: HintSettings,

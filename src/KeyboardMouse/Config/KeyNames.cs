@@ -1,3 +1,4 @@
+using KeyboardMouse.Core;
 using KeyboardMouse.Input;
 
 namespace KeyboardMouse.Config;
@@ -50,6 +51,9 @@ public static class KeyNames
         return Enum.TryParse(text, ignoreCase: true, out key) && key != PhysicalKey.None;
     }
 
+    /// <summary>The stable spelling stored in settings.json.</summary>
+    public static string Canonical(PhysicalKey key) => key.ToString();
+
     public static string Display(PhysicalKey key) => key switch
     {
         PhysicalKey.D1 => "1",
@@ -87,6 +91,13 @@ public static class KeyNames
     };
 
     /// <summary>
+    /// Cleans a hint alphabet: lower-case, unique, supported characters only.
+    /// Fewer than two usable characters fall back to the default alphabet.
+    /// </summary>
+    public static string NormalizeHintAlphabet(string? alphabet) =>
+        HintLabels.Normalize(alphabet);
+
+    /// <summary>
     /// Maps letter keys (A–Z) to the lowercase character used by marks and
     /// hint labels. Everything else returns false.
     /// </summary>
@@ -116,6 +127,26 @@ public static class KeyNames
 
         character = key switch
         {
+            PhysicalKey.D0 => '0',
+            PhysicalKey.D1 => '1',
+            PhysicalKey.D2 => '2',
+            PhysicalKey.D3 => '3',
+            PhysicalKey.D4 => '4',
+            PhysicalKey.D5 => '5',
+            PhysicalKey.D6 => '6',
+            PhysicalKey.D7 => '7',
+            PhysicalKey.D8 => '8',
+            PhysicalKey.D9 => '9',
+            PhysicalKey.Numpad0 => '0',
+            PhysicalKey.Numpad1 => '1',
+            PhysicalKey.Numpad2 => '2',
+            PhysicalKey.Numpad3 => '3',
+            PhysicalKey.Numpad4 => '4',
+            PhysicalKey.Numpad5 => '5',
+            PhysicalKey.Numpad6 => '6',
+            PhysicalKey.Numpad7 => '7',
+            PhysicalKey.Numpad8 => '8',
+            PhysicalKey.Numpad9 => '9',
             PhysicalKey.Semicolon => ';',
             PhysicalKey.Apostrophe => '\'',
             PhysicalKey.Comma => ',',

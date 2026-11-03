@@ -53,6 +53,8 @@ public sealed class TrayApp : ApplicationContext
     private SpeedProfiles _profiles;
     private bool _shutdown;
     private GuideWindow? _guide;
+    private volatile string? _captureBindingId;
+    private volatile PhysicalKey _captureKeyDown = PhysicalKey.None;
     private bool _toldAboutTray;
     private bool _checkingForUpdates;
     private bool _downloadingUpdate;
@@ -224,6 +226,11 @@ public sealed class TrayApp : ApplicationContext
     /// so typing in other apps is never forwarded anywhere).</summary>
     private bool OnKey(KeyEvent keyEvent)
     {
+        if (TryHandleCapture(keyEvent, out bool captureSwallow))
+        {
+            return captureSwallow;
+        }
+
         bool swallow = _router.HandleKey(keyEvent);
 
         if (_guide is { } guide && !keyEvent.IsRepeat && Form.ActiveForm == guide)
@@ -234,6 +241,109 @@ public sealed class TrayApp : ApplicationContext
         }
 
         return swallow;
+    }
+
+    private bool TryHandleCapture(KeyEvent keyEvent, out bool swallow)
+    {
+        if (_captureKeyDown != PhysicalKey.None)
+        {
+            if (!keyEvent.IsDown)
+            {
+                _captureKeyDown = PhysicalKey.None;
+            }
+
+            swallow = true;
+            return true;
+        }
+
+        string? captureId = _captureBindingId;
+        if (captureId is null)
+        {
+            swallow = false;
+            return false;
+        }
+
+        if (_guide is null || _guide.IsDisposed || Form.ActiveForm != _guide)
+        {
+            CancelCaptureInternal(captureId);
+            swallow = false;
+            return false;
+        }
+
+        if (keyEvent.Key.IsModifier())
+        {
+            swallow = true;
+            return true;
+        }
+
+        if (keyEvent.IsRepeat)
+        {
+            swallow = true;
+            return true;
+        }
+
+        if (!keyEvent.IsDown)
+        {
+            swallow = true;
+            return true;
+        }
+
+        if (keyEvent.Key == PhysicalKey.Escape)
+        {
+            CancelCaptureInternal(captureId);
+            swallow = true;
+            return true;
+        }
+
+        _captureKeyDown = keyEvent.Key;
+        _captureBindingId = null;
+        string capturedId = captureId;
+        PhysicalKey capturedKey = keyEvent.Key;
+        DispatchToUi(() => CompleteCapture(capturedId, capturedKey));
+        swallow = true;
+        return true;
+    }
+
+    private void CancelCaptureInternal(string? captureId = null)
+    {
+        captureId ??= _captureBindingId;
+        _captureBindingId = null;
+        _captureKeyDown = PhysicalKey.None;
+
+        if (!string.IsNullOrEmpty(captureId))
+        {
+            DispatchToUi(() => _guide?.PostCaptureResult(captureId!, cancelled: true, ok: false,
+                error: null, key: null, swappedId: null, swappedKey: null));
+        }
+    }
+
+    private void CompleteCapture(string id, PhysicalKey key)
+    {
+        if (!KeyBindingCatalog.TryAssign(_settings, id, key.ToString(), out string? swappedId))
+        {
+            _guide?.PostCaptureResult(id, cancelled: false, ok: false, error: "invalid",
+                key: null, swappedId: null, swappedKey: null);
+            return;
+        }
+
+        _settings.Normalize();
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save settings", ex);
+            _guide?.PostCaptureResult(id, cancelled: false, ok: false, error: "save",
+                key: null, swappedId: null, swappedKey: null);
+            _guide?.Toast("toast.failed");
+            return;
+        }
+
+        ApplySettings();
+        string? swappedKey = swappedId is null ? null : KeyBindingCatalog.Get(_settings, swappedId);
+        _guide?.PostCaptureResult(id, cancelled: false, ok: true, error: null,
+            key: KeyBindingCatalog.Get(_settings, id), swappedId: swappedId, swappedKey: swappedKey);
     }
 
     /// <summary>Thread-safe: another launch of the exe asked us to show the window.</summary>
@@ -251,6 +361,7 @@ public sealed class TrayApp : ApplicationContext
             _guide = new GuideWindow(_appIcon, page);
             _guide.CommandReceived += OnGuideCommand;
             _guide.FormClosed += (_, _) => OnGuideClosed();
+            _guide.Deactivate += (_, _) => OnGuideDeactivate();
             _guide.Show();
         }
         else
@@ -269,6 +380,8 @@ public sealed class TrayApp : ApplicationContext
 
     private void OnGuideClosed()
     {
+        CancelCaptureInternal();
+        _router.SetTextInput(false);
         _guide = null;
         if (!_toldAboutTray && !_shutdown)
         {
@@ -279,6 +392,16 @@ public sealed class TrayApp : ApplicationContext
                 "Tap Caps Lock for mouse mode. Double-click this icon to open the guide again.",
                 ToolTipIcon.Info);
         }
+    }
+
+    private void OnGuideDeactivate()
+    {
+        if (_captureBindingId is not null || _captureKeyDown != PhysicalKey.None)
+        {
+            CancelCaptureInternal(_captureBindingId);
+        }
+
+        _router.SetTextInput(false);
     }
 
     private void PushGuideState()
@@ -319,7 +442,9 @@ public sealed class TrayApp : ApplicationContext
                 screenBorder = _settings.Feedback.ScreenBorder,
                 autoClick = new { intervalMs = _settings.AutoClick.IntervalMs, button = _settings.AutoClick.Button },
                 updateCheckOnStart = _settings.Update.CheckOnStart,
-                keys = _settings.Keys
+                keys = _settings.Keys,
+                gridKeys = _settings.Grid.Keys,
+                hintAlphabet = _settings.Hint.Alphabet
             }
         });
     }
@@ -375,6 +500,73 @@ public sealed class TrayApp : ApplicationContext
 
             case "checkForUpdates":
                 _ = CheckForUpdatesAsync(silent: false);
+                break;
+
+            case "beginCapture":
+                var captureId = command.GetString("id");
+                if (captureId is not null && KeyBindingCatalog.TryGet(captureId, out _))
+                {
+                    _captureBindingId = captureId;
+                    _captureKeyDown = PhysicalKey.None;
+                    _router.SetTextInput(false);
+                }
+                break;
+
+            case "cancelCapture":
+                CancelCaptureInternal(_captureBindingId);
+                break;
+
+            case "resetBinding":
+                var resetId = command.GetString("id");
+                if (resetId is not null && KeyBindingCatalog.Reset(_settings, resetId, out _))
+                {
+                    if (SaveSettings())
+                    {
+                        ApplySettings();
+                        _guide?.Toast("toast.bindingReset");
+                    }
+                }
+                break;
+
+            case "unbindBinding":
+                var unbindId = command.GetString("id");
+                if (unbindId is not null && KeyBindingCatalog.Unbind(_settings, unbindId))
+                {
+                    if (SaveSettings())
+                    {
+                        ApplySettings();
+                        _guide?.Toast("toast.bindingUnbound");
+                    }
+                }
+                break;
+
+            case "resetAllBindings":
+                KeyBindingCatalog.ResetAll(_settings);
+                if (SaveSettings())
+                {
+                    ApplySettings();
+                    _guide?.Toast("toast.allReset");
+                }
+                break;
+
+            case "setHintAlphabet":
+                var alphabet = command.GetString("value") ?? string.Empty;
+                if (HintLabels.Normalize(alphabet).Length < 2)
+                {
+                    _guide?.Toast("toast.hintInvalid");
+                    break;
+                }
+
+                _settings.Hint.Alphabet = KeyNames.NormalizeHintAlphabet(alphabet);
+                if (SaveSettings())
+                {
+                    ApplySettings();
+                    _guide?.Toast("toast.hintSaved");
+                }
+                break;
+
+            case "setTextInput":
+                _router.SetTextInput(command.GetBool("on"));
                 break;
 
             case "openLogFolder":
@@ -894,6 +1086,22 @@ public sealed class TrayApp : ApplicationContext
         ExitThread();
     }
 
+    private bool SaveSettings()
+    {
+        _settings.Normalize();
+        try
+        {
+            _settingsStore.Save(_settings);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save settings", ex);
+            _guide?.Toast("toast.failed");
+            return false;
+        }
+    }
+
     private void SaveSettingsQuietly()
     {
         try
@@ -940,10 +1148,21 @@ public sealed class TrayApp : ApplicationContext
         settings.Scroll.Smooth);
 
     /// <summary>activation.toggleKey — invalid or modifier values fall back to Caps Lock (also enforced in Settings.Normalize).</summary>
-    private static PhysicalKey ParseToggleKey(Settings settings) =>
-        KeyNames.TryParse(settings.Activation.ToggleKey, out var key)
+    private static PhysicalKey ParseToggleKey(Settings settings)
+    {
+        string value = settings.Activation.ToggleKey;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return PhysicalKey.None;
+        }
+
+        return KeyNames.TryParse(value, out var key) &&
+               key != PhysicalKey.None &&
+               key != PhysicalKey.Escape &&
+               !key.IsModifier()
             ? key
             : PhysicalKey.CapsLock;
+    }
 
     private CursorStyle ParseCursorStyle() =>
         CursorStyleNames.TryParse(_settings.Feedback.CursorStyle, out var style)
@@ -1160,3 +1379,4 @@ public sealed class TrayApp : ApplicationContext
         }
     }
 }
+

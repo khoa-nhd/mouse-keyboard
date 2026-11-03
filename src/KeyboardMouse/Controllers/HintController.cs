@@ -23,13 +23,15 @@ public sealed class HintController : IModeController
     private readonly Action<Action> _dispatch;
 
     private HintSettings _settings;
+    private KeysSettings _keys;
+    private PhysicalKey _rightClickKey = PhysicalKey.F;
     private bool _active;
     private bool _scanning;
     private int _scanVersion;
     private IReadOnlyList<ClickableTarget> _targets = [];
     private IReadOnlyList<string> _labels = [];
     private string _typed = "";
-    private bool _fHeld;
+    private bool _rightClickHeld;
 
     public HintController(
         IMouseOutput mouse,
@@ -39,13 +41,16 @@ public sealed class HintController : IModeController
         HintSettings settings,
         Func<Point> cursor,
         Func<IntPtr> foreground,
-        Action<Action> dispatch)
+        Action<Action> dispatch,
+        KeysSettings? keys = null)
     {
         _mouse = mouse;
         _monitors = monitors;
         _overlay = overlay;
         _scanner = scanner;
         _settings = settings;
+        _keys = keys ?? new KeysSettings();
+        _rightClickKey = ResolveRightClickKey(_keys.RightClick);
         _cursor = cursor;
         _foreground = foreground;
         _dispatch = dispatch;
@@ -63,6 +68,12 @@ public sealed class HintController : IModeController
         }
     }
 
+    public void UpdateKeys(KeysSettings settings)
+    {
+        _keys = settings;
+        _rightClickKey = ResolveRightClickKey(_keys.RightClick);
+    }
+
     /// <summary>Starts a scan (H from the normal layer) or closes an open hint set.</summary>
     public void Open()
     {
@@ -77,7 +88,7 @@ public sealed class HintController : IModeController
         _typed = string.Empty;
         _targets = [];
         _labels = [];
-        _fHeld = false;
+        _rightClickHeld = false;
 
         int version = ++_scanVersion;
 
@@ -131,9 +142,9 @@ public sealed class HintController : IModeController
             return HandleResult.PassThrough;
         }
 
-        if (keyEvent.Key == PhysicalKey.F)
+        if (_rightClickKey != PhysicalKey.None && keyEvent.Key == _rightClickKey)
         {
-            _fHeld = keyEvent.IsDown;
+            _rightClickHeld = keyEvent.IsDown;
         }
 
         // Modifiers remain usable for the rest of Windows (and are read from
@@ -177,7 +188,7 @@ public sealed class HintController : IModeController
 
         if (KeyNames.TryGetCharacter(keyEvent.Key, out char character))
         {
-            TypeLetter(character, modifiers, keyEvent.Key == PhysicalKey.F);
+            TypeLetter(character, modifiers, keyEvent.Key == _rightClickKey);
         }
 
         return HandleResult.Swallow;
@@ -282,7 +293,8 @@ public sealed class HintController : IModeController
         _mouse.MoveTo(center.X, center.Y);
 
         bool hover = modifiers.Shift;
-        bool rightClick = modifiers.Ctrl || (_fHeld && !keyIsF);
+        bool rightClick = modifiers.Ctrl ||
+            (_rightClickHeld && !keyIsF && _rightClickKey != PhysicalKey.None);
 
         if (!hover)
         {
@@ -329,7 +341,22 @@ public sealed class HintController : IModeController
         _typed = string.Empty;
         _targets = [];
         _labels = [];
-        _fHeld = false;
+        _rightClickHeld = false;
         _overlay.Hide();
+    }
+
+    private static PhysicalKey ResolveRightClickKey(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return PhysicalKey.None;
+        }
+
+        return KeyNames.TryParse(name, out var key) &&
+               key != PhysicalKey.None &&
+               key != PhysicalKey.Escape &&
+               !key.IsModifier()
+            ? key
+            : PhysicalKey.F;
     }
 }

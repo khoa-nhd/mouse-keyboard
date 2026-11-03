@@ -31,6 +31,7 @@ public sealed class InputRouter
     private int _autoOffSeconds;
     private long _lastActivity;
     private PhysicalKey _toggleKey = PhysicalKey.CapsLock;
+    private bool _textInput;
 
     // Modifier bookkeeping is per physical key, so releasing one Shift while
     // the other is held keeps Shift logically down.
@@ -88,7 +89,8 @@ public sealed class InputRouter
             hintSettings ?? new HintSettings(),
             pointer,
             foreground ?? Native.User32.GetForegroundWindow,
-            dispatch ?? (action => action()));
+            dispatch ?? (action => action()),
+            keys ?? new KeysSettings());
 
         _grid = new GridController(
             mouse,
@@ -96,7 +98,8 @@ public sealed class InputRouter
             gridOverlay ?? NullGridOverlay.Instance,
             gridSettings ?? new GridSettings(),
             pointer,
-            dispatch ?? (action => action()));
+            dispatch ?? (action => action()),
+            keys ?? new KeysSettings());
 
         _pending = new PendingController(
             mouse,
@@ -141,6 +144,8 @@ public sealed class InputRouter
     public void UpdateKeys(KeysSettings settings)
     {
         _normal.UpdateKeys(settings);
+        _grid.UpdateKeys(settings);
+        _hint.UpdateKeys(settings);
     }
 
     public void UpdateHint(HintSettings settings)
@@ -167,12 +172,19 @@ public sealed class InputRouter
     }
 
     /// <summary>Remaps the tap-to-toggle key (activation.toggleKey).
-    /// Keys that cannot be toggles are ignored by the activation controller.</summary>
+    /// <see cref="PhysicalKey.None"/> unbinds it; modifiers are ignored by the
+    /// activation controller.</summary>
     public void SetToggleKey(PhysicalKey key)
     {
         _activation.SetToggleKey(key);
         _toggleKey = key;
     }
+
+    /// <summary>
+    /// While a text field in the guide has focus, keys must reach the field
+    /// even when mouse mode is on. Panic still works above this bypass.
+    /// </summary>
+    public void SetTextInput(bool on) => _textInput = on;
 
     public bool MarkPending => _pending.IsActive;
 
@@ -294,6 +306,16 @@ public sealed class InputRouter
             Panic();
             _swallowedDown.Add(keyEvent.Key);
             return true;
+        }
+
+        if (_textInput)
+        {
+            if (!keyEvent.IsDown)
+            {
+                _swallowedDown.Remove(keyEvent.Key);
+            }
+
+            return false;
         }
 
         // Any other key going down while Caps is held promotes the press to a

@@ -38,17 +38,31 @@ public sealed class ActivationController
     }
 
     /// <summary>
-    /// Changes the toggle key. Only real keys count: modifiers and unknown
-    /// keys cannot be toggles, so such values are ignored.
+    /// Changes the toggle key. <see cref="PhysicalKey.None"/> means the user
+    /// deliberately unbound it. Modifiers cannot be toggles, so those values
+    /// are ignored (also enforced in settings normalization).
     /// </summary>
     public void SetToggleKey(PhysicalKey key)
     {
-        if (key == PhysicalKey.None || key.IsModifier())
+        if (key.IsModifier() || key == _toggleKey)
         {
             return;
         }
 
+        bool wasHeld = _capsDown && _swallowCaps;
         _toggleKey = key;
+        _capsDown = false;
+        _swallowCaps = false;
+        _detector.Reset();
+
+        // A key change while the old toggle was held must not leave momentary
+        // mouse mode stuck on.
+        if (wasHeld && _state.MouseModeOn != _modeBeforeHold)
+        {
+            _setMode(_modeBeforeHold);
+        }
+
+        PollingChanged?.Invoke();
     }
 
     public HandleResult Handle(KeyEvent keyEvent, ModifierState modifiers)

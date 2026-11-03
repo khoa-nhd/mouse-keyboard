@@ -9,6 +9,27 @@ public static class HintLabels
 {
     public const string DefaultAlphabet = "asdfjkl;";
 
+    /// <summary>
+    /// Lower-cases, de-duplicates and filters an alphabet to the characters a
+    /// hint label can actually be typed with. Fewer than two usable symbols
+    /// fall back to <see cref="DefaultAlphabet"/>.
+    /// </summary>
+    public static string Normalize(string? alphabet)
+    {
+        var symbols = ReadSymbols(alphabet);
+        if (symbols.Count < 2)
+        {
+            symbols = ReadSymbols(DefaultAlphabet);
+        }
+
+        return new string(symbols.ToArray());
+    }
+
+    /// <summary>Letters, digits and the punctuation keys hint labels support.</summary>
+    public static bool IsSupported(char character) =>
+        character is >= 'a' and <= 'z' or >= '0' and <= '9' or
+            ';' or ',' or '.' or '\'' or '/' or '-' or '=' or '[' or ']' or '\\' or '`';
+
     public static IReadOnlyList<string> Generate(int count, string? alphabet = null)
     {
         if (count <= 0)
@@ -87,7 +108,7 @@ public static class HintLabels
         foreach (char raw in alphabet ?? string.Empty)
         {
             char symbol = char.ToLowerInvariant(raw);
-            if (!char.IsWhiteSpace(symbol) && seen.Add(symbol))
+            if (IsSupported(symbol) && seen.Add(symbol))
             {
                 symbols.Add(symbol);
             }

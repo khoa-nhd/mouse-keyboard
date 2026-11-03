@@ -50,7 +50,7 @@ The **KeyboardMouse window** opens with an illustrated guide:
 | **Keys** | An interactive keyboard. Hover a key to see what it does; in mouse mode the keys you press light up |
 | **Power moves** | Animated demos of grid jump, hints, scrolling and the auto clicker |
 | **Practice** | A target range to practise clicking without the mouse, with your best time |
-| **Settings** | Auto-click speed and button, pointer dot, screen border, copy/paste/undo/redo keys |
+| **Settings** | Every key in the keymap, auto-click speed and button, pointer dot, screen border, copy/paste/undo/redo keys |
 | **About** | Version, privacy, links, and Quit |
 
 The guide is available in **English and Tiếng Việt** (switch at the bottom left).
@@ -279,8 +279,9 @@ On first run, a default `settings.json` is created at
 
 The common options (auto-click speed and button, pointer style and size,
 screen border, copy/paste/undo/redo keys) can be changed in the window's **Settings**
-tab. The pointer style is also in the tray menu under **Pointer style**.
-Everything else is in the file.
+tab, and **every key in the keymap** can now be remapped there too: click a key,
+press the replacement, or unbind/reset it. The pointer style is also in the
+tray menu under **Pointer style**. Everything else is in the file.
 
 Tray icon → **Open settings file**, edit it, save, then tray icon →
 **Reload settings**. No restart is needed.

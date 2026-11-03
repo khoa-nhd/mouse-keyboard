@@ -23,6 +23,11 @@ public sealed class GridController : IModeController
 
     private IMonitorService? _monitors;
     private GridSettings _settings;
+    private KeysSettings _keys;
+    private PhysicalKey _closeKey = PhysicalKey.G;
+    private PhysicalKey _nextMonitorKey = PhysicalKey.N;
+    private PhysicalKey _leftClickKey = PhysicalKey.Space;
+    private PhysicalKey _rightClickKey = PhysicalKey.F;
     private PhysicalKey[] _cellKeys = [];
     private string[] _labels = [];
     private bool _active;
@@ -37,15 +42,18 @@ public sealed class GridController : IModeController
         IGridOverlay overlay,
         GridSettings settings,
         Func<Point>? cursor = null,
-        Action<Action>? dispatch = null)
+        Action<Action>? dispatch = null,
+        KeysSettings? keys = null)
     {
         _mouse = mouse;
         _monitors = monitors;
         _overlay = overlay;
         _settings = settings;
+        _keys = keys ?? new KeysSettings();
         _cursor = cursor ?? Pointer.Position;
         _dispatch = dispatch ?? (action => action());
         ParseSettings();
+        ParseControlKeys();
     }
 
     public bool IsActive => _active;
@@ -59,6 +67,12 @@ public sealed class GridController : IModeController
         {
             Close(restore: false);
         }
+    }
+
+    public void UpdateKeys(KeysSettings settings)
+    {
+        _keys = settings;
+        ParseControlKeys();
     }
 
     public void Open()
@@ -109,24 +123,35 @@ public sealed class GridController : IModeController
             case PhysicalKey.Backspace:
                 GoUp();
                 return HandleResult.Swallow;
+        }
 
-            case PhysicalKey.G:
-                Close(restore: false);
-                return HandleResult.Swallow;
+        // The mode controls follow the normal-layer map, so remapping Grid,
+        // NextMonitor or a click key changes grid mode too. Empty controls are
+        // simply skipped.
+        if (keyEvent.Key == _closeKey)
+        {
+            Close(restore: false);
+            return HandleResult.Swallow;
+        }
 
-            case PhysicalKey.N:
-                MoveToNextMonitor();
-                return HandleResult.Swallow;
+        if (keyEvent.Key == _nextMonitorKey)
+        {
+            MoveToNextMonitor();
+            return HandleResult.Swallow;
+        }
 
-            case PhysicalKey.Space:
-                _mouse.LeftClick();
-                Close(restore: false);
-                return HandleResult.Swallow;
+        if (keyEvent.Key == _leftClickKey)
+        {
+            _mouse.LeftClick();
+            Close(restore: false);
+            return HandleResult.Swallow;
+        }
 
-            case PhysicalKey.F:
-                _mouse.RightClick();
-                Close(restore: false);
-                return HandleResult.Swallow;
+        if (keyEvent.Key == _rightClickKey)
+        {
+            _mouse.RightClick();
+            Close(restore: false);
+            return HandleResult.Swallow;
         }
 
         int cell = FindCell(keyEvent.Key);
@@ -261,35 +286,59 @@ public sealed class GridController : IModeController
 
     private void ParseSettings()
     {
+        var defaults = new GridSettings().Keys;
         var names = _settings.Keys;
         var parsed = new PhysicalKey[GridMath.Cells];
-        bool valid = names is { Length: GridMath.Cells };
+        var seen = new HashSet<PhysicalKey>();
 
-        if (valid)
+        for (int i = 0; i < parsed.Length; i++)
         {
-            var seen = new HashSet<PhysicalKey>();
-            for (int i = 0; i < names.Length; i++)
-            {
-                if (!KeyNames.TryParse(names[i], out var key) || !seen.Add(key))
-                {
-                    valid = false;
-                    break;
-                }
+            string? name = names is { Length: GridMath.Cells } ? names[i] : defaults[i];
 
-                parsed[i] = key;
-            }
-        }
-
-        if (!valid)
-        {
-            var defaults = new GridSettings().Keys;
-            for (int i = 0; i < parsed.Length; i++)
+            if (string.IsNullOrWhiteSpace(name))
             {
-                KeyNames.TryParse(defaults[i], out parsed[i]);
+                // An empty cell is deliberately unselectable.
+                parsed[i] = PhysicalKey.None;
+                continue;
             }
+
+            if (!KeyNames.TryParse(name, out var key) ||
+                key == PhysicalKey.None ||
+                key == PhysicalKey.Escape ||
+                key.IsModifier())
+            {
+                KeyNames.TryParse(defaults[i], out key);
+            }
+
+            // A duplicate in a hand-edited file must not make two cells react
+            // at once; the first cell keeps the key.
+            parsed[i] = seen.Add(key) ? key : PhysicalKey.None;
         }
 
         _cellKeys = parsed;
-        _labels = parsed.Select(KeyNames.Display).ToArray();
+        _labels = parsed.Select(key => key == PhysicalKey.None ? string.Empty : KeyNames.Display(key)).ToArray();
+    }
+
+    private void ParseControlKeys()
+    {
+        _closeKey = ResolveControl(_keys.Grid, PhysicalKey.G);
+        _nextMonitorKey = ResolveControl(_keys.NextMonitor, PhysicalKey.N);
+        _leftClickKey = ResolveControl(_keys.LeftClick, PhysicalKey.Space);
+        _rightClickKey = ResolveControl(_keys.RightClick, PhysicalKey.F);
+    }
+
+    private static PhysicalKey ResolveControl(string? name, PhysicalKey fallback)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return PhysicalKey.None;
+        }
+
+        return KeyNames.TryParse(name, out var key) &&
+               key != PhysicalKey.None &&
+               key != PhysicalKey.Escape &&
+               !key.IsModifier()
+            ? key
+            : fallback;
     }
 }
