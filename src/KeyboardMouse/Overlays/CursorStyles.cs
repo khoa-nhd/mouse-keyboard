@@ -494,8 +494,11 @@ public static class CursorPainter
     /// </summary>
     private static void DrawTrail(Graphics g, List<TrailVertex> points, int s, Color color)
     {
-        var smooth = Subdivide(Subdivide(points));
-        using var pen = new Pen(color, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        var prevSmoothing = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        var smooth = Subdivide(Subdivide(Subdivide(points)));
+        using var pen = new Pen(color, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
 
         for (int i = 1; i < smooth.Count; i++)
         {
@@ -503,18 +506,20 @@ public static class CursorPainter
             var b = smooth[i];
 
             float fade = (a.Fade + b.Fade) * 0.5f;
-            float eased = fade * fade;
+            float eased = fade * fade * (3f - (2f * fade)); // Smoothstep for ultra-silky fade
 
-            int alpha = (int)(210f * eased);
-            if (alpha < 4)
+            int alpha = (int)(230f * eased);
+            if (alpha < 3)
             {
                 continue;
             }
 
             pen.Color = Color.FromArgb(alpha, color);
-            pen.Width = 1.1f + (s * 0.46f * eased);
+            pen.Width = 0.8f + (s * 0.5f * eased);
             g.DrawLine(pen, a.P, b.P);
         }
+
+        g.SmoothingMode = prevSmoothing;
     }
 
     private static List<TrailVertex> Subdivide(List<TrailVertex> points)

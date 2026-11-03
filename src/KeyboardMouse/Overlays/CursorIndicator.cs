@@ -13,9 +13,9 @@ namespace KeyboardMouse.Overlays;
 /// </summary>
 public sealed class CursorIndicator : IDisposable
 {
-    private const int MaxTrailNormal = 150;
-    private const int MaxTrailTurbo = 300;
-    private const float MinTrailSpacing = 0.8f;
+    private const int MaxTrailNormal = 180;
+    private const int MaxTrailTurbo = 350;
+    private const float MinTrailSpacing = 0.5f;
 
     /// <summary>How long a comet sample stays visible, in seconds.</summary>
     private const float TrailLifeNormal = 1.8f;

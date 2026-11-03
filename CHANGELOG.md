@@ -3,6 +3,13 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.2] - 2026-11-03
+
+### Enhanced
+- **Silky-smooth comet trail:**
+  - Increased Chaikin subdivision to 3 rounds and enabled AntiAlias rendering for ultra-smooth curved comet tails.
+  - Denser sample capture (`MinTrailSpacing = 0.5f`) and smoothstep alpha easing for a pristine, flowing visual trail.
+
 ## [1.0.1] - 2026-11-03
 
 ### Enhanced
