@@ -16,7 +16,7 @@
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <Platforms>AnyCPU;x64</Platforms>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <Product>KeyboardMouse</Product>
     <Description>Control the mouse entirely from the keyboard.</Description>
     <!-- Ship a single KeyboardMouse.exe: no .pdb, no reference XML docs. -->

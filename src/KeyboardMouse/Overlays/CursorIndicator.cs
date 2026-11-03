@@ -107,61 +107,55 @@ public sealed class CursorIndicator : IDisposable
         long now = Environment.TickCount64;
         bool turbo = feedback.Turbo;
 
+        if (moved && _style == CursorStyle.Comet)
+        {
+            if (_trail.Count > 0)
+            {
+                var last = _trail[^1];
+                float dx = cursor.X - last.X;
+                float dy = cursor.Y - last.Y;
+                if ((dx * dx) + (dy * dy) >= MinTrailSpacing * MinTrailSpacing)
+                {
+                    _trail.Add((cursor.X, cursor.Y, now));
+                }
+            }
+            else
+            {
+                _trail.Add((cursor.X, cursor.Y, now));
+            }
+
+            if (_trail.Count > MaxTrailSamples)
+                _trail.RemoveAt(0);
+        }
+
+        _lastX = cursor.X;
+        _lastY = cursor.Y;
+        _lastColor = color;
+
+        if (_style == CursorStyle.Comet)
+        {
+            float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
+            PruneTrail(now, life);
+        }
+
+        float phase = (now % 3600000) / 1000f;
+
         if (_style == CursorStyle.Comet)
         {
             CursorPainter.Gap(CursorStyle.Comet, out int gapX, out int gapY);
-            float headScreenX = cursor.X + gapX + CursorPainter.CometHeadInset;
-            float headScreenY = cursor.Y + gapY + CursorPainter.CometHeadInset;
-
-            if (moved)
-            {
-                if (_trail.Count > 0)
-                {
-                    var last = _trail[^1];
-                    float dx = headScreenX - last.X;
-                    float dy = headScreenY - last.Y;
-                    if ((dx * dx) + (dy * dy) >= MinTrailSpacing * MinTrailSpacing)
-                    {
-                        _trail.Add((headScreenX, headScreenY, now));
-                    }
-                }
-                else
-                {
-                    _trail.Add((headScreenX, headScreenY, now));
-                }
-
-                if (_trail.Count > MaxTrailSamples)
-                    _trail.RemoveAt(0);
-            }
-
-            _lastX = cursor.X;
-            _lastY = cursor.Y;
-            _lastColor = color;
-
-            float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
-            PruneTrail(now, life);
-
-            float phase = (now % 3600000) / 1000f;
-
-            // Fixed-size sliding window anchored around the comet head (zero resize/reposition flicker)
-            int winX = (int)headScreenX - Reach;
-            int winY = (int)headScreenY - Reach;
+            int winX = (int)(cursor.X + gapX + CursorPainter.CometHeadInset) - Reach;
+            int winY = (int)(cursor.Y + gapY + CursorPainter.CometHeadInset) - Reach;
             int winW = Reach * 2;
             int winH = Reach * 2;
 
             var headLocal = new PointF(Reach, Reach);
-            var trail = BuildLocalTrail(headScreenX, headScreenY, winX, winY, now, turbo);
+            var trail = BuildLocalTrail(cursor.X, cursor.Y, headLocal, now, turbo);
 
             _form.Render(winX, winY, winW, winH,
                 _style, _dotSize, color, phase, headLocal, trail);
         }
         else
         {
-            _lastX = cursor.X;
-            _lastY = cursor.Y;
-            _lastColor = color;
-
-            float phase = (now % 3600000) / 1000f;
             var visual = CursorPainter.Measure(_style, _dotSize);
             var pointer = new PointF(-visual.OffsetX, -visual.OffsetY);
             _form.Render(visual, _style, _dotSize, color, phase, pointer, Array.Empty<TrailSample>(), cursor);
@@ -188,8 +182,8 @@ public sealed class CursorIndicator : IDisposable
     }
 
     private TrailSample[] BuildLocalTrail(
-        float headScreenX, float headScreenY,
-        int winX, int winY,
+        float cx, float cy,
+        PointF headLocal,
         long now, bool turbo)
     {
         if (_style != CursorStyle.Comet || _trail.Count < 2)
@@ -223,8 +217,8 @@ public sealed class CursorIndicator : IDisposable
         for (int i = 0; i < points.Count; i++)
         {
             var (px, py, tick) = points[i];
-            float localX = px - winX;
-            float localY = py - winY;
+            float localX = px - cx + headLocal.X;
+            float localY = py - cy + headLocal.Y;
             float age = Math.Clamp((now - tick) / lifeMsF, 0f, 1f);
             result.Add(new TrailSample(new PointF(localX, localY), age));
         }

@@ -3,6 +3,12 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.6] - 2026-11-03
+
+### Fixed & Enhanced
+- **Comet Head and Trail Position Alignment (v1.0.6):**
+  - Restored precise relative positioning between the comet head and trail samples relative to the mouse pointer (`_lastX`, `_lastY` / `cx`, `cy`), ensuring the comet head and tail align perfectly with the original design specs while retaining zero-flicker fixed sliding window rendering and Catmull-Rom smoothing.
+
 ## [1.0.5] - 2026-11-03
 
 ### Fixed & Enhanced
