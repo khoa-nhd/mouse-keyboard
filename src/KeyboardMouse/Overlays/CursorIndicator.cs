@@ -8,34 +8,21 @@ namespace KeyboardMouse.Overlays;
 /// Indicator that follows the pointer while mouse mode is on. Its colour shows
 /// the active layer, which is the quickest way to confirm that A/S/D and drag
 /// lock are engaged. The shape is chosen with <see cref="CursorStyle"/>; some
-/// styles animate, so the 30 Hz timer also drives motion. Follows the
+/// styles animate, so the timer also drives motion. Follows the
 /// TrackPoint too, because it reads the real cursor position every tick.
 /// </summary>
 public sealed class CursorIndicator : IDisposable
 {
-    /// <summary>
-    /// Maximum number of screen-space samples to retain. At 33 ms ticks that
-    /// is ~6 seconds of history which is more than enough for any tail length.
-    /// </summary>
-    private const int MaxTrailSamples = 400;
-
-    /// <summary>
-    /// Oldest sample age (seconds). Turbo trails are 3× longer than normal.
-    /// </summary>
-    private const float TrailLifeNormal = 1.4f;
-    private const float TrailLifeTurbo  = 3.0f;
-
-    /// <summary>
-    /// How many dense interpolated points we place between two raw samples
-    /// when building the draw list. More = smoother on fast movement.
-    /// </summary>
-    private const int InterpSteps = 8;
+    private const int MaxTrailSamples = 500;
+    private const float TrailLifeNormal = 1.0f;
+    private const float TrailLifeTurbo  = 2.2f;
+    private const float MinTrailSpacing = 1.5f;
+    private const int InterpSteps = 10;
+    private const int Reach = 350; // Fixed window half-size (700x700 total window, zero resize flicker)
 
     private readonly AppState _state;
     private readonly CursorForm _form = new();
     private readonly System.Windows.Forms.Timer _timer;
-
-    /// <summary>Raw screen-space samples: (screenX, screenY, timestamp ms).</summary>
     private readonly List<(float X, float Y, long Tick)> _trail = new();
 
     private CursorStyle _style = CursorStyle.Dot;
@@ -50,7 +37,7 @@ public sealed class CursorIndicator : IDisposable
     public CursorIndicator(AppState state)
     {
         _state = state;
-        _timer = new System.Windows.Forms.Timer { Interval = 16 }; // ~60 fps polling
+        _timer = new System.Windows.Forms.Timer { Interval = 8 }; // ~125 fps (matches MovementEngine)
         _timer.Tick += (_, _) => UpdatePosition(force: false);
     }
 
@@ -64,7 +51,6 @@ public sealed class CursorIndicator : IDisposable
         if (_enabled) UpdatePosition(force: true);
     }
 
-    /// <summary>One colour per state; the active layer decides which one is drawn.</summary>
     public void SetPalette(CursorPalette palette)
     {
         if (palette == _palette) return;
@@ -123,7 +109,21 @@ public sealed class CursorIndicator : IDisposable
 
         if (moved && _style == CursorStyle.Comet)
         {
-            _trail.Add((cursor.X, cursor.Y, now));
+            if (_trail.Count > 0)
+            {
+                var last = _trail[^1];
+                float dx = cursor.X - last.X;
+                float dy = cursor.Y - last.Y;
+                if ((dx * dx) + (dy * dy) >= MinTrailSpacing * MinTrailSpacing)
+                {
+                    _trail.Add((cursor.X, cursor.Y, now));
+                }
+            }
+            else
+            {
+                _trail.Add((cursor.X, cursor.Y, now));
+            }
+
             if (_trail.Count > MaxTrailSamples)
                 _trail.RemoveAt(0);
         }
@@ -134,20 +134,33 @@ public sealed class CursorIndicator : IDisposable
 
         if (_style == CursorStyle.Comet)
         {
-            // Age out old samples before computing bounds.
             float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
             PruneTrail(now, life);
         }
 
-        // Compute the bounding box of all trail points + head to size the overlay.
-        var (windowX, windowY, windowW, windowH, headLocal) =
-            ComputeWindow(cursor.X, cursor.Y, now, turbo);
-
         float phase = (now % 3600000) / 1000f;
-        var trail = BuildLocalTrail(cursor.X, cursor.Y, windowX, windowY, now, turbo);
 
-        _form.Render(windowX, windowY, windowW, windowH,
-            _style, _dotSize, color, phase, headLocal, trail);
+        if (_style == CursorStyle.Comet)
+        {
+            // Fixed-size sliding window anchored around cursor (zero resize/reposition flicker)
+            int winX = (int)cursor.X - Reach;
+            int winY = (int)cursor.Y - Reach;
+            int winW = Reach * 2;
+            int winH = Reach * 2;
+
+            // Pass Reach as pointer anchor; PaintComet adds CometHeadInset
+            var headLocal = new PointF(Reach, Reach);
+            var trail = BuildLocalTrail(cursor.X, cursor.Y, winX, winY, now, turbo);
+
+            _form.Render(winX, winY, winW, winH,
+                _style, _dotSize, color, phase, headLocal, trail);
+        }
+        else
+        {
+            var visual = CursorPainter.Measure(_style, _dotSize);
+            var pointer = new PointF(-visual.OffsetX, -visual.OffsetY);
+            _form.Render(visual, _style, _dotSize, color, phase, pointer, Array.Empty<TrailSample>(), cursor);
+        }
 
         if (!_shown)
         {
@@ -169,62 +182,6 @@ public sealed class CursorIndicator : IDisposable
         }
     }
 
-    /// <summary>
-    /// Returns the overlay window position and size (screen coords), plus
-    /// the position of the comet head in that local window space.
-    /// </summary>
-    private (int wx, int wy, int ww, int wh, PointF headLocal)
-        ComputeWindow(float cx, float cy, long now, bool turbo)
-    {
-        if (_style != CursorStyle.Comet || _trail.Count == 0)
-        {
-            // Non-comet: use the standard Measure offset.
-            var v = CursorPainter.Measure(_style, _dotSize);
-            CursorPainter.Gap(_style, out int gx, out int gy);
-            int wx = (int)cx + v.OffsetX + gx;
-            int wy = (int)cy + v.OffsetY + gy;
-            var headLoc = new PointF(-v.OffsetX, -v.OffsetY);
-            return (wx, wy, v.Width, v.Height, headLoc);
-        }
-
-        // Include head and all trail points in the bounding box.
-        float headX = cx + CursorPainter.CometHeadInset + CursorPainter.PointerGapX;
-        float headY = cy + CursorPainter.CometHeadInset + CursorPainter.PointerGapY;
-
-        float minX = headX, maxX = headX;
-        float minY = headY, maxY = headY;
-
-        foreach (var (tx, ty, _) in _trail)
-        {
-            // Trail points are in screen space; offset by same gap as head.
-            float lx = tx + CursorPainter.PointerGapX;
-            float ly = ty + CursorPainter.PointerGapY;
-            if (lx < minX) minX = lx;
-            if (lx > maxX) maxX = lx;
-            if (ly < minY) minY = ly;
-            if (ly > maxY) maxY = ly;
-        }
-
-        const int Pad = 24; // padding around the bounding box for anti-alias bleed
-        int winX = (int)minX - Pad;
-        int winY = (int)minY - Pad;
-        int winW = (int)(maxX - minX) + Pad * 2;
-        int winH = (int)(maxY - minY) + Pad * 2;
-
-        // Clamp to sane size (GDI bitmap limit).
-        winW = Math.Max(winW, 40);
-        winH = Math.Max(winH, 40);
-
-        // Head position in window-local coordinates.
-        var head = new PointF(headX - winX, headY - winY);
-        return (winX, winY, winW, winH, head);
-    }
-
-    /// <summary>
-    /// Converts raw screen-space samples into window-local TrailSamples,
-    /// with Catmull-Rom interpolation between each pair of raw samples so
-    /// fast motion stays smooth and curved.
-    /// </summary>
     private TrailSample[] BuildLocalTrail(
         float cx, float cy,
         int winX, int winY,
@@ -236,10 +193,8 @@ public sealed class CursorIndicator : IDisposable
         float lifeSec = turbo ? TrailLifeTurbo : TrailLifeNormal;
         float lifeMsF = lifeSec * 1000f;
 
-        // Build a dense list using Catmull-Rom spline between raw samples.
         var points = new List<(float X, float Y, long Tick)>(_trail.Count * InterpSteps);
 
-        // Add interpolated points between pairs of raw samples.
         for (int i = 0; i < _trail.Count - 1; i++)
         {
             var p0 = _trail[Math.Max(0, i - 1)];
@@ -257,19 +212,18 @@ public sealed class CursorIndicator : IDisposable
             }
         }
 
-        // Add the last raw sample.
         points.Add(_trail[^1]);
 
-        // Convert to local-space TrailSamples (oldest first → head last in age order).
-        float gapX = CursorPainter.PointerGapX;
-        float gapY = CursorPainter.PointerGapY;
+        CursorPainter.Gap(CursorStyle.Comet, out int gapX, out int gapY);
+        float headOffsetDeltaX = gapX + CursorPainter.CometHeadInset;
+        float headOffsetDeltaY = gapY + CursorPainter.CometHeadInset;
 
         var result = new List<TrailSample>(points.Count);
         for (int i = 0; i < points.Count; i++)
         {
             var (px, py, tick) = points[i];
-            float localX = px + gapX - winX;
-            float localY = py + gapY - winY;
+            float localX = px - cx + Reach + headOffsetDeltaX;
+            float localY = py - cy + Reach + headOffsetDeltaY;
             float age = Math.Clamp((now - tick) / lifeMsF, 0f, 1f);
             result.Add(new TrailSample(new PointF(localX, localY), age));
         }
@@ -297,7 +251,6 @@ public sealed class CursorIndicator : IDisposable
 
     private sealed class CursorForm : OverlayForm
     {
-        /// <summary>Non-comet path: keep existing Measure-based layout.</summary>
         public void Render(
             CursorVisual visual,
             CursorStyle style,
@@ -317,7 +270,6 @@ public sealed class CursorIndicator : IDisposable
                 g => CursorPainter.Paint(g, style, size, color, phase, pointer, trail));
         }
 
-        /// <summary>Comet path: explicit window position+size computed from trail bounds.</summary>
         public void Render(
             int winX, int winY, int winW, int winH,
             CursorStyle style,

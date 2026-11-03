@@ -3,6 +3,14 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.4] - 2026-11-03
+
+### Fixed & Enhanced
+- **Comet Trail Architectural Overhaul for Normal & Turbo Modes:**
+  - **Zero-Flicker Fixed-Size Window:** Shifted the comet overlay from a dynamic resizing window to a fixed 700x700 window anchored smoothly around the cursor, eliminating all DWM resize/reposition flicker.
+  - **Precise Head-Tail Coordinate Alignment:** Synchronized `CometHeadInset` and `PointerGap` across both head drawing and Catmull-Rom interpolated trail samples.
+  - **High-Frequency Sampling & Spacing:** Upgraded indicator polling to 125 Hz (8ms) matching `MovementEngine`, with smart distance-based sample filtering (`MinTrailSpacing`) and 10-step Catmull-Rom interpolation for silky-smooth curves in slow, normal, and fast/Turbo modes.
+
 ## [1.0.3] - 2026-11-03
 
 ### Fixed & Enhanced
