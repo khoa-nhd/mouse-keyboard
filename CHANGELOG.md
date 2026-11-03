@@ -3,6 +3,14 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.3] - 2026-11-03
+
+### Fixed & Enhanced
+- **High-speed Comet trail architecture overhaul (bug-free normal & fast/Turbo mode):**
+  - **Dynamic Bounding Box Window:** The overlay window now dynamically sizes and positions itself around the entire active trail history rather than clipping to a fixed radius around the cursor.
+  - **Catmull-Rom Spline Interpolation:** High-speed motion (such as Turbo mode) automatically interpolates dense intermediate path points between ticks, preventing polygonal jumps or gaps.
+  - **Natural Taper & Smooth Fade:** Smoothstep alpha easing and seamless distance/time aging ensure the comet trail never cuts off abruptly and looks completely natural across all speeds.
+
 ## [1.0.2] - 2026-11-03
 
 ### Enhanced

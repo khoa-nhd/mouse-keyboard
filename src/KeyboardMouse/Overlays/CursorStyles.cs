@@ -447,7 +447,6 @@ public static class CursorPainter
     private static void PaintComet(Graphics g, PointF p, int s, Color color, IReadOnlyList<TrailSample>? trail)
     {
         var head = new PointF(p.X + CometHeadInset, p.Y + CometHeadInset);
-        float reach = (s * 12f) + 160f;
 
         if (trail is { Count: > 1 })
         {
@@ -457,13 +456,6 @@ public static class CursorPainter
             for (int i = trail.Count - 1; i >= 0; i--)
             {
                 var sample = trail[i];
-                float dx = head.X - sample.Point.X;
-                float dy = head.Y - sample.Point.Y;
-                if (MathF.Sqrt((dx * dx) + (dy * dy)) > reach)
-                {
-                    break;
-                }
-
                 points.Add(new TrailVertex(sample.Point, Math.Clamp(1f - sample.Age, 0f, 1f)));
             }
 
@@ -488,16 +480,14 @@ public static class CursorPainter
     }
 
     /// <summary>
-    /// Draws the comet's tail. The samples are smoothed with two rounds of
-    /// Chaikin subdivision (which never overshoots the way a spline can), then
-    /// stroked once with a width and alpha that fade towards the oldest end.
+    /// Draws the comet's tail with AntiAlias and smooth tapering.
     /// </summary>
     private static void DrawTrail(Graphics g, List<TrailVertex> points, int s, Color color)
     {
         var prevSmoothing = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        var smooth = Subdivide(Subdivide(Subdivide(points)));
+        var smooth = Subdivide(points);
         using var pen = new Pen(color, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
 
         for (int i = 1; i < smooth.Count; i++)
