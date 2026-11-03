@@ -107,56 +107,61 @@ public sealed class CursorIndicator : IDisposable
         long now = Environment.TickCount64;
         bool turbo = feedback.Turbo;
 
-        if (moved && _style == CursorStyle.Comet)
-        {
-            if (_trail.Count > 0)
-            {
-                var last = _trail[^1];
-                float dx = cursor.X - last.X;
-                float dy = cursor.Y - last.Y;
-                if ((dx * dx) + (dy * dy) >= MinTrailSpacing * MinTrailSpacing)
-                {
-                    _trail.Add((cursor.X, cursor.Y, now));
-                }
-            }
-            else
-            {
-                _trail.Add((cursor.X, cursor.Y, now));
-            }
-
-            if (_trail.Count > MaxTrailSamples)
-                _trail.RemoveAt(0);
-        }
-
-        _lastX = cursor.X;
-        _lastY = cursor.Y;
-        _lastColor = color;
-
         if (_style == CursorStyle.Comet)
         {
+            CursorPainter.Gap(CursorStyle.Comet, out int gapX, out int gapY);
+            float headScreenX = cursor.X + gapX + CursorPainter.CometHeadInset;
+            float headScreenY = cursor.Y + gapY + CursorPainter.CometHeadInset;
+
+            if (moved)
+            {
+                if (_trail.Count > 0)
+                {
+                    var last = _trail[^1];
+                    float dx = headScreenX - last.X;
+                    float dy = headScreenY - last.Y;
+                    if ((dx * dx) + (dy * dy) >= MinTrailSpacing * MinTrailSpacing)
+                    {
+                        _trail.Add((headScreenX, headScreenY, now));
+                    }
+                }
+                else
+                {
+                    _trail.Add((headScreenX, headScreenY, now));
+                }
+
+                if (_trail.Count > MaxTrailSamples)
+                    _trail.RemoveAt(0);
+            }
+
+            _lastX = cursor.X;
+            _lastY = cursor.Y;
+            _lastColor = color;
+
             float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
             PruneTrail(now, life);
-        }
 
-        float phase = (now % 3600000) / 1000f;
+            float phase = (now % 3600000) / 1000f;
 
-        if (_style == CursorStyle.Comet)
-        {
-            // Fixed-size sliding window anchored around cursor (zero resize/reposition flicker)
-            int winX = (int)cursor.X - Reach;
-            int winY = (int)cursor.Y - Reach;
+            // Fixed-size sliding window anchored around the comet head (zero resize/reposition flicker)
+            int winX = (int)headScreenX - Reach;
+            int winY = (int)headScreenY - Reach;
             int winW = Reach * 2;
             int winH = Reach * 2;
 
-            // Pass Reach as pointer anchor; PaintComet adds CometHeadInset
             var headLocal = new PointF(Reach, Reach);
-            var trail = BuildLocalTrail(cursor.X, cursor.Y, winX, winY, now, turbo);
+            var trail = BuildLocalTrail(headScreenX, headScreenY, winX, winY, now, turbo);
 
             _form.Render(winX, winY, winW, winH,
                 _style, _dotSize, color, phase, headLocal, trail);
         }
         else
         {
+            _lastX = cursor.X;
+            _lastY = cursor.Y;
+            _lastColor = color;
+
+            float phase = (now % 3600000) / 1000f;
             var visual = CursorPainter.Measure(_style, _dotSize);
             var pointer = new PointF(-visual.OffsetX, -visual.OffsetY);
             _form.Render(visual, _style, _dotSize, color, phase, pointer, Array.Empty<TrailSample>(), cursor);
@@ -183,7 +188,7 @@ public sealed class CursorIndicator : IDisposable
     }
 
     private TrailSample[] BuildLocalTrail(
-        float cx, float cy,
+        float headScreenX, float headScreenY,
         int winX, int winY,
         long now, bool turbo)
     {
@@ -214,16 +219,12 @@ public sealed class CursorIndicator : IDisposable
 
         points.Add(_trail[^1]);
 
-        CursorPainter.Gap(CursorStyle.Comet, out int gapX, out int gapY);
-        float headOffsetDeltaX = gapX + CursorPainter.CometHeadInset;
-        float headOffsetDeltaY = gapY + CursorPainter.CometHeadInset;
-
         var result = new List<TrailSample>(points.Count);
         for (int i = 0; i < points.Count; i++)
         {
             var (px, py, tick) = points[i];
-            float localX = px - cx + Reach + headOffsetDeltaX;
-            float localY = py - cy + Reach + headOffsetDeltaY;
+            float localX = px - winX;
+            float localY = py - winY;
             float age = Math.Clamp((now - tick) / lifeMsF, 0f, 1f);
             result.Add(new TrailSample(new PointF(localX, localY), age));
         }

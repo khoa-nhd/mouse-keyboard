@@ -446,7 +446,7 @@ public static class CursorPainter
 
     private static void PaintComet(Graphics g, PointF p, int s, Color color, IReadOnlyList<TrailSample>? trail)
     {
-        var head = new PointF(p.X + CometHeadInset, p.Y + CometHeadInset);
+        var head = p;
 
         if (trail is { Count: > 1 })
         {

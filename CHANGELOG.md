@@ -3,6 +3,12 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.5] - 2026-11-03
+
+### Fixed & Enhanced
+- **Comet Trail Origin Shift:**
+  - Adjusted comet trail history tracking and sliding window anchoring to track directly from the **comet head position** rather than the mouse pointer coordinates, ensuring the trail flows naturally and correctly out from behind the comet head itself across all speeds.
+
 ## [1.0.4] - 2026-11-03
 
 ### Fixed & Enhanced
