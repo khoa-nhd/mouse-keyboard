@@ -249,7 +249,7 @@ public static class CursorPainter
 
             case CursorStyle.Comet:
             {
-                int reach = (int)MathF.Ceiling((s * 5f) + 24f) + 8;
+                int reach = (int)MathF.Ceiling((s * 12f) + 160f) + 16;
                 int offset = (int)CometHeadInset - reach;
                 return new CursorVisual(offset, offset, reach * 2, reach * 2);
             }
@@ -447,7 +447,7 @@ public static class CursorPainter
     private static void PaintComet(Graphics g, PointF p, int s, Color color, IReadOnlyList<TrailSample>? trail)
     {
         var head = new PointF(p.X + CometHeadInset, p.Y + CometHeadInset);
-        float reach = (s * 5f) + 24f;
+        float reach = (s * 12f) + 160f;
 
         if (trail is { Count: > 1 })
         {

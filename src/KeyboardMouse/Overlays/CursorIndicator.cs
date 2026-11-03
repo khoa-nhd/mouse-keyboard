@@ -13,11 +13,13 @@ namespace KeyboardMouse.Overlays;
 /// </summary>
 public sealed class CursorIndicator : IDisposable
 {
-    private const int MaxTrail = 90;
-    private const float MinTrailSpacing = 1.2f;
+    private const int MaxTrailNormal = 150;
+    private const int MaxTrailTurbo = 300;
+    private const float MinTrailSpacing = 0.8f;
 
     /// <summary>How long a comet sample stays visible, in seconds.</summary>
-    private const float TrailLife = 0.9f;
+    private const float TrailLifeNormal = 1.8f;
+    private const float TrailLifeTurbo = 3.2f;
 
     private readonly AppState _state;
     private readonly CursorForm _form = new();
@@ -141,17 +143,18 @@ public sealed class CursorIndicator : IDisposable
         }
 
         long now = Environment.TickCount64;
+        bool turbo = feedback.Turbo;
 
         if (moved)
         {
-            TrackTrail(cursor.X, cursor.Y, now);
+            TrackTrail(cursor.X, cursor.Y, now, turbo);
         }
 
         // Comet samples age out even while the pointer rests, so the tail
         // dissolves instead of freezing on screen.
         if (_style == CursorStyle.Comet)
         {
-            PruneTrail(now);
+            PruneTrail(now, turbo);
         }
 
         _lastX = cursor.X;
@@ -162,7 +165,7 @@ public sealed class CursorIndicator : IDisposable
         var pointer = new PointF(-visual.OffsetX, -visual.OffsetY);
         float phase = (now % 3600000) / 1000f;
 
-        _form.Render(visual, _style, _dotSize, color, phase, pointer, BuildLocalTrail(pointer, now), cursor);
+        _form.Render(visual, _style, _dotSize, color, phase, pointer, BuildLocalTrail(pointer, now, turbo), cursor);
 
         if (!_shown)
         {
@@ -172,7 +175,7 @@ public sealed class CursorIndicator : IDisposable
     }
 
     /// <summary>Keeps a short history of pointer samples for the comet tail.</summary>
-    private void TrackTrail(int x, int y, long now)
+    private void TrackTrail(int x, int y, long now, bool turbo)
     {
         if (_style != CursorStyle.Comet)
         {
@@ -191,24 +194,26 @@ public sealed class CursorIndicator : IDisposable
         }
 
         _trail.Add((x, y, now));
-        if (_trail.Count > MaxTrail)
+        int max = turbo ? MaxTrailTurbo : MaxTrailNormal;
+        if (_trail.Count > max)
         {
             _trail.RemoveAt(0);
         }
     }
 
-    private void PruneTrail(long now)
+    private void PruneTrail(long now, bool turbo)
     {
+        float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
         for (int i = _trail.Count - 1; i >= 0; i--)
         {
-            if (now - _trail[i].Tick > TrailLife * 1000f)
+            if (now - _trail[i].Tick > life * 1000f)
             {
                 _trail.RemoveAt(i);
             }
         }
     }
 
-    private TrailSample[] BuildLocalTrail(PointF pointer, long now)
+    private TrailSample[] BuildLocalTrail(PointF pointer, long now, bool turbo)
     {
         if (_style != CursorStyle.Comet || _trail.Count == 0)
         {
@@ -219,6 +224,7 @@ public sealed class CursorIndicator : IDisposable
         // is drawn at pointer + CometHeadInset. Without this shift the tail
         // hangs off the cursor instead of trailing the head.
         var head = new PointF(pointer.X + CursorPainter.CometHeadInset, pointer.Y + CursorPainter.CometHeadInset);
+        float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
 
         var local = new TrailSample[_trail.Count];
         for (int i = 0; i < _trail.Count; i++)
@@ -226,7 +232,7 @@ public sealed class CursorIndicator : IDisposable
             // _lastX/_lastY match the newest sample; translate into surface space.
             local[i] = new TrailSample(
                 new PointF(_trail[i].X - _lastX + head.X, _trail[i].Y - _lastY + head.Y),
-                Math.Clamp((now - _trail[i].Tick) / (TrailLife * 1000f), 0f, 1f));
+                Math.Clamp((now - _trail[i].Tick) / (life * 1000f), 0f, 1f));
         }
 
         return local;

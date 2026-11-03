@@ -3,6 +3,14 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.1] - 2026-11-03
+
+### Enhanced
+- **Longer comet trail (especially in Turbo / fast mode):**
+  - Doubled maximum trail samples (up to 300 samples when holding `A` / Turbo mode).
+  - Increased trail lifetime duration and smoother point spacing for a much more dramatic, fluid comet tail.
+  - Expanded reach bounds so fast-moving trails never get clipped.
+
 ## [1.0.0] - 2026-11-02
 
 ### Changed
