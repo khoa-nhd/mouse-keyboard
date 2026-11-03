@@ -296,7 +296,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "grid": "G", "hint": "H",
     "centerScreen": "X", "centerWindow": "C", "nextMonitor": "N",
     "markSave": "M", "markJump": "Apostrophe",
-    "copy": "Y", "paste": "P", "undo": "Z",
+    "copy": "Y", "paste": "P", "undo": "Z", "redo": "W",
     "autoClick": "B"
   },
   "autoClick": { "intervalMs": 100, "button": "Left" },

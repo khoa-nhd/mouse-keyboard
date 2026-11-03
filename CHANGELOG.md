@@ -3,6 +3,12 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.8] - 2026-11-03
+
+### Fixed & Enhanced
+- **Comet Trail Glitch & Stutter Fix:**
+  - Replaced overshooting Catmull-Rom spline interpolation with stable trail sampling and linear aging across slow, normal, and fast/Turbo modes, completely eliminating multi-trail artifacts, loops, and stuttering during high-speed pointer movement.
+
 ## [1.0.7] - 2026-11-03
 
 ### Added & Updated

@@ -13,11 +13,11 @@ namespace KeyboardMouse.Overlays;
 /// </summary>
 public sealed class CursorIndicator : IDisposable
 {
-    private const int MaxTrailSamples = 500;
-    private const float TrailLifeNormal = 1.0f;
-    private const float TrailLifeTurbo  = 2.2f;
-    private const float MinTrailSpacing = 1.5f;
-    private const int InterpSteps = 10;
+    private const int MaxTrailNormal = 180;
+    private const int MaxTrailTurbo = 350;
+    private const float MinTrailSpacing = 0.8f;
+    private const float TrailLifeNormal = 1.4f;
+    private const float TrailLifeTurbo  = 3.0f;
     private const int Reach = 350; // Fixed window half-size (700x700 total window, zero resize flicker)
 
     private readonly AppState _state;
@@ -37,7 +37,7 @@ public sealed class CursorIndicator : IDisposable
     public CursorIndicator(AppState state)
     {
         _state = state;
-        _timer = new System.Windows.Forms.Timer { Interval = 8 }; // ~125 fps (matches MovementEngine)
+        _timer = new System.Windows.Forms.Timer { Interval = 16 }; // ~60 fps
         _timer.Tick += (_, _) => UpdatePosition(force: false);
     }
 
@@ -109,34 +109,17 @@ public sealed class CursorIndicator : IDisposable
 
         if (moved && _style == CursorStyle.Comet)
         {
-            if (_trail.Count > 0)
-            {
-                var last = _trail[^1];
-                float dx = cursor.X - last.X;
-                float dy = cursor.Y - last.Y;
-                if ((dx * dx) + (dy * dy) >= MinTrailSpacing * MinTrailSpacing)
-                {
-                    _trail.Add((cursor.X, cursor.Y, now));
-                }
-            }
-            else
-            {
-                _trail.Add((cursor.X, cursor.Y, now));
-            }
+            TrackTrail(cursor.X, cursor.Y, now, turbo);
+        }
 
-            if (_trail.Count > MaxTrailSamples)
-                _trail.RemoveAt(0);
+        if (_style == CursorStyle.Comet)
+        {
+            PruneTrail(now, turbo);
         }
 
         _lastX = cursor.X;
         _lastY = cursor.Y;
         _lastColor = color;
-
-        if (_style == CursorStyle.Comet)
-        {
-            float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
-            PruneTrail(now, life);
-        }
 
         float phase = (now % 3600000) / 1000f;
 
@@ -168,15 +151,35 @@ public sealed class CursorIndicator : IDisposable
         }
     }
 
-    private void PruneTrail(long now, float lifeSec)
+    private void TrackTrail(float x, float y, long now, bool turbo)
     {
-        long cutoff = (long)(lifeSec * 1000f);
+        if (_trail.Count > 0)
+        {
+            var last = _trail[^1];
+            float dx = x - last.X;
+            float dy = y - last.Y;
+            if ((dx * dx) + (dy * dy) < MinTrailSpacing * MinTrailSpacing)
+            {
+                return;
+            }
+        }
+
+        _trail.Add((x, y, now));
+        int max = turbo ? MaxTrailTurbo : MaxTrailNormal;
+        if (_trail.Count > max)
+        {
+            _trail.RemoveAt(0);
+        }
+    }
+
+    private void PruneTrail(long now, bool turbo)
+    {
+        float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
         for (int i = _trail.Count - 1; i >= 0; i--)
         {
-            if (now - _trail[i].Tick > cutoff)
+            if (now - _trail[i].Tick > life * 1000f)
             {
-                _trail.RemoveRange(0, i + 1);
-                return;
+                _trail.RemoveAt(i);
             }
         }
     }
@@ -186,55 +189,23 @@ public sealed class CursorIndicator : IDisposable
         PointF headLocal,
         long now, bool turbo)
     {
-        if (_style != CursorStyle.Comet || _trail.Count < 2)
+        if (_style != CursorStyle.Comet || _trail.Count == 0)
             return Array.Empty<TrailSample>();
 
-        float lifeSec = turbo ? TrailLifeTurbo : TrailLifeNormal;
-        float lifeMsF = lifeSec * 1000f;
+        float life = turbo ? TrailLifeTurbo : TrailLifeNormal;
+        float lifeMs = life * 1000f;
 
-        var points = new List<(float X, float Y, long Tick)>(_trail.Count * InterpSteps);
-
-        for (int i = 0; i < _trail.Count - 1; i++)
+        var result = new List<TrailSample>(_trail.Count);
+        for (int i = 0; i < _trail.Count; i++)
         {
-            var p0 = _trail[Math.Max(0, i - 1)];
-            var p1 = _trail[i];
-            var p2 = _trail[i + 1];
-            var p3 = _trail[Math.Min(_trail.Count - 1, i + 2)];
-
-            for (int s = 0; s < InterpSteps; s++)
-            {
-                float t = s / (float)InterpSteps;
-                float x = CatmullRom(p0.X, p1.X, p2.X, p3.X, t);
-                float y = CatmullRom(p0.Y, p1.Y, p2.Y, p3.Y, t);
-                long tick = p1.Tick + (long)((p2.Tick - p1.Tick) * t);
-                points.Add((x, y, tick));
-            }
-        }
-
-        points.Add(_trail[^1]);
-
-        var result = new List<TrailSample>(points.Count);
-        for (int i = 0; i < points.Count; i++)
-        {
-            var (px, py, tick) = points[i];
+            var (px, py, tick) = _trail[i];
             float localX = px - cx + headLocal.X;
             float localY = py - cy + headLocal.Y;
-            float age = Math.Clamp((now - tick) / lifeMsF, 0f, 1f);
+            float age = Math.Clamp((now - tick) / lifeMs, 0f, 1f);
             result.Add(new TrailSample(new PointF(localX, localY), age));
         }
 
         return result.ToArray();
-    }
-
-    private static float CatmullRom(float p0, float p1, float p2, float p3, float t)
-    {
-        float t2 = t * t;
-        float t3 = t2 * t;
-        return 0.5f * (
-            (2f * p1) +
-            (-p0 + p2) * t +
-            (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
-            (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
     }
 
     public void Dispose()
