@@ -1,0 +1,175 @@
+using System.Drawing;
+using System.Windows.Forms;
+using KeyboardMouse.Core;
+using KeyboardMouse.Hints;
+
+namespace KeyboardMouse.Tests;
+
+/// <summary>
+/// Exercises the exact adapter the application uses, not only the underlying
+/// scanners. A real WinForms window keeps the test on the same capture path as
+/// pressing H in the running app.
+/// </summary>
+public class HybridClickableScannerTests
+{
+    [Fact]
+    public async Task CvMode_ReturnsClickableTargets_FromARealWindow()
+    {
+        using var window = TestWindow.Show();
+        var scanner = new HybridClickableScanner(FakeMonitorService.Single());
+
+        var completion = new TaskCompletionSource<IReadOnlyList<ClickableTarget>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int timedOutCount = 0;
+        int completedCount = 0;
+
+        scanner.BeginScan(
+            window.Handle,
+            new HintScanOptions(200, false)
+            {
+                Mode = HintScanMode.Cv,
+                Sources = TargetSource.Cv,
+                Budget = TimeSpan.FromSeconds(3)
+            },
+            targets =>
+            {
+                Interlocked.Increment(ref completedCount);
+                completion.TrySetResult(targets);
+            },
+            () =>
+            {
+                Interlocked.Increment(ref timedOutCount);
+                completion.TrySetResult([]);
+            });
+
+        IReadOnlyList<ClickableTarget> targets =
+            await completion.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(1, completedCount);
+        Assert.Equal(0, timedOutCount);
+        Assert.NotEmpty(targets);
+        Assert.All(targets, target =>
+        {
+            Assert.True(target.Bounds.Width > 0);
+            Assert.True(target.Bounds.Height > 0);
+            Assert.True(target.Bounds.Contains(target.ClickPoint));
+        });
+    }
+
+    [Fact]
+    public async Task ZeroWindow_CompletesWithNoTargets()
+    {
+        var scanner = new HybridClickableScanner(FakeMonitorService.Single());
+        var completion = new TaskCompletionSource<IReadOnlyList<ClickableTarget>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int timedOutCount = 0;
+
+        scanner.BeginScan(
+            IntPtr.Zero,
+            new HintScanOptions(10, false) { Mode = HintScanMode.Cv },
+            targets => completion.TrySetResult(targets),
+            () => Interlocked.Increment(ref timedOutCount));
+
+        IReadOnlyList<ClickableTarget> targets =
+            await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Empty(targets);
+        Assert.Equal(0, timedOutCount);
+    }
+
+    private sealed class TestWindow : IDisposable
+    {
+        private readonly Form _form;
+        private readonly ManualResetEventSlim _closed = new();
+
+        private TestWindow(Form form) => _form = form;
+
+        public IntPtr Handle => _form.Handle;
+
+        public static TestWindow Show()
+        {
+            var ready = new TaskCompletionSource<TestWindow>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var thread = new Thread(() =>
+            {
+                var form = new Form
+                {
+                    Text = "KeyboardMouse adapter test",
+                    StartPosition = FormStartPosition.Manual,
+                    Location = new Point(120, 120),
+                    ClientSize = new Size(360, 220),
+                    ShowInTaskbar = false
+                };
+
+                var button = new Button
+                {
+                    Text = "OK",
+                    Location = new Point(24, 24),
+                    Size = new Size(100, 32)
+                };
+
+                var panel = new Panel
+                {
+                    Location = new Point(24, 80),
+                    Size = new Size(280, 100),
+                    BackColor = Color.White
+                };
+
+                panel.Paint += (_, eventArgs) =>
+                {
+                    using var pen = new Pen(Color.FromArgb(40, 40, 40), 2);
+                    eventArgs.Graphics.DrawRectangle(pen, 10, 10, 120, 34);
+                    eventArgs.Graphics.DrawRectangle(pen, 150, 50, 100, 34);
+                };
+
+                form.Controls.Add(button);
+                form.Controls.Add(panel);
+
+                var window = new TestWindow(form);
+                form.Shown += (_, _) => ready.TrySetResult(window);
+
+                try
+                {
+                    Application.Run(form);
+                }
+                finally
+                {
+                    window._closed.Set();
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "KeyboardMouse.HybridAdapterTest"
+            };
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+
+            if (!ready.Task.Wait(TimeSpan.FromSeconds(5)))
+            {
+                throw new TimeoutException("The test window did not open.");
+            }
+
+            return ready.Task.Result;
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (_form.IsHandleCreated)
+                {
+                    _form.BeginInvoke(new Action(_form.Close));
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The form already closed.
+            }
+
+            _closed.Wait(TimeSpan.FromSeconds(5));
+            _closed.Dispose();
+        }
+    }
+}

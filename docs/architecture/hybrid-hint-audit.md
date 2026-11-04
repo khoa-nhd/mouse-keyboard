@@ -1,7 +1,7 @@
 # Hybrid Hint System — Implementation and Validation
 
 **Date:** November 4, 2026
-**Status:** Implemented, wired into the app, 329/329 tests passing (Release build,
+**Status:** Implemented, wired into the app, 331/331 tests passing (Release build,
 0 errors, 0 warnings).
 
 > **Correction notice.** An earlier revision of this document contained latency,
@@ -161,8 +161,9 @@ These are code-inspection findings, not a penetration test.
 | Check | Result |
 |---|---|
 | Release build | 0 errors, 0 warnings |
-| Test suite | 329/329 passed |
+| Test suite | 331/331 passed |
 | CV detector tests | Finds drawn rectangles; returns no synthetic targets on a blank capture; honours `Sources` |
+| Adapter tests | `HybridClickableScanner` returns real `ClickableTarget`s in CV mode and handles a zero window |
 | Scan-mode tests | `auto`/`uia`/`cv`/`hybrid` normalization, source mapping and defaults |
 | Real-window benchmarks | UIA, CV and Hybrid scans complete against a real WinForms window |
 | UIA integration test | Real WinForms button found via FlaUI |

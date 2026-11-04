@@ -367,7 +367,7 @@ The Hybrid Hint system is wired into the running app and covered by tests.
   via `hint.scanMode`.
 - **Action safety:** foreground/staleness checks, duplicate-prevention,
   click-point validation, UIA patterns first then mouse fallback.
-- **Tests:** 329/329 passing (Release). The benchmark tests open a real WinForms
+- **Tests:** 331/331 passing (Release). The benchmark tests open a real WinForms
   window and report measured targets/latency; they do not compute
   precision/recall because there is no ground-truth corpus in the repository.
 
