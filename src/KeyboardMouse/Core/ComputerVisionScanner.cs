@@ -25,7 +25,8 @@ public sealed class ComputerVisionScanner : IHintScanner
 {
     private const int MaxAnalysisDimension = 640;
     private const int MinComponentPixels = 6;
-
+    private readonly DiagnosticsLevel _diagnosticsLevel = DiagnosticsLevel.Basic;
+    private readonly IMonitorService? _monitors;
     private readonly IScreenCaptureService _capture;
     private readonly IOcrEngine _ocr;
     private readonly TimeSpan _hardTimeout;
@@ -41,10 +42,14 @@ public sealed class ComputerVisionScanner : IHintScanner
         IOcrEngine? ocr = null,
         TimeSpan? timeout = null,
         int maxElements = 200,
-        int visitedLimit = 5000)
+        int visitedLimit = 5000,
+        IMonitorService? monitors = null,
+        DiagnosticsLevel diagnosticsLevel = DiagnosticsLevel.Basic)
     {
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         _ocr = ocr ?? NullOcrEngine.Instance;
+        _monitors = monitors;
+        _diagnosticsLevel = diagnosticsLevel;
         _hardTimeout = timeout is { } value && value > TimeSpan.Zero
             ? value
             : TimeSpan.FromMilliseconds(400);
@@ -175,12 +180,27 @@ public sealed class ComputerVisionScanner : IHintScanner
         List<VisualTarget> filtered = ApplyPostProcessing(targets, _maxElements);
 
         stopwatch.Stop();
+        IReadOnlyList<CandidateDiagnostics>? candidateDiagnostics = null;
+        if (_diagnosticsLevel >= DiagnosticsLevel.Extended)
+        {
+            candidateDiagnostics = candidates.Select(c => new CandidateDiagnostics
+            {
+                Source = TargetSource.CvContour,
+                Detector = "edge-components",
+                PerimeterDensity = 0.5,
+                GeometryConfidence = filtered.Any(t => t.Bounds.Contains(TargetBounds.FromRectangle(c))) ? 1.0 : 0.3,
+                RejectionReason = null,
+                MergeReason = null
+            }).ToList();
+        }
+
         var diagnostics = new HintScanDiagnostics(
             CandidateCount: candidates.Count,
             AcceptedCount: filtered.Count,
             ElapsedMilliseconds: stopwatch.ElapsedMilliseconds,
             UiaUsed: false,
-            CvUsed: true);
+            CvUsed: true,
+            CandidateDiagnostics: candidateDiagnostics);
 
         Log.Info(
             $"CV hint scan found {filtered.Count} target(s) from " +

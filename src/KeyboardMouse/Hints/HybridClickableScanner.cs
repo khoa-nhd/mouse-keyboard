@@ -25,10 +25,22 @@ public sealed class HybridClickableScanner : IClickableScanner
     private readonly TargetFusionEngine _fusionEngine = new();
 
     public HybridClickableScanner(IMonitorService? monitors = null)
+        : this(monitors, new UIAutomationScanner(monitors))
+    {
+    }
+
+    /// <summary>
+    /// Test seam for real-window runs that need a longer UIA timeout than the
+    /// production 400 ms. Application code uses the public constructor.
+    /// </summary>
+    internal HybridClickableScanner(IMonitorService? monitors, IHintScanner uiaScanner)
     {
         _monitors = monitors;
-        _uiaScanner = new UIAutomationScanner(monitors);
-        _cvScanner = new ComputerVisionScanner(new ScreenCaptureService());
+        _uiaScanner = uiaScanner ?? throw new ArgumentNullException(nameof(uiaScanner));
+        _cvScanner = new ComputerVisionScanner(
+            new ScreenCaptureService(),
+            monitors: monitors,
+            diagnosticsLevel: DiagnosticsLevel.Basic);
     }
 
     public void BeginScan(
@@ -91,30 +103,10 @@ public sealed class HybridClickableScanner : IClickableScanner
             return [];
         }
 
-        // A larger target that contains a smaller one already covers it. This
-        // removes CV text boxes inside UIA buttons and duplicate contours.
-        var kept = new List<VisualTarget>(targets.Count);
-        foreach (VisualTarget target in targets
-                     .Where(target => target.IsActionable)
-                     .OrderByDescending(target => (long)target.Bounds.Width * target.Bounds.Height))
-        {
-            bool covered = false;
-            foreach (VisualTarget existing in kept)
-            {
-                if (existing.Bounds.Contains(target.Bounds) ||
-                    (existing.Bounds.IntersectsWith(target.Bounds) &&
-                     existing.Bounds.Contains(target.Bounds.Center)))
-                {
-                    covered = true;
-                    break;
-                }
-            }
-
-            if (!covered)
-            {
-                kept.Add(target);
-            }
-        }
+        // Apply the same final rules to single-source and fused results. A
+        // larger target that contains a smaller one usually covers it, but a
+        // large container must not hide a clearly interactive child control.
+        IReadOnlyList<VisualTarget> kept = TargetPipeline.Finalize(targets);
 
         var raw = kept
             .OrderBy(target => target.Bounds.Top)
@@ -123,7 +115,10 @@ public sealed class HybridClickableScanner : IClickableScanner
                 target.Bounds.ToRectangle(),
                 IsOffscreen: false,
                 IsEnabled: target.IsEnabled,
-                target.Text))
+                target.Text,
+                ClickPoint: target.ClickPoint,
+                Geometry: target.Geometry,
+                Type: target.Type))
             .ToList();
 
         return HintTargetFilter.Apply(raw, GetMonitors(), options.MaxElements);

@@ -20,15 +20,62 @@ public enum HintScanStatus
 }
 
 /// <summary>
+/// Level of detail included in <see cref="HintScanDiagnostics"/>.
+/// </summary>
+public enum DiagnosticsLevel
+{
+    /// <summary>Basic counters only (candidate count, elapsed time, source usage).</summary>
+    Basic,
+
+    /// <summary>Per-candidate diagnostics: source, detector, confidence, rejection reason.</summary>
+    Extended,
+
+    /// <summary>Full diagnostics: include captured images and OCR text (disabled in release builds).</summary>
+    Full
+}
+
+/// <summary>
 /// Optional local-only counters and timings. Never include target text, UIA
-/// names, screenshots, or pixel buffers in diagnostics.
+/// names, screenshots, or pixel buffers in diagnostics.  Per-candidate
+/// diagnostics are included only when <see cref="DiagnosticsLevel"/> is set
+/// to a value greater than <see cref="DiagnosticsLevel.Basic"/>.
 /// </summary>
 public sealed record HintScanDiagnostics(
     int CandidateCount = 0,
     int AcceptedCount = 0,
     long ElapsedMilliseconds = 0,
     bool UiaUsed = false,
-    bool CvUsed = false);
+    bool CvUsed = false,
+    int GeometryRejectedCount = 0,
+    int LowGeometryConfidenceCount = 0,
+    DiagnosticsLevel DiagnosticsLevel = DiagnosticsLevel.Basic,
+    IReadOnlyList<CandidateDiagnostics>? CandidateDiagnostics = null);
+
+/// <summary>
+/// Diagnostic information for a single candidate detected during CV scanning.
+/// Included in <see cref="HintScanDiagnostics"/> only when
+/// <see cref="DiagnosticsLevel"/> is <see cref="DiagnosticsLevel.Extended"/> or higher.
+/// </summary>
+public sealed record CandidateDiagnostics
+{
+    /// <summary>The <see cref="TargetSource"/> that produced this candidate.</summary>
+    public TargetSource Source { get; init; } = TargetSource.CvContour;
+
+    /// <summary>The detector name used during candidate generation.</summary>
+    public string Detector { get; init; } = "edge-components";
+
+    /// <summary>Per-pixel confidence of the candidate (0.0 = weak, 1.0 = strong).</summary>
+    public double PerimeterDensity { get; init; }
+
+    /// <summary>Geometry confidence after validation (0.0 = rejected, 1.0 = accepted).</summary>
+    public double GeometryConfidence { get; init; }
+
+    /// <summary>Rejection reason, if the candidate was filtered out.</summary>
+    public string? RejectionReason { get; init; }
+
+    /// <summary>Merge reason, if the candidate was merged with another.</summary>
+    public string? MergeReason { get; init; }
+}
 
 /// <summary>
 /// One scan request. The window handle is the foreground window at the time
