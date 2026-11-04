@@ -53,6 +53,7 @@ internal static class Gdi32
     public const byte AC_SRC_ALPHA = 0x01;
     public const uint BI_RGB = 0;
     public const uint DIB_RGB_COLORS = 0;
+    public const uint SRCCOPY = 0x00CC0020;
 
     [DllImport("gdi32.dll")]
     public static extern IntPtr CreateCompatibleDC(IntPtr hdc);
@@ -79,5 +80,17 @@ internal static class Gdi32
     public static extern IntPtr GetDC(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    public static extern int ReleaseDC(IntPtr hWnd, IntPtr hdc);
+    public static extern bool ReleaseDC(IntPtr hWnd, IntPtr hdc);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    public static extern bool BitBlt(
+        IntPtr hdcDest,
+        int nXDest,
+        int nYDest,
+        int nWidth,
+        int nHeight,
+        IntPtr hdcSrc,
+        int nXSrc,
+        int nYSrc,
+        uint dwRop);
 }

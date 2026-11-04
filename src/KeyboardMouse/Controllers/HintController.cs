@@ -282,15 +282,24 @@ public sealed class HintController : IModeController
     private void Activate(int index, ModifierState modifiers, bool keyIsF)
     {
         var target = _targets[index];
-        var center = target.Center;
+
+        // Precision refinement: click point must stay within the target's own bounds.
+        // Use the target's ClickPoint, clamped to its bounds to prevent escaping
+        // the original target rectangle.
+        var clickPoint = target.ClickPoint;
+        if (!target.Bounds.Contains(clickPoint))
+        {
+            // Fall back to center if clickPoint is somehow outside bounds.
+            clickPoint = target.Center;
+        }
 
         if (_monitors is not null)
         {
-            var (x, y) = _monitors.ClampToDesktop(center.X, center.Y);
-            center = new Point((int)Math.Round(x), (int)Math.Round(y));
+            var (x, y) = _monitors.ClampToDesktop(clickPoint.X, clickPoint.Y);
+            clickPoint = new Point((int)Math.Round(x), (int)Math.Round(y));
         }
 
-        _mouse.MoveTo(center.X, center.Y);
+        _mouse.MoveTo(clickPoint.X, clickPoint.Y);
 
         bool hover = modifiers.Shift;
         bool rightClick = modifiers.Ctrl ||

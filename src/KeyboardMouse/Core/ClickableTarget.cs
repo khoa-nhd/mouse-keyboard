@@ -8,6 +8,9 @@ public sealed record ClickableTarget(Rectangle Bounds, string Name = "")
     public Point Center => new(
         Bounds.Left + (Bounds.Width / 2),
         Bounds.Top + (Bounds.Height / 2));
+
+    /// <summary>The click point within the target bounds. Defaults to the center.</summary>
+    public Point ClickPoint => Center;
 }
 
 /// <summary>Raw UIA data before filtering. Kept separate so filtering is testable.</summary>
