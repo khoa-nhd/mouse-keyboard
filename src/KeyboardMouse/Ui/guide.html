@@ -763,7 +763,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         <div class="card">
           <h2 style="margin-bottom:10px" data-t="settings.general">General</h2>
           <div class="setting"><div><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div><label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label></div>
-          <div class="setting"><div><h3 data-t="settings.updateT">Check for updates automatically</h3><p data-t="settings.update">Once a day, ask GitHub for a newer version. Nothing about you is sent. Off by default.</p></div><label class="switch"><input type="checkbox" data-bind="updateCheckOnStart"><span></span></label></div>
+          <div class="setting"><div><h3 data-t="settings.updateT">Check for updates automatically</h3><p data-t="settings.update">Once a day, ask GitHub for a newer version. Nothing about you is sent. Off by default.</p><div style="margin-top:10px"><button class="btn" data-cmd="checkForUpdates" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.checkUpdate">Check for updates</span></button></div></div><label class="switch"><input type="checkbox" data-bind="updateCheckOnStart"><span></span></label></div>
           <div class="setting" style="display:block; border-bottom:0; padding-bottom:4px">
             <div style="margin-bottom:12px"><h3 data-t="settings.styleT">Pointer style</h3><p data-t="settings.style">The shape that follows the pointer. Its colour shows the active layer.</p></div>
             <div class="style-grid" id="style-grid"></div>
@@ -827,6 +827,7 @@ td:first-child { width: 168px; white-space: nowrap; }
           <h1 style="font-size:26px">KeyboardMouse</h1>
           <p class="muted"><span id="about-version">v—</span> · <span data-t="about.license">Free and open source (MIT)</span></p>
           <div class="row" style="margin-top:12px; gap:10px">
+            <button class="btn primary" data-cmd="checkForUpdates" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.checkUpdate">Check for updates</span></button>
             <button class="btn" data-url="github" type="button"><svg><use href="#i-github"/></svg>GitHub</button>
             <button class="btn" data-url="issues" type="button" data-t="about.bug">Report a problem</button>
           </div>

@@ -62,7 +62,7 @@ public class ErrorCollector
             ApplicationCategory = appCategory,
             VisualConditions = visualConditions ?? new List<VisualCondition>(),
             Notes = notes,
-            AlgorithmVersion = "1.2.0", // TODO: Get from assembly version
+            AlgorithmVersion = "1.3.0",
             Confidence = candidate?.Confidence ?? 0.0
         };
 

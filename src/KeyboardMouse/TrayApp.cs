@@ -209,13 +209,12 @@ public sealed class TrayApp : ApplicationContext
         _menu.Items.Add(CreateItem("Show keymap", () => ShowGuide("keys")));
         _menu.Items.Add(CreateItem("Open settings file", OpenSettingsFile));
         _menu.Items.Add(CreateItem("Reload settings", ReloadSettings));
-        _menu.Items.Add(_checkUpdatesItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_autostartItem);
         _menu.Items.Add(CreateItem("Open log folder", OpenLogFolder));
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(CreateItem("Restart KeyboardMouse", RestartApp));
-        _menu.Items.Add(CreateItem("Check for updates", () => { _ = CheckForUpdatesAsync(silent: false); }));
+        _menu.Items.Add(_checkUpdatesItem);
         _menu.Items.Add(CreateItem("Exit", ExitThread));
 
         _tray = new NotifyIcon
