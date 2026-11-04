@@ -392,13 +392,13 @@ dotnet publish src/KeyboardMouse -c Release -r win-x64 --self-contained true -p:
 `dotnet publish` only **builds** the exe. Run `publish\KeyboardMouse.exe`
 afterwards to start the app.
 
-Releases are built automatically by GitHub Actions
-([`.github/workflows/release.yml`](.github/workflows/release.yml)) when a
-`v*` tag is pushed:
+Releases are published manually: bump `<Version>` in the csproj, tag `vX.Y.Z`,
+build the single-file exe, create `KeyboardMouse-vX.Y.Z-win-x64.zip` plus its
+`.sha256`, and publish a GitHub release with both assets.
 
 ```powershell
-git tag v0.1.0
-git push origin v0.1.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 ### Project layout

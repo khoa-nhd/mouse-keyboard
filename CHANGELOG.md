@@ -3,6 +3,33 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.2.0] - 2026-11-04
+
+### Added
+- **Computer-vision hint targets.** Hint mode can now find clickable elements
+  in custom-drawn windows that expose no UI Automation tree, via a real
+  pixel-based `ComputerVisionScanner` (contours/edges, no OCR backend bundled).
+- **Scan modes.** `auto` (default), `uia`, `cv`, `hybrid`, selectable from the
+  tray menu (**Hint scan mode**) or `hint.scanMode` in `settings.json`.
+- **Hybrid fusion.** `hybrid` runs UIA and CV, fuses overlapping targets and
+  keeps CV-only targets; `auto` keeps UIA as the fast path and falls back to CV
+  (including fusion) when UIA only sees caption buttons.
+- **Honest benchmark suite.** Real-window UIA/CV/hybrid measurements plus an
+  integration test for the CV adapter and the auto fallback.
+
+### Changed
+- Hint overlay and scan pipeline now adapt `VisualTarget` to `ClickableTarget`
+  through `HybridClickableScanner`.
+- Test host runs PerMonitorV2 to match the app; benchmark numbers regenerated
+  for a 150% display.
+
+### Notes
+- 332/332 tests pass (Release); build 0 errors, 0 warnings.
+- Measured (fresh process, 150% display, real WinForms window, n=3):
+  UIA 6 targets / 63 ms (P50 46, max 57); CV 20 regions / 39 ms (P50 46,
+  max 64); Hybrid 20 targets / 136 ms (P50 53, max 60). No precision/recall
+  measured (no ground-truth corpus).
+
 ## [1.0.9] - 2026-11-03
 
 ### Fixed & Enhanced
