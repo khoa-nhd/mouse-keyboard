@@ -1,6 +1,6 @@
 # Shared Hint Target Model
 
-**Status:** Shared model and independent `UIAutomationScanner`, `ComputerVisionScanner`, and `HybridHintScanner` implemented. The scanners are not wired into Hint mode by default, and no fusion or action executor is implemented yet. A `TargetFusionEngine` is available for future hybrid-target merging.
+**Status:** Shared model and independent `UIAutomationScanner`, `ComputerVisionScanner`, and `HybridClickableScanner` implemented and wired into Hint mode. `TargetFusionEngine` handles hybrid merging; `TargetGeometry` carries pixel-refined bounds, click-point diagnostics and ranking confidence.
 
 ## Canonical coordinate system
 
@@ -27,7 +27,17 @@ HintCoordinates.FrameToDesktop(frameBounds, localBounds, scaleX, scaleY)
 
 | Type | Purpose |
 |---|---|
-| `VisualTarget` | Immutable target crossing the scanner, fusion, overlay, and action boundaries. Carries id, source flags, semantic type, optional text, canonical bounds, click point, detection/interaction confidence, enabled/visible state, and optional metadata. |
+| `VisualTarget` | Immutable target crossing the scanner, fusion, overlay, and action boundaries. Carries id, source flags, semantic type, optional text, canonical bounds, click point, detection/interaction/geometry/classification confidence, enabled/visible state, and optional metadata. |
+| `TargetGeometry` | Geometry confidence, click strategy, issue flags, edge support, background contrast, rounded-corner/clipping/fallback state. Contains only numbers and flags, never text or pixels. |
+| `GeometryIssue` | Flags for zero, tiny, huge, off-screen, clipped, click-outside, invalid-transform, weak-edge, shadow, rounded-corner, shared-boundary, overlap, ambiguous-shape, container and fallback conditions. |
+| `TargetGeometryValidator` | Type-specific, DPI-aware bounds and click-point validation: strict for CV, diagnostic for UIA. |
+| `TargetGeometrySelection` | Container-vs-child selection, duplicate nesting removal, and preservation of distinct nested interactive controls. |
+| `TargetSimilarity` | Deterministic IoU, centre-distance, containment, text, type, shape, grouping and duplicate measurements shared by fusion, ranking and deduplication. |
+| `TargetRanker` | Composite ranking from detection, geometry, interaction, classification, source reliability, ambiguity and duplicate likelihood. |
+| `TargetAssignment` | Maximum-weight bipartite (Hungarian) assignment used to resolve competing UIA/CV matches globally within a component. |
+| `TargetDeduplicator` | Union-find duplicate grouping and semantic representative selection. |
+| `TargetFinalFilter` | Explicit type, size, confidence and ambiguity rules for UIA-backed and CV-only targets. |
+| `TargetPipeline` | Idempotent finalization shared by every scan mode: filter, dedup, container/child selection, stable order, neighbour-safe click points. |
 | `TargetSource` | Flags: `Uia`, `CvOcr`, `CvContour`, plus the `Cv` and `All` combinations. |
 | `TargetType` | Semantic kind such as button, hyperlink, menu item, edit, or icon. |
 | `TargetActionType` | `LeftClick`, `RightClick`, or `Hover`. |
@@ -43,6 +53,18 @@ HintCoordinates.FrameToDesktop(frameBounds, localBounds, scaleX, scaleY)
 | `HintScanDiagnostics` | Local-only counts and timings; never contains text or pixels. |
 | `IHintScanner` | Asynchronous scan port with exactly-once completion. |
 | `IHintActionExecutor` | Executes a click or hover against a resolved target. |
+
+Geometry metadata travels with the target through fusion and filtering. A
+`ClickableTarget` keeps the explicit click point when it is inside the visible
+bounds and clamps it when a monitor edge clips the target. `GeometryConfidence`
+is a ranking signal, not a probability; `VisualTarget.RankingConfidence`
+combines it with detection confidence, while final ordering uses
+`TargetRanker`, which also considers interaction, classification, source
+reliability, ambiguity and duplicate likelihood. `ClassificationConfidence` is
+separate from `DetectionConfidence`, so a clearly read OCR label is not treated
+as a clearly clickable control. Click points may be centre, safe interior, text
+centre, icon centre, shape centre or neighbour-safe, but they are always inside
+the final bounds.
 
 ## UIA scanner
 

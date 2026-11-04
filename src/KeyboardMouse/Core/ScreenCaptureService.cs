@@ -237,7 +237,9 @@ internal sealed class ScreenCaptureService : IScreenCaptureService
                         {
                             Bitmap = snapshot,
                             Region = TargetBounds.FromRectangle(desktopRegion),
-                            DpiScale = monitor.Scale,
+                            // BitBlt captured native physical pixels; monitor.Scale
+                            // describes DPI, not a resampling factor applied here.
+                            DpiScale = 1.0,
                             WindowHandle = null,
                             MonitorHandle = monitor.Handle
                         };

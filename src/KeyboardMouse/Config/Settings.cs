@@ -73,6 +73,7 @@ public sealed class Settings
         Hint.Alphabet = KeyNames.NormalizeHintAlphabet(Hint.Alphabet);
         Hint.MaxElements = Math.Clamp(Hint.MaxElements, 1, 2000);
         Hint.ScanMode = HintScanModes.Normalize(Hint.ScanMode);
+        Hint.ScanScope = HintScanScopes.Normalize(Hint.ScanScope);
 
         Scroll.Base = Math.Max(0, Scroll.Base);
         Scroll.Max = Math.Max(Scroll.Base, Scroll.Max);
@@ -198,6 +199,13 @@ public sealed class HintSettings
     /// "hybrid". Auto is the default so behaviour is unchanged on normal apps.
     /// </summary>
     public string ScanMode { get; set; } = HintScanModes.AutoId;
+
+    /// <summary>
+    /// Screen area scanned by hint mode: "window" (default), "monitor",
+    /// "desktop" or "all-monitors". UIA always scans the foreground window;
+    /// CV captures the full selected scope.
+    /// </summary>
+    public string ScanScope { get; set; } = HintScanScopes.WindowId;
 }
 
 public sealed class SpeedSettings

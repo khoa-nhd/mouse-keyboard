@@ -12,9 +12,10 @@ namespace KeyboardMouse.Core;
 ///
 /// Every mode starts the fastest useful source first:
 /// Auto runs UIA and CV concurrently and only waits for CV when UIA found no
-/// target inside the window's client area (window chrome does not count),
-/// Uia/Cv run a single source, and Hybrid fuses both. The whole scan has one
-/// hard deadline and exactly one terminal result.
+/// target inside the window's client area (window chrome does not count) or
+/// when the requested scope is larger than the window, Uia/Cv run a single
+/// source, and Hybrid fuses both. The whole scan has one hard deadline and
+/// exactly one terminal result.
 /// </summary>
 internal static class HintScanCoordinator
 {
@@ -126,7 +127,9 @@ internal static class HintScanCoordinator
 
         HintScanResult uiaResult = await uiaTask.ConfigureAwait(false);
 
-        if (uiaResult.HasTargets && HasContentTargets(uiaResult.Targets, window))
+        bool windowScope = options.Scope == HintScanScope.ForegroundWindow;
+
+        if (windowScope && uiaResult.HasTargets && HasContentTargets(uiaResult.Targets, window))
         {
             cvCts.Cancel();
             return uiaResult;
@@ -148,27 +151,30 @@ internal static class HintScanCoordinator
                         CvUsed: cvResult.Diagnostics?.CvUsed ?? false));
         }
 
-        // UIA found only caption buttons. Keep them and add the CV content so
-        // the user can still reach Close/Minimize.
-        if (!cvResult.HasTargets)
+        // A non-window scope is covered by CV. UIA can only see the foreground
+        // window, so keep its targets as complementary evidence instead of
+        // treating them as complete coverage.
+        if (cvResult.HasTargets)
         {
-            return uiaResult;
+            IReadOnlyList<VisualTarget> targets = fusion
+                .Fuse(uiaResult.Targets, cvResult.Targets)
+                .Targets;
+
+            return HintScanResult.FromTargets(
+                targets,
+                new HintScanDiagnostics(
+                    CandidateCount: uiaResult.Targets.Count + cvResult.Targets.Count,
+                    AcceptedCount: targets.Count,
+                    ElapsedMilliseconds: Math.Max(
+                        uiaResult.Diagnostics?.ElapsedMilliseconds ?? 0,
+                        cvResult.Diagnostics?.ElapsedMilliseconds ?? 0),
+                    UiaUsed: true,
+                    CvUsed: true));
         }
 
-        IReadOnlyList<VisualTarget> targets = fusion
-            .Fuse(uiaResult.Targets, cvResult.Targets)
-            .Targets;
-
-        return HintScanResult.FromTargets(
-            targets,
-            new HintScanDiagnostics(
-                CandidateCount: uiaResult.Targets.Count + cvResult.Targets.Count,
-                AcceptedCount: targets.Count,
-                ElapsedMilliseconds: Math.Max(
-                    uiaResult.Diagnostics?.ElapsedMilliseconds ?? 0,
-                    cvResult.Diagnostics?.ElapsedMilliseconds ?? 0),
-                UiaUsed: true,
-                CvUsed: true));
+        // UIA found only caption buttons and CV found nothing to add. Keep the
+        // caption buttons so Close/Minimize remain reachable.
+        return uiaResult;
     }
 
     /// <summary>
@@ -273,16 +279,22 @@ internal static class HintScanCoordinator
         TargetSource sources,
         CancellationToken token)
     {
+        TimeSpan sourceBudget = HintScanScopes.SourceBudgetFor(baseOptions.Scope);
+        TimeSpan budget = baseOptions.Budget > TimeSpan.Zero
+            ? TimeSpan.FromMilliseconds(Math.Min(
+                baseOptions.Budget.TotalMilliseconds,
+                sourceBudget.TotalMilliseconds))
+            : sourceBudget;
+
         var sourceOptions = new HintScanOptions(
             Math.Clamp(baseOptions.MaxElements, 1, 2000),
             baseOptions.IncludeTaskbar)
         {
             Mode = mode,
             Sources = sources,
-            Budget = baseOptions.Budget > TimeSpan.Zero &&
-                     baseOptions.Budget < HintScanModes.SourceBudget
-                ? baseOptions.Budget
-                : HintScanModes.SourceBudget
+            Budget = budget,
+            Scope = baseOptions.Scope,
+            ExcludedRegions = baseOptions.ExcludedRegions
         };
 
         var completion = new TaskCompletionSource<HintScanResult>(

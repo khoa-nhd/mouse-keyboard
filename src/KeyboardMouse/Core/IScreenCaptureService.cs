@@ -161,7 +161,7 @@ public sealed record CaptureMetadata
         return new CaptureMetadata
         {
             Region = TargetBounds.FromRectangle(monitor.Bounds),
-            DpiScale = monitor.Scale,
+            DpiScale = 1.0,
             WindowHandle = null,
             MonitorHandle = monitor.Handle,
             IsFullScreen = false,

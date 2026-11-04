@@ -1,6 +1,8 @@
 using System.Drawing;
+using KeyboardMouse.Capture;
 using KeyboardMouse.Config;
 using KeyboardMouse.Core;
+using KeyboardMouse.Hints;
 using KeyboardMouse.Input;
 using KeyboardMouse.Output;
 using KeyboardMouse.Overlays;
@@ -154,6 +156,8 @@ internal sealed class FakeHintOverlay : IHintOverlay
 
     public List<string> TypedHistory { get; } = new();
 
+    public IReadOnlyList<TargetBounds> ExclusionBounds { get; set; } = [];
+
     public void ShowScanning(MonitorInfo monitor, string text)
     {
         Visible = true;
@@ -161,6 +165,8 @@ internal sealed class FakeHintOverlay : IHintOverlay
         ScanMonitor = monitor;
         ScanText = text;
     }
+
+    public IReadOnlyList<TargetBounds> GetExclusionBounds() => ExclusionBounds;
 
     public void Show(
         IReadOnlyList<MonitorInfo> monitors,
@@ -311,6 +317,25 @@ internal sealed class FakeMonitorService : IMonitorService
         new Rectangle(0, 0, 1920, 1080),
         new Rectangle(0, 0, 1920, 1040),
         1.0);
+}
+
+/// <summary>
+/// Real-window tests share one machine with the rest of the suite. UI
+/// Automation can occasionally exceed the production 400 ms hard timeout under
+/// that load, so these helpers use a longer timeout without changing the app.
+/// </summary>
+internal static class TestHintScanners
+{
+    public static readonly TimeSpan UiaTimeout = TimeSpan.FromSeconds(5);
+
+    public static UIAutomationScanner Uia(IMonitorService? monitors = null) =>
+        new(
+            () => new FlaUiElementProvider(),
+            monitors,
+            UiaTimeout);
+
+    public static HybridClickableScanner Clickable(IMonitorService monitors) =>
+        new(monitors, Uia(monitors));
 }
 
 internal sealed class RouterHarness

@@ -11,14 +11,29 @@ namespace KeyboardMouse.Capture;
 /// </summary>
 public sealed class HybridHintScanner : IHintScanner
 {
-    private readonly Lazy<UIAutomationScanner> _uiScanner;
-    private readonly Lazy<ComputerVisionScanner> _cvScanner;
+    private readonly Lazy<IHintScanner> _uiScanner;
+    private readonly Lazy<IHintScanner> _cvScanner;
     private readonly TargetFusionEngine _fusionEngine = new();
 
     public HybridHintScanner()
+        : this(
+            () => new UIAutomationScanner(),
+            () => new ComputerVisionScanner(new ScreenCaptureService()))
     {
-        _uiScanner = new Lazy<UIAutomationScanner>(() => new UIAutomationScanner());
-        _cvScanner = new Lazy<ComputerVisionScanner>(() => new ComputerVisionScanner(new ScreenCaptureService()));
+    }
+
+    /// <summary>
+    /// Test seam for real-window runs that need a longer UIA timeout than the
+    /// production 400 ms. Application code uses the parameterless constructor.
+    /// </summary>
+    internal HybridHintScanner(
+        Func<IHintScanner> uiScanner,
+        Func<IHintScanner> cvScanner)
+    {
+        _uiScanner = new Lazy<IHintScanner>(
+            uiScanner ?? throw new ArgumentNullException(nameof(uiScanner)));
+        _cvScanner = new Lazy<IHintScanner>(
+            cvScanner ?? throw new ArgumentNullException(nameof(cvScanner)));
     }
 
     public void BeginScan(HintScanRequest request, Action<HintScanResult> completed)

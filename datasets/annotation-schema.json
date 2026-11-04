@@ -1,0 +1,181 @@
+{
+  "version": "1.0",
+  "description": "Mouse Keyboard Hint CV Detection Dataset",
+  "categories": {
+    "standard": [
+      "rectangular-button",
+      "rounded-button",
+      "filled-button",
+      "outlined-button",
+      "text-button",
+      "text-field",
+      "checkbox",
+      "radio-button",
+      "tab",
+      "link",
+      "dropdown"
+    ],
+    "difficult": [
+      "icon-only-button",
+      "borderless-button",
+      "transparent-button",
+      "small-button",
+      "low-contrast-button",
+      "custom-drawn-control",
+      "control-without-ocr-text",
+      "control-with-unusual-shape",
+      "control-with-shadow",
+      "control-with-complex-background"
+    ],
+    "complex": [
+      "dense-toolbar",
+      "navigation-bar",
+      "sidebar",
+      "nested-panels",
+      "card",
+      "table",
+      "menu",
+      "context-menu",
+      "popup",
+      "dialog",
+      "overlapping-windows"
+    ],
+    "visual-conditions": [
+      "light-theme",
+      "dark-theme",
+      "high-resolution",
+      "different-dpi",
+      "different-scaling",
+      "different-application-styles",
+      "different-font-sizes",
+      "different-zoom-levels"
+    ]
+  },
+  "annotations": {
+    "description": "Per-target annotations with bounding boxes and metadata",
+    "requiredFields": [
+      "screenshotId",
+      "targetId",
+      "targetType",
+      "bbox",
+      "clickableRegion",
+      "interactive",
+      "text",
+      "annotationConfidence",
+      "difficultCaseCategory"
+    ],
+    "properties": {
+      "screenshotId": {
+        "type": "string",
+        "description": "Unique identifier for the screenshot"
+      },
+      "targetId": {
+        "type": "string",
+        "description": "Unique identifier for the target within the screenshot"
+      },
+      "targetType": {
+        "type": "string",
+        "enum": [
+          "rectangular-button",
+          "rounded-button",
+          "filled-button",
+          "outlined-button",
+          "text-button",
+          "text-field",
+          "checkbox",
+          "radio-button",
+          "tab",
+          "link",
+          "dropdown",
+          "icon-only-button",
+          "borderless-button",
+          "transparent-button",
+          "small-button",
+          "low-contrast-button",
+          "custom-drawn-control",
+          "control-without-ocr-text",
+          "control-with-unusual-shape",
+          "control-with-shadow",
+          "control-with-complex-background",
+          "dense-toolbar",
+          "navigation-bar",
+          "sidebar",
+          "nested-panels",
+          "card",
+          "table",
+          "menu",
+          "context-menu",
+          "popup",
+          "dialog",
+          "overlapping-windows",
+          "light-theme",
+          "dark-theme",
+          "high-resolution",
+          "different-dpi",
+          "different-scaling",
+          "different-application-styles",
+          "different-font-sizes",
+          "different-zoom-levels"
+        ],
+        "description": "The type of UI control"
+      },
+      "bbox": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "minItems": 4,
+        "maxItems": 4,
+        "description": "Bounding box [x, y, width, height] in screen coordinates"
+      },
+      "clickableRegion": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "minItems": 4,
+        "maxItems": 4,
+        "description": "Valid clickable region [x, y, width, height]"
+      },
+      "interactive": {
+        "type": "boolean",
+        "description": "Whether the target is interactive"
+      },
+      "text": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Visible text on the control, if any"
+      },
+      "annotationConfidence": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "Human annotator confidence in this annotation (0-1)"
+      },
+      "difficultCaseCategory": {
+        "type": "string",
+        "description": "Category of difficult case (if applicable)"
+      }
+    }
+  },
+  "hardNegatives": {
+    "description": "Non-interactive elements that should NOT be detected",
+    "categories": [
+      "decorative-icon",
+      "non-clickable-text",
+      "separator",
+      "border",
+      "background-shape",
+      "non-interactive-card",
+      "static-image"
+    ],
+    "requiredFields": [
+      "screenshotId",
+      "targetId",
+      "bbox",
+      "reason"
+    ]
+  }
+}

@@ -3,199 +3,224 @@ using System.Linq;
 using KeyboardMouse.Core;
 
 /// <summary>
-/// Fuses UIA and CV visual target collections into a single harmonized
-/// collection.  The strategy is one-to-one matching with deterministic
-/// resolution of conflicts.
+/// Fuses UIA and CV target collections into one harmonized collection.
+///
+/// Matching uses IoU, normalized centre distance, containment, text, type,
+/// shape and visual grouping. Candidate pairs are resolved with a deterministic
+/// maximum-weight bipartite assignment, not a one-pass greedy loop, so competing
+/// candidates cannot steal each other's best match. Unmatched targets from
+/// either source survive independently.
 /// </summary>
 public sealed class TargetFusionEngine
 {
     /// <summary>Weight for Intersection-over-Union (IoU) of bounds.</summary>
-    public double IoUWeight { get; set; } = 0.30;
+    public double IoUWeight { get; set; } = 0.28;
 
     /// <summary>Weight for normalized center-to-center distance.</summary>
-    public double CenterDistWeight { get; set; } = 0.20;
+    public double CenterDistWeight { get; set; } = 0.14;
 
-    /// <summary>Weight for text equality/signals.</summary>
-    public double TextWeight { get; set; } = 0.15;
+    /// <summary>Weight for text equality/similarity.</summary>
+    public double TextWeight { get; set; } = 0.12;
 
     /// <summary>Weight for target-type compatibility.</summary>
-    public double TypeWeight { get; set; } = 0.15;
+    public double TypeWeight { get; set; } = 0.10;
 
-    /// <summary>Weight for containment relationship.</summary>
-    public double ContainmentWeight { get; set; } = 0.10;
+    /// <summary>Weight for containment (intersection over the smaller box).</summary>
+    public double ContainmentWeight { get; set; } = 0.18;
 
-    /// <summary>Weight for spatial relationship bonus.</summary>
+    /// <summary>Weight for shape similarity (aspect and size).</summary>
+    public double ShapeWeight { get; set; } = 0.08;
+
+    /// <summary>Weight for visual grouping (alignment and proximity).</summary>
     public double SpatialWeight { get; set; } = 0.10;
 
     /// <summary>Fusion confidence threshold: a match is accepted only when the
-    /// total score meets or exceeds this value.</summary>
+    /// normalized total score meets or exceeds this value.</summary>
     public double MatchThreshold { get; set; } = 0.55;
 
-    /// <summary>Minimum CV detection confidence for a CV-only target to be kept.</summary>
+    /// <summary>Minimum CV detection confidence for an unmatched CV-only target.</summary>
     public double MinCvConfidence { get; set; } = 0.40;
 
-    /// <summary>Minimum UIA detection confidence for a UIA-only target to be kept.</summary>
-    public double MinUiaConfidence { get; set; } = 0.50;
+    /// <summary>Minimum UIA detection confidence for an unmatched UIA-only target.</summary>
+    public double MinUiaConfidence { get; set; } = 0.30;
+
+    /// <summary>Above this many candidate cells a component uses deterministic
+    /// greedy assignment plus swap improvement instead of the exact solver.</summary>
+    public int MaxExactAssignmentCells { get; set; } = 2_000_000;
 
     /// <summary>Construct a <see cref="TargetFusionEngine"/> with default weights.</summary>
     public TargetFusionEngine() { }
 
-    /// <summary>
-    /// Fusion weights that prioritize geometric overlap.</summary>
+    /// <summary>Fusion weights that prioritize geometric overlap.</summary>
     public static TargetFusionEngine GeometricPrior =>
-        new TargetFusionEngine
+        new()
         {
-            IoUWeight = 0.40,
-            CenterDistWeight = 0.20,
-            TextWeight = 0.10,
-            TypeWeight = 0.10,
-            ContainmentWeight = 0.10,
-            SpatialWeight = 0.10,
+            IoUWeight = 0.36,
+            CenterDistWeight = 0.16,
+            TextWeight = 0.08,
+            TypeWeight = 0.08,
+            ContainmentWeight = 0.16,
+            ShapeWeight = 0.08,
+            SpatialWeight = 0.08,
             MatchThreshold = 0.50,
         };
 
-    /// <summary>
-    /// Fusion weights that prioritize text/OCR association.</summary>
+    /// <summary>Fusion weights that prioritize text/OCR association.</summary>
     public static TargetFusionEngine TextPrior =>
-        new TargetFusionEngine
+        new()
         {
-            IoUWeight = 0.20,
-            CenterDistWeight = 0.15,
-            TextWeight = 0.30,
-            TypeWeight = 0.15,
-            ContainmentWeight = 0.10,
+            IoUWeight = 0.18,
+            CenterDistWeight = 0.10,
+            TextWeight = 0.28,
+            TypeWeight = 0.12,
+            ContainmentWeight = 0.14,
+            ShapeWeight = 0.08,
             SpatialWeight = 0.10,
             MatchThreshold = 0.60,
         };
 
-    /// <summary>
-    /// Fusion weights that prioritize UIA compatibility.</summary>
+    /// <summary>Fusion weights that prioritize UIA compatibility.</summary>
     public static TargetFusionEngine UiaPrior =>
-        new TargetFusionEngine
+        new()
         {
-            IoUWeight = 0.25,
-            CenterDistWeight = 0.20,
+            IoUWeight = 0.22,
+            CenterDistWeight = 0.14,
             TextWeight = 0.10,
-            TypeWeight = 0.25,
-            ContainmentWeight = 0.10,
+            TypeWeight = 0.22,
+            ContainmentWeight = 0.14,
+            ShapeWeight = 0.08,
             SpatialWeight = 0.10,
             MatchThreshold = 0.50,
         };
 
     /// <summary>
-    /// Fuses UIA and CV visual target collections into a single harmonized
-    /// <see cref="HintScanResult"/>.  The strategy is one-to-one matching with
-    /// deterministic resolution of conflicts.
+    /// Fuses UIA and CV targets into a final, deduplicated target list.
     /// </summary>
-    /// <param name="uiaTargets">Visual targets from the UI Automation scanner.</param>
-    /// <param name="cvTargets">Visual targets from the computer-vision scanner.</param>
-    /// <returns>A <see cref="HintScanResult"/> containing the fused targets.</returns>
     public HintScanResult Fuse(
         IReadOnlyList<VisualTarget> uiaTargets,
         IReadOnlyList<VisualTarget> cvTargets)
     {
-        // Quick return if both are empty.
+        ArgumentNullException.ThrowIfNull(uiaTargets);
+        ArgumentNullException.ThrowIfNull(cvTargets);
+
         if (uiaTargets.Count == 0 && cvTargets.Count == 0)
         {
-            return HintScanResult.FromTargets(Enumerable.Empty<VisualTarget>().ToList());
+            return HintScanResult.FromTargets([]);
         }
 
-        // Phase 1: compute all pairwise match scores.
-        var matches = ComputeMatches(uiaTargets, cvTargets);
+        List<MatchInfo> matches = ResolveMatches(
+            ComputeMatches(uiaTargets, cvTargets),
+            uiaTargets.Count,
+            cvTargets.Count);
 
-        // Phase 2: resolve one-to-one matches greedily by highest score,
-        //        breaking ties by lower ID, then by source priority (Uia > CV).
-        var matchedUia = new HashSet<string>();
-        var matchedCv = new HashSet<string>();
-        var fusedTargets = new List<VisualTarget>();
+        var matchedUia = new HashSet<string>(StringComparer.Ordinal);
+        var matchedCv = new HashSet<string>(StringComparer.Ordinal);
+        var fusedTargets = new List<VisualTarget>(
+            Math.Max(uiaTargets.Count, cvTargets.Count));
 
-        // Sort matches by descending score, then by source priority.
-        var sorted = matches
-            .OrderByDescending(m => m.TotalScore)
-            .ThenBy(m => m.UiaId)
-            .ThenBy(m => m.CvId);
-
-        foreach (var m in sorted)
+        foreach (MatchInfo match in matches)
         {
-            // Skip if either side already matched.
-            if (matchedUia.Contains(m.UiaId) || matchedCv.Contains(m.CvId))
+            if (!matchedUia.Add(match.UiaTarget.Id))
+            {
                 continue;
+            }
 
-            // Accept if score meets threshold.
-            if (m.TotalScore < MatchThreshold)
+            if (!matchedCv.Add(match.CvTarget.Id))
+            {
                 continue;
+            }
 
-            // Accept the match and mark both sides as used.
-            matchedUia.Add(m.UiaId);
-            matchedCv.Add(m.CvId);
-
-            var fused = MergeTargets(m.UiaTarget, m.CvTarget, m);
-            fusedTargets.Add(fused);
+            fusedTargets.Add(MergeTargets(match.UiaTarget, match.CvTarget));
         }
 
-        // Phase 3: add unmatched UIA targets that are valid.
-        foreach (var t in uiaTargets)
+        foreach (VisualTarget target in uiaTargets)
         {
-            if (matchedUia.Contains(t.Id)) continue;
-            if (t.IsActionable)
-                fusedTargets.Add(t);
+            if (!matchedUia.Contains(target.Id) &&
+                target.IsActionable &&
+                target.DetectionConfidence >= MinUiaConfidence)
+            {
+                fusedTargets.Add(target);
+            }
         }
 
-        // Phase 4: add unmatched CV targets that meet minimum confidence.
-        foreach (var t in cvTargets)
+        foreach (VisualTarget target in cvTargets)
         {
-            if (matchedCv.Contains(t.Id)) continue;
-            if (t.DetectionConfidence >= MinCvConfidence)
-                fusedTargets.Add(t);
+            if (!matchedCv.Contains(target.Id) &&
+                target.DetectionConfidence >= MinCvConfidence)
+            {
+                fusedTargets.Add(target);
+            }
         }
 
-        // Phase 5: deduplicate fused targets by visible center.
-        var deduped = DeduplicateByCenter(fusedTargets);
-
-        return HintScanResult.FromTargets(deduped.ToList());
+        return HintScanResult.FromTargets(
+            TargetPipeline.Finalize(fusedTargets).ToList());
     }
 
-    /// <summary>
-    /// Computes match scores for every UIA–CV pair.
-    /// </summary>
     private List<MatchInfo> ComputeMatches(
         IReadOnlyList<VisualTarget> uiaTargets,
         IReadOnlyList<VisualTarget> cvTargets)
     {
         var result = new List<MatchInfo>();
 
-        foreach (var uia in uiaTargets)
+        foreach (VisualTarget uia in uiaTargets)
         {
-            foreach (var cv in cvTargets)
+            foreach (VisualTarget cv in cvTargets)
             {
-                var iou = ComputeIoU(uia.Bounds, cv.Bounds);
-                var centerDist = ComputeCenterDistance(uia.Bounds, cv.Bounds);
-                var textSim = ComputeTextSimilarity(uia.Text, cv.Text);
-                var typeCompat = ComputeTypeCompatibility(uia.Type, cv.Type);
-                var containment = ComputeContainment(uia.Bounds, cv.Bounds);
-                var spatial = ComputeSpatialRelationship(uia.Bounds, cv.Bounds);
+                double iou = TargetSimilarity.IoU(uia.Bounds, cv.Bounds);
+                double centerDistance = TargetSimilarity.NormalizedCenterDistance(
+                    uia.Bounds,
+                    cv.Bounds);
+                double containment = TargetSimilarity.IntersectionOverSmaller(
+                    uia.Bounds,
+                    cv.Bounds);
+                double text = TargetSimilarity.TextSimilarity(uia.Text, cv.Text);
+                double type = TargetSimilarity.TypeCompatibility(uia.Type, cv.Type);
+                double shape = TargetSimilarity.ShapeSimilarity(uia.Bounds, cv.Bounds);
+                double grouping = TargetSimilarity.VisualGrouping(uia.Bounds, cv.Bounds);
 
-                var totalScore =
-                    IoUWeight * iou +
-                    CenterDistWeight * centerDist +
-                    TextWeight * textSim +
-                    TypeWeight * typeCompat +
-                    ContainmentWeight * containment +
-                    SpatialWeight * spatial;
+                // A nearby but disjoint control is not a match. This guard is
+                // what keeps two adjacent buttons from fusing just because they
+                // have the same size, type and alignment.
+                if (iou <= 0 && containment < 0.50 && centerDistance > 0.60)
+                {
+                    continue;
+                }
+
+                double weightSum =
+                    NonNegative(IoUWeight) +
+                    NonNegative(CenterDistWeight) +
+                    NonNegative(TextWeight) +
+                    NonNegative(TypeWeight) +
+                    NonNegative(ContainmentWeight) +
+                    NonNegative(ShapeWeight) +
+                    NonNegative(SpatialWeight);
+
+                if (weightSum <= 0)
+                {
+                    continue;
+                }
+
+                double totalScore =
+                    (NonNegative(IoUWeight) * iou) +
+                    (NonNegative(CenterDistWeight) * (1.0 - centerDistance)) +
+                    (NonNegative(TextWeight) * text) +
+                    (NonNegative(TypeWeight) * type) +
+                    (NonNegative(ContainmentWeight) * containment) +
+                    (NonNegative(ShapeWeight) * shape) +
+                    (NonNegative(SpatialWeight) * grouping);
 
                 result.Add(new MatchInfo
                 {
                     UiaTarget = uia,
                     CvTarget = cv,
                     IoU = iou,
-                    CenterDist = centerDist,
-                    TextSimilarity = textSim,
-                    TypeCompatibility = typeCompat,
+                    CenterDistance = centerDistance,
+                    TextSimilarity = text,
+                    TypeCompatibility = type,
                     Containment = containment,
-                    SpatialRelationship = spatial,
-                    TotalScore = totalScore,
-                    UiaId = uia.Id,
-                    CvId = cv.Id,
+                    ShapeSimilarity = shape,
+                    VisualGrouping = grouping,
+                    TotalScore = Math.Clamp(totalScore / weightSum, 0, 1),
                 });
             }
         }
@@ -203,196 +228,292 @@ public sealed class TargetFusionEngine
         return result;
     }
 
-    /// <summary>
-    /// Computes Intersection-over-Union between two <see cref="TargetBounds"/>.
-    /// </summary>
-    private static double ComputeIoU(TargetBounds a, TargetBounds b)
+    private List<MatchInfo> ResolveMatches(
+        List<MatchInfo> matches,
+        int uiaCount,
+        int cvCount)
     {
-        int left = System.Math.Max(a.Left, b.Left);
-        int top = System.Math.Max(a.Top, b.Top);
-        int right = System.Math.Min(a.Right, b.Right);
-        int bottom = System.Math.Min(a.Bottom, b.Bottom);
+        var candidates = matches
+            .Where(match => match.TotalScore >= MatchThreshold)
+            .OrderByDescending(match => match.TotalScore)
+            .ThenBy(match => match.UiaTarget.Id, StringComparer.Ordinal)
+            .ThenBy(match => match.CvTarget.Id, StringComparer.Ordinal)
+            .ToList();
 
-        int intersectionWidth = System.Math.Max(0, right - left);
-        int intersectionHeight = System.Math.Max(0, bottom - top);
-        int intersectionArea = intersectionWidth * intersectionHeight;
-
-        if (intersectionArea == 0) return 0.0;
-
-        int areaA = a.Width * a.Height;
-        int areaB = b.Width * b.Height;
-        int unionArea = areaA + areaB - intersectionArea;
-
-        return (double)intersectionArea / unionArea;
-    }
-
-    /// <summary>
-    /// Computes a normalized center-to-center distance (0 = same center, 1 =
-    /// far apart roughly at target-diagonal distance).
-    /// </summary>
-    private static double ComputeCenterDistance(TargetBounds a, TargetBounds b)
-    {
-        int ac = a.Center.X, bc = b.Center.X;
-        int acY = a.Center.Y, bcY = b.Center.Y;
-        double dx = ac - bc;
-        double dy = acY - bcY;
-        double euclid = System.Math.Sqrt(dx * dx + dy * dy);
-
-        // Normalize by the larger target's diagonal.
-        double diagA = System.Math.Sqrt(a.Width * a.Width + a.Height * a.Height);
-        double diagB = System.Math.Sqrt(b.Width * b.Width + b.Height * b.Height);
-        double normDiag = System.Math.Max(diagA, diagB);
-
-        if (normDiag == 0) return 1.0;
-        return System.Math.Min(1.0, euclid / normDiag);
-    }
-
-    /// <summary>
-    /// Computes text similarity in [0, 1].  Exact match = 1, no text = 1 (neutral),
-    /// completely different = 0.
-    /// </summary>
-    private static double ComputeTextSimilarity(string? a, string? b)
-    {
-        if (a == null && b == null) return 1.0;
-        if (a == null || b == null) return 0.5;
-        if (a.Equals(b, System.StringComparison.OrdinalIgnoreCase)) return 1.0;
-        // Simple substring presence bonus.
-        if (a.Contains(b) || b.Contains(a)) return 0.7;
-        return 0.0;
-    }
-
-    /// <summary>
-    /// Computes target-type compatibility in [0, 1].  Same type = 1, compatible
-    /// families (both button-like) = 0.7, unrelated = 0.
-    /// </summary>
-    private static double ComputeTypeCompatibility(TargetType a, TargetType b)
-    {
-        if (a == b) return 1.0;
-        // Button-like family.
-        if ((a == TargetType.Button || a == TargetType.ListItem) &&
-            (b == TargetType.Button || b == TargetType.ListItem))
-            return 0.7;
-        // Checkbox/radio family.
-        if ((a == TargetType.CheckBox || a == TargetType.RadioButton) &&
-            (b == TargetType.CheckBox || b == TargetType.RadioButton))
-            return 0.7;
-        // Edit/text field family.
-        if ((a == TargetType.Edit || a == TargetType.Text) &&
-            (b == TargetType.Edit || b == TargetType.Text))
-            return 0.7;
-        // Unknown vs anything is moderately compatible.
-        if (a == TargetType.Unknown || b == TargetType.Unknown) return 0.5;
-        return 0.0;
-    }
-
-    /// <summary>
-    /// Computes containment: 1 if A fully contains B, 0.5 if B fully contains A,
-    /// 0.2 if partial overlap, 0 if no overlap.
-    /// </summary>
-    private static double ComputeContainment(TargetBounds a, TargetBounds b)
-    {
-        if (!a.IsValid || !b.IsValid) return 0.0;
-
-        if (a.Contains(b)) return 1.0;
-        if (b.Contains(a)) return 0.5;
-
-        // Partial overlap.
-        if (a.IntersectsWith(b)) return 0.2;
-        return 0.0;
-    }
-
-    /// <summary>
-    /// Computes a spatial relationship bonus in [0, 1].  Targets that are
-    /// aligned (same left edge, same top edge, etc.) get a small boost; targets
-    /// that are far apart in both axes get a small penalty.  The base contribution
-    /// is 0.5 and the weight modulates it.
-    /// </summary>
-    private static double ComputeSpatialRelationship(TargetBounds a, TargetBounds b)
-    {
-        double score = 0.5;
-
-        // Same left edge.
-        if (a.Left == b.Left) score += 0.15;
-        // Same top edge.
-        if (a.Top == b.Top) score += 0.15;
-        // One is directly right of the other (no vertical overlap).
-        if (a.Right <= b.Left || b.Right <= a.Left) score -= 0.10;
-        // One is directly below the other (no horizontal overlap).
-        if (a.Bottom <= b.Top || b.Bottom <= a.Top) score -= 0.10;
-
-        return System.Math.Max(0.0, System.Math.Min(1.0, score));
-    }
-
-    /// <summary>
-    /// Merges a UIA and CV target that have been deemed a match.  The resulting
-    /// target preserves UIA interaction metadata, CV visual metadata, and sets
-    /// the source to <see cref="TargetSource.Hybrid"/>.
-    /// </summary>
-    private VisualTarget MergeTargets(
-        VisualTarget uia,
-        VisualTarget cv,
-        MatchInfo match)
-    {
-        // Decide which bounds/click-point to preserve.
-        // If the IoU is high enough, use the larger/preferred bounds; otherwise
-        // use the UIA bounds as the primary (UIA is authoritative for geometry).
-        TargetBounds finalBounds;
-        Point finalClickPoint;
-        TargetType finalType;
-        string finalText;
-        TargetSource finalSource = TargetSource.Uia | TargetSource.Cv;
-        double fusionConfidence = match.TotalScore;
-
-        if (match.IoU >= 0.60)
+        if (candidates.Count == 0)
         {
-            // High overlap: prefer UIA bounds (authoritative) but keep CV text.
-            finalBounds = uia.Bounds;
-            finalClickPoint = uia.ClickPoint;
-            finalType = uia.Type;
-            finalText = uia.Text;
+            return [];
+        }
+
+        var uiaIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        var cvIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (MatchInfo match in candidates)
+        {
+            uiaIndex.TryAdd(match.UiaTarget.Id, uiaIndex.Count);
+            cvIndex.TryAdd(match.CvTarget.Id, cvIndex.Count);
+        }
+
+        var parent = Enumerable.Range(0, uiaIndex.Count + cvIndex.Count).ToArray();
+
+        foreach (MatchInfo match in candidates)
+        {
+            Union(
+                parent,
+                uiaIndex[match.UiaTarget.Id],
+                uiaIndex.Count + cvIndex[match.CvTarget.Id]);
+        }
+
+        var components = new Dictionary<int, List<MatchInfo>>();
+        foreach (MatchInfo match in candidates)
+        {
+            int root = Find(parent, uiaIndex[match.UiaTarget.Id]);
+            if (!components.TryGetValue(root, out List<MatchInfo>? component))
+            {
+                component = [];
+                components[root] = component;
+            }
+
+            component.Add(match);
+        }
+
+        var accepted = new List<MatchInfo>(candidates.Count);
+
+        foreach (List<MatchInfo> component in components.Values
+                     .OrderBy(group => group.Min(match => match.UiaTarget.Id), StringComparer.Ordinal))
+        {
+            accepted.AddRange(ResolveComponent(component));
+        }
+
+        return accepted;
+    }
+
+    private List<MatchInfo> ResolveComponent(List<MatchInfo> component)
+    {
+        string[] uiaIds = component
+            .Select(match => match.UiaTarget.Id)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+        string[] cvIds = component
+            .Select(match => match.CvTarget.Id)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        var uiaPosition = uiaIds
+            .Select((id, index) => (id, index))
+            .ToDictionary(item => item.id, item => item.index, StringComparer.Ordinal);
+        var cvPosition = cvIds
+            .Select((id, index) => (id, index))
+            .ToDictionary(item => item.id, item => item.index, StringComparer.Ordinal);
+        var byPair = component.ToDictionary(
+            match => (UiaId: match.UiaTarget.Id, CvId: match.CvTarget.Id));
+
+        long cells = (long)uiaIds.Length * (cvIds.Length + uiaIds.Length);
+        if (cells > MaxExactAssignmentCells)
+        {
+            return ResolveLargeComponent(component, uiaIds, cvIds);
+        }
+
+        var scores = new double[uiaIds.Length, cvIds.Length];
+        foreach (MatchInfo match in component)
+        {
+            scores[
+                uiaPosition[match.UiaTarget.Id],
+                cvPosition[match.CvTarget.Id]] = match.TotalScore;
+        }
+
+        int[] assignment = TargetAssignment.Assign(scores, allowUnmatched: true);
+        var accepted = new List<MatchInfo>(Math.Min(uiaIds.Length, cvIds.Length));
+
+        for (int row = 0; row < assignment.Length; row++)
+        {
+            int column = assignment[row];
+            if (column < 0)
+            {
+                continue;
+            }
+
+            if (byPair.TryGetValue((uiaIds[row], cvIds[column]), out MatchInfo? match) &&
+                match.TotalScore >= MatchThreshold)
+            {
+                accepted.Add(match);
+            }
+        }
+
+        return accepted;
+    }
+
+    /// <summary>
+    /// Scalability fallback for a pathologically dense component. It starts
+    /// from the best available edge and then performs pairwise swap improvement,
+    /// so it is still a global refinement rather than a single greedy pass.
+    /// </summary>
+    private List<MatchInfo> ResolveLargeComponent(
+        List<MatchInfo> component,
+        IReadOnlyList<string> uiaIds,
+        IReadOnlyList<string> cvIds)
+    {
+        var byPair = component.ToDictionary(
+            match => (UiaId: match.UiaTarget.Id, CvId: match.CvTarget.Id));
+        var usedUia = new HashSet<string>(StringComparer.Ordinal);
+        var usedCv = new HashSet<string>(StringComparer.Ordinal);
+        var accepted = new List<MatchInfo>(Math.Min(uiaIds.Count, cvIds.Count));
+
+        foreach (MatchInfo match in component
+                     .OrderByDescending(match => match.TotalScore)
+                     .ThenBy(match => match.UiaTarget.Id, StringComparer.Ordinal)
+                     .ThenBy(match => match.CvTarget.Id, StringComparer.Ordinal))
+        {
+            if (usedUia.Contains(match.UiaTarget.Id) ||
+                usedCv.Contains(match.CvTarget.Id))
+            {
+                continue;
+            }
+
+            usedUia.Add(match.UiaTarget.Id);
+            usedCv.Add(match.CvTarget.Id);
+            accepted.Add(match);
+        }
+
+        bool improved;
+        do
+        {
+            improved = false;
+
+            for (int i = 0; i < accepted.Count && !improved; i++)
+            {
+                for (int j = i + 1; j < accepted.Count && !improved; j++)
+                {
+                    MatchInfo first = accepted[i];
+                    MatchInfo second = accepted[j];
+
+                    if (!byPair.TryGetValue(
+                            (first.UiaTarget.Id, second.CvTarget.Id),
+                            out MatchInfo? crossFirst) ||
+                        !byPair.TryGetValue(
+                            (second.UiaTarget.Id, first.CvTarget.Id),
+                            out MatchInfo? crossSecond))
+                    {
+                        continue;
+                    }
+
+                    double current = first.TotalScore + second.TotalScore;
+                    double swapped = crossFirst.TotalScore + crossSecond.TotalScore;
+
+                    if (swapped > current + 1e-9)
+                    {
+                        accepted[i] = crossFirst;
+                        accepted[j] = crossSecond;
+                        improved = true;
+                    }
+                }
+            }
+        }
+        while (improved);
+
+        return accepted
+            .Where(match => match.TotalScore >= MatchThreshold)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Merges a matched UIA/CV pair. UIA remains authoritative for interaction
+    /// semantics and metadata; CV contributes refined pixels when it found the
+    /// real control inside a UIA container, plus visual metadata in all cases.
+    /// </summary>
+    private static VisualTarget MergeTargets(
+        VisualTarget uia,
+        VisualTarget cv)
+    {
+        TargetBounds finalBounds = uia.Bounds;
+        Point finalClickPoint = uia.ClickPoint;
+        TargetType finalType = uia.Type;
+        string finalText = uia.Text;
+        TargetGeometry finalGeometry = uia.Geometry;
+        double finalClassification = uia.ClassificationConfidence;
+
+        long uiaArea = (long)uia.Bounds.Width * uia.Bounds.Height;
+        long cvArea = (long)cv.Bounds.Width * cv.Bounds.Height;
+        bool uiaContainer = TargetGeometrySelection.IsContainerLike(uia.Type);
+        bool cvControl = TargetGeometrySelection.IsInteractiveLike(cv.Type);
+        bool cvInsideUia = uia.Bounds.Contains(cv.Bounds);
+        bool preferCvBounds =
+            cvInsideUia &&
+            uiaContainer &&
+            uiaArea >= Math.Max(1, cvArea) * 2;
+
+        if (preferCvBounds)
+        {
+            finalBounds = cv.Bounds;
+            finalClickPoint = cv.ClickPoint;
+            finalType = cv.Type;
+            finalText = string.IsNullOrWhiteSpace(uia.Text) ? cv.Text : uia.Text;
+            finalGeometry = cv.Geometry;
+            finalClassification = cv.ClassificationConfidence;
         }
         else
         {
-            // Moderate overlap: UIA is primary, CV contributes confidence.
-            finalBounds = uia.Bounds;
-            finalClickPoint = uia.ClickPoint;
-            finalType = uia.Type;
-            finalText = uia.Text;
+            if (uia.Bounds.Contains(cv.ClickPoint))
+            {
+                if (uiaContainer ||
+                    cv.Geometry.Confidence > uia.Geometry.Confidence + 0.10)
+                {
+                    finalClickPoint = cv.ClickPoint;
+                }
+            }
+
+            if (cv.Geometry.HasRoundedCorners && !finalGeometry.HasRoundedCorners)
+            {
+                finalGeometry = finalGeometry with
+                {
+                    HasRoundedCorners = true,
+                    Issues = finalGeometry.Issues | GeometryIssue.RoundedCorners
+                };
+            }
+
+            if (finalType == cv.Type)
+            {
+                finalClassification = Math.Max(
+                    uia.ClassificationConfidence,
+                    cv.ClassificationConfidence);
+            }
         }
 
-        // Build merged metadata.
+        if (!finalBounds.Contains(finalClickPoint))
+        {
+            finalClickPoint = HintCoordinates.ClampToBounds(
+                finalClickPoint,
+                finalBounds);
+        }
+
         var mergedMetadata = new TargetMetadata
         {
-            Uia = new UiaTargetMetadata
-            {
-                AutomationId = uia.Metadata.Uia?.AutomationId,
-                RuntimeId = uia.Metadata.Uia?.RuntimeId,
-                ControlType = uia.Metadata.Uia?.ControlType,
-                ClassName = uia.Metadata.Uia?.ClassName,
-                SupportsInvoke = uia.Metadata.Uia?.SupportsInvoke ?? false,
-                SourceBounds = uia.Metadata.Uia?.SourceBounds,
-                IsKeyboardFocusable = uia.Metadata.Uia?.IsKeyboardFocusable ?? false,
-                IsOffscreen = uia.Metadata.Uia?.IsOffscreen ?? false,
-                SupportedPatterns = uia.Metadata.Uia?.SupportedPatterns ?? UiaPatternFlags.None,
-            },
-            Cv = new CvTargetMetadata
-            {
-                OcrText = cv.Text,
-                OcrConfidence = cv.DetectionConfidence,
-                FrameId = cv.Metadata.Cv?.FrameId ?? 0,
-                Detector = "cv",
-                SourceBounds = cv.Metadata.Cv?.SourceBounds,
-            },
+            Uia = uia.Metadata.Uia,
+            Cv = new CvTargetMetadata(
+                OcrText: cv.Text,
+                OcrConfidence: cv.Metadata.Cv?.OcrConfidence ??
+                               (string.IsNullOrWhiteSpace(cv.Text)
+                                   ? null
+                                   : cv.DetectionConfidence),
+                FrameId: cv.Metadata.Cv?.FrameId ?? 0,
+                Detector: cv.Metadata.Cv?.Detector ?? "cv",
+                SourceBounds: cv.Metadata.Cv?.SourceBounds),
         };
 
-        // Determine the "best" detection confidence: use the higher of the two,
-        // adjusted by fusion confidence.
-        double bestDetection = System.Math.Max(uia.DetectionConfidence, cv.DetectionConfidence);
-        double bestInteraction = System.Math.Max(uia.InteractionConfidence, cv.InteractionConfidence);
+        double bestDetection = Math.Max(
+            uia.DetectionConfidence,
+            cv.DetectionConfidence);
+        double bestInteraction = Math.Max(
+            uia.InteractionConfidence,
+            cv.InteractionConfidence);
 
         return new VisualTarget(
-            id: $"{uia.Id}-fused-{cv.Id}",
-            source: finalSource,
+            id: $"{uia.Id}+{cv.Id}",
+            // Fusion always reports both source families. CV metadata retains
+            // whether this particular detection came from OCR, contours or both.
+            source: TargetSource.Uia | TargetSource.Cv,
             bounds: finalBounds,
             clickPoint: finalClickPoint,
             type: finalType,
@@ -401,48 +522,56 @@ public sealed class TargetFusionEngine
             interactionConfidence: bestInteraction,
             isEnabled: uia.IsEnabled && cv.IsEnabled,
             isVisible: uia.IsVisible && cv.IsVisible,
-            metadata: mergedMetadata);
+            metadata: mergedMetadata,
+            geometry: finalGeometry,
+            classificationConfidence: finalClassification);
     }
 
-    /// <summary>
-    /// Deduplicates a list of <see cref="VisualTarget"/> by visible center,
-    /// keeping the target with the higher detection confidence when centers
-    /// coincide.
-    /// </summary>
-    private static List<VisualTarget> DeduplicateByCenter(List<VisualTarget> targets)
+    private static void Union(int[] parent, int left, int right)
     {
-        var centers = new HashSet<(int x, int y)>();
-        var result = new List<VisualTarget>();
+        int leftRoot = Find(parent, left);
+        int rightRoot = Find(parent, right);
 
-        foreach (var t in targets.OrderByDescending(t => t.DetectionConfidence)
-                                 .ThenBy(t => t.Id))
+        if (leftRoot == rightRoot)
         {
-            int cx = t.Bounds.Center.X;
-            int cy = t.Bounds.Center.Y;
-            if (centers.Contains((cx, cy)))
-                continue;
-            centers.Add((cx, cy));
-            result.Add(t);
+            return;
         }
 
-        return result;
+        if (leftRoot < rightRoot)
+        {
+            parent[rightRoot] = leftRoot;
+        }
+        else
+        {
+            parent[leftRoot] = rightRoot;
+        }
     }
 
-    /// <summary>
-    /// Holds the computed match information for a single UIA–CV pair.
-    /// </summary>
+    private static int Find(int[] parent, int index)
+    {
+        while (parent[index] != index)
+        {
+            parent[index] = parent[parent[index]];
+            index = parent[index];
+        }
+
+        return index;
+    }
+
+    private static double NonNegative(double value) =>
+        double.IsFinite(value) && value > 0 ? value : 0;
+
     private sealed class MatchInfo
     {
         public VisualTarget UiaTarget { get; set; } = default!;
         public VisualTarget CvTarget { get; set; } = default!;
         public double IoU { get; set; }
-        public double CenterDist { get; set; }
+        public double CenterDistance { get; set; }
         public double TextSimilarity { get; set; }
         public double TypeCompatibility { get; set; }
         public double Containment { get; set; }
-        public double SpatialRelationship { get; set; }
+        public double ShapeSimilarity { get; set; }
+        public double VisualGrouping { get; set; }
         public double TotalScore { get; set; }
-        public string UiaId { get; set; } = string.Empty;
-        public string CvId { get; set; } = string.Empty;
     }
 }

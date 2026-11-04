@@ -10,6 +10,7 @@ namespace KeyboardMouse.Tests;
 /// scanners. A real WinForms window keeps the test on the same capture path as
 /// pressing H in the running app.
 /// </summary>
+[Collection(RealUiAutomationCollection.Name)]
 public class HybridClickableScannerTests
 {
     [Fact]
@@ -62,7 +63,7 @@ public class HybridClickableScannerTests
         // No child controls: the only UIA targets are Minimize/Maximize/Close.
         // Auto must not stop there; it has to bring in the CV content.
         using var window = TestWindow.Show(withButton: false);
-        var scanner = new HybridClickableScanner(FakeMonitorService.Single());
+        var scanner = TestHintScanners.Clickable(FakeMonitorService.Single());
 
         var completion = new TaskCompletionSource<IReadOnlyList<ClickableTarget>>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -170,7 +171,15 @@ public class HybridClickableScannerTests
                 }
 
                 var window = new TestWindow(form);
-                form.Shown += (_, _) => ready.TrySetResult(window);
+                form.Shown += (_, _) =>
+                {
+                    // TopMost must be applied after the handle exists; setting it
+                    // in the initializer is silently ignored in this environment.
+                    form.TopMost = true;
+                    form.Activate();
+                    form.Refresh();
+                    ready.TrySetResult(window);
+                };
 
                 try
                 {
@@ -194,6 +203,10 @@ public class HybridClickableScannerTests
                 throw new TimeoutException("The test window did not open.");
             }
 
+            // Let DWM compose the topmost window before the capture starts.
+            // Starting in the same frame as Shown occasionally captured the
+            // window underneath it.
+            Thread.Sleep(250);
             return ready.Task.Result;
         }
 

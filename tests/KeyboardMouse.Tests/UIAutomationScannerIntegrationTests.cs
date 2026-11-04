@@ -4,6 +4,7 @@ using KeyboardMouse.Hints;
 
 namespace KeyboardMouse.Tests;
 
+[Collection(RealUiAutomationCollection.Name)]
 public class UIAutomationScannerIntegrationTests
 {
     [Fact]
@@ -53,17 +54,20 @@ public class UIAutomationScannerIntegrationTests
         {
             await Task.Delay(100);
 
-            var scanner = new UIAutomationScanner(FakeMonitorService.Single());
+            var scanner = TestHintScanners.Uia(FakeMonitorService.Single());
             var result = new TaskCompletionSource<HintScanResult>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
 
             scanner.BeginScan(
                 new HintScanRequest(
                     form.Handle,
-                    new HintScanOptions(100, false) { Budget = TimeSpan.FromMilliseconds(400) }),
+                    new HintScanOptions(100, false)
+                    {
+                        Budget = TestHintScanners.UiaTimeout
+                    }),
                 value => result.TrySetResult(value));
 
-            HintScanResult scan = await result.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            HintScanResult scan = await result.Task.WaitAsync(TimeSpan.FromSeconds(10));
             VisualTarget target = Assert.Single(scan.Targets, item => item.Text == "Save");
 
             Assert.Equal(HintScanStatus.Success, scan.Status);

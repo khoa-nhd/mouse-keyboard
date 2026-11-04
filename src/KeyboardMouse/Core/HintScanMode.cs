@@ -78,4 +78,8 @@ public static class HintScanModes
     };
 
     public static TimeSpan BudgetFor(HintScanMode mode) => DefaultBudget;
+
+    /// <summary>Budget that grows with the selected screen scope.</summary>
+    public static TimeSpan BudgetFor(HintScanMode mode, HintScanScope scope) =>
+        HintScanScopes.BudgetFor(mode, scope);
 }

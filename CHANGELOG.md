@@ -3,6 +3,99 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Added
+- **Hint scan scopes.** `hint.scanScope` (tray: **Hint scan scope**) now selects
+  `window` (default), `monitor`, `desktop` or `all-monitors` for computer-vision
+  hint detection. `window` preserves the previous behaviour exactly.
+- **Tiled multi-monitor capture.** Large scopes are captured per monitor and
+  split into overlapping 1280 px tiles, so 4K screens are no longer analysed
+  through a single 640 px grid and monitor gaps are never captured. Negative
+  virtual-desktop origins and mixed-DPI monitors keep physical-pixel bounds.
+- **Native-resolution refinement.** Compact coarse candidates are re-detected in
+  a padded native-resolution crop before classification.
+- **Conservative target classifier.** Border/interior edge densities and
+  greyscale variation now separate buttons, icon buttons, check boxes, text
+  fields, tabs and links from borderless labels, separators and blank
+  containers. Text-only buttons without a border or fill remain a known
+  limitation.
+- **Overlay exclusion.** The scanner drops candidates inside the hint overlay's
+  "Scanning..." badge so labels never detect themselves.
+- **Geometry-aware hint targets.** CV candidates are refined against the real
+  pixels: background flood-fill, component selection, shadow-tail trimming,
+  rounded-corner detection, edge/contrast support and a distance-transform
+  interior click point. Centre, safe-interior, text-centre, icon-centre and
+  shape-centre strategies keep the point inside the control even when the
+  bounding-box centre is not.
+- **Type-specific geometry validation.** Zero, tiny, implausibly large,
+  off-screen, mostly clipped and invalid-transform bounds are rejected for CV
+  and flagged for UIA. Minimum sizes scale with the square root of DPI and
+  maximum sizes linearly, so check boxes, icons, text fields, tabs and menu
+  items get different rules.
+- **Neighbour-safe click points.** Adjacent controls no longer share a boundary
+  click point; the selector moves each point toward its own interior without
+  changing bounds and records `SharedBoundary`/`OverlapsNeighbor`.
+- **Geometry confidence and container selection.** Uncertain candidates rank
+  below clear controls. A container-like UIA target yields to a clearly
+  interactive CV child when it is at least 2x larger, while a real UIA button is
+  kept over a nested CV text box.
+- **Deterministic target resolution.** Raw observations now pass through a
+  shared pipeline before labels are shown. It collapses OCR text or icons
+  nested in a button, repeated contours, multi-scale and multi-strategy
+  detections, and repeated overlaps; matches UIA to CV with a maximum-weight
+  bipartite assignment (Hungarian, with a swap-improved fallback for
+  pathologically large components); and ranks targets by detection, geometry,
+  interaction, classification, source reliability, ambiguity and duplicate
+  likelihood.
+- **Explicit final rules.** Type, minimum/maximum size, CV confidence,
+  ambiguity, duplicate suppression and nested-control rules are applied in one
+  documented order. UIA-only and CV-only targets survive; matching UIA/CV
+  targets merge into one action with UIA interaction metadata plus CV visual
+  metadata.
+- **Classification confidence.** `VisualTarget` now carries a separate
+  classification confidence, populated by the CV classifier and the UIA type
+  mapping, so a perfectly recognised OCR text region cannot outrank a real
+  control on detection confidence alone.
+- **Nested-control preservation.** Interactive children with different
+  semantics (for example a check box or action button inside a list row) remain
+  separate targets, while decorative text/icon children still collapse into
+  their button.
+
+### Changed
+- `CaptureMonitor`/`CaptureMetadata.FromMonitor` now report `DpiScale = 1.0`,
+  because GDI captures native physical pixels. Previously the monitor DPI scale
+  could shrink or shift CV targets on mixed-DPI setups.
+- Per-source budgets grow with the scope: 500 ms window, 900 ms monitor and
+  1800 ms desktop; `auto`/`hybrid` add 300 ms.
+- CV bounds and click points now travel through refinement, fusion, filtering
+  and `ClickableTarget` instead of being replaced by a center point. Geometry
+  diagnostics stay local and contain only numbers/flags, never text or pixels.
+- Fusion and single-source modes now share `TargetPipeline.Finalize`, so
+  duplicate suppression, container selection and neighbour-safe click points
+  behave the same in `uia`, `cv`, `auto` and `hybrid` runs. Finalization is
+  idempotent.
+
+### Tests
+- 431/431 tests pass in Release. New coverage: scan-scope parsing and budgets,
+  planner geometry with negative origins and dual monitors, tile coverage and
+  overlap, classifier acceptance/rejection, per-monitor capture, exclusions,
+  capture metadata, rendered rounded/shadowed/outlined/irregular controls with
+  IoU and click containment, type-specific size/DPI validation, invalid
+  transforms, explicit click-point preservation, neighbour/overlap protection,
+  container-vs-child selection and fusion, dense 20-control interfaces, repeated
+  icons, nested check boxes/action buttons, adjacent buttons, overlapping
+  candidates, conflicting UIA/CV results, global assignment optimality and
+  OCR-text ranking.
+- Measured on a 150% display, 1920x1200 desktop, real WinForms window (two fresh
+  Release runs, n=3): UIA returned 6 targets in 36-46 ms (P50 44-46); CV returned
+  8 classified regions in 90-105 ms (P50 63-64); Hybrid returned 10 targets in
+  209-223 ms (P50 61-75) after fusing matching pairs and collapsing duplicates.
+  Foreground-window CV 124-127 ms/8 targets; active monitor 437-475 ms/88;
+  virtual desktop 374-393 ms/88 (single monitor in this environment; scope
+  counts vary with background windows). Repeated fresh runs varied by roughly
+  10-30 ms.
+
 ## [1.2.0] - 2026-11-04
 
 ### Added

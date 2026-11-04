@@ -178,4 +178,8 @@ internal static class User32
         uint crKey,
         ref BLENDFUNCTION pblend,
         uint dwFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorRect(IntPtr hMonitor, out RECT lprcMonitor);
 }

@@ -51,6 +51,80 @@ public static class HintCoordinates
     }
 
     /// <summary>
+    /// Non-throwing variant of <see cref="FrameToDesktop(Rectangle, Rectangle,
+    /// double, double)"/> for scanner input that may contain a malformed scale
+    /// or an overflowing frame-local rectangle.
+    /// </summary>
+    public static bool TryFrameToDesktop(
+        Rectangle frameBounds,
+        Rectangle localBounds,
+        double scaleX,
+        double scaleY,
+        out TargetBounds bounds)
+    {
+        bounds = default;
+
+        if (!double.IsFinite(scaleX) || scaleX <= 0 ||
+            !double.IsFinite(scaleY) || scaleY <= 0 ||
+            localBounds.Width <= 0 || localBounds.Height <= 0)
+        {
+            return false;
+        }
+
+        double left = frameBounds.X + (localBounds.X / scaleX);
+        double top = frameBounds.Y + (localBounds.Y / scaleY);
+        double width = localBounds.Width / scaleX;
+        double height = localBounds.Height / scaleY;
+
+        if (!IsInt32(left) || !IsInt32(top) || !IsInt32(width) || !IsInt32(height))
+        {
+            return false;
+        }
+
+        bounds = new TargetBounds(
+            (int)Math.Round(left, MidpointRounding.AwayFromZero),
+            (int)Math.Round(top, MidpointRounding.AwayFromZero),
+            (int)Math.Round(width, MidpointRounding.AwayFromZero),
+            (int)Math.Round(height, MidpointRounding.AwayFromZero));
+
+        return bounds.IsValid;
+    }
+
+    /// <summary>
+    /// Non-throwing variant of <see cref="FrameToDesktop(Rectangle, Point,
+    /// double, double)"/>.
+    /// </summary>
+    public static bool TryFrameToDesktop(
+        Rectangle frameBounds,
+        Point localPoint,
+        double scaleX,
+        double scaleY,
+        out Point point)
+    {
+        point = default;
+
+        if (!double.IsFinite(scaleX) || scaleX <= 0 ||
+            !double.IsFinite(scaleY) || scaleY <= 0)
+        {
+            return false;
+        }
+
+        double x = frameBounds.X + (localPoint.X / scaleX);
+        double y = frameBounds.Y + (localPoint.Y / scaleY);
+
+        if (!IsInt32(x) || !IsInt32(y))
+        {
+            return false;
+        }
+
+        point = new Point(
+            (int)Math.Round(x, MidpointRounding.AwayFromZero),
+            (int)Math.Round(y, MidpointRounding.AwayFromZero));
+
+        return true;
+    }
+
+    /// <summary>
     /// Maps a canonical desktop rectangle back into a frame's local pixels.
     /// Useful for diagnostics and for mapping overlay hit areas to a capture.
     /// </summary>
@@ -109,4 +183,9 @@ public static class HintCoordinates
                 "Scale must be a finite positive number.");
         }
     }
+
+    private static bool IsInt32(double value) =>
+        double.IsFinite(value) &&
+        value >= int.MinValue &&
+        value <= int.MaxValue;
 }

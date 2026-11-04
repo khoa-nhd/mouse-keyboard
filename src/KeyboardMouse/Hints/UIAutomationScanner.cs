@@ -312,12 +312,17 @@ public sealed class UIAutomationScanner : IHintScanner
 
         IReadOnlyList<VisualTarget> targets = BuildTargets(
             candidates,
-            request.Options.MaxElements);
+            request.Options.MaxElements,
+            GetScreenBounds(monitors),
+            GetTargetDpiScale(monitors));
+        int lowGeometryConfidence = targets.Count(
+            target => target.Geometry.Confidence < 0.35);
         var diagnostics = new HintScanDiagnostics(
             CandidateCount: candidateCount,
             AcceptedCount: targets.Count,
             ElapsedMilliseconds: stopwatch.ElapsedMilliseconds,
-            UiaUsed: true);
+            UiaUsed: true,
+            LowGeometryConfidenceCount: lowGeometryConfidence);
 
         Log.Info(
             $"UI Automation hint scan found {targets.Count} target(s) " +
@@ -556,7 +561,9 @@ public sealed class UIAutomationScanner : IHintScanner
 
     private static IReadOnlyList<VisualTarget> BuildTargets(
         IReadOnlyList<Candidate> candidates,
-        int maxElements)
+        int maxElements,
+        Rectangle screen,
+        double dpiScale)
     {
         int cap = Math.Clamp(maxElements, 1, MaxOutputElements);
         var selected = new List<Candidate>(Math.Min(candidates.Count, cap));
@@ -598,19 +605,83 @@ public sealed class UIAutomationScanner : IHintScanner
         {
             Candidate candidate = ordered[i];
             TargetBounds bounds = TargetBounds.FromRectangle(candidate.Bounds);
+            bool clipped = candidate.Metadata.SourceBounds is { } sourceBounds &&
+                           sourceBounds != candidate.Bounds;
+            var geometry = new TargetGeometry
+            {
+                Confidence = clipped ? 0.82 : 0.98,
+                IsClipped = clipped,
+                Issues = clipped
+                    ? GeometryIssue.PartiallyOffScreen
+                    : GeometryIssue.None
+            };
+            Point clickPoint = HintCoordinates.ClampToBounds(bounds.Center, bounds);
+            GeometryValidation validation = TargetGeometryValidator.Validate(
+                bounds,
+                clickPoint,
+                candidate.Type,
+                screen,
+                dpiScale,
+                strict: false,
+                geometry);
 
             targets[i] = new VisualTarget(
                 $"uia-{i + 1}",
                 TargetSource.Uia,
                 bounds,
-                HintCoordinates.ClampToBounds(bounds.Center, bounds),
+                clickPoint,
                 candidate.Type,
                 candidate.Text,
-                metadata: new TargetMetadata { Uia = candidate.Metadata });
+                metadata: new TargetMetadata { Uia = candidate.Metadata },
+                geometry: validation.Geometry,
+                classificationConfidence: ClassificationConfidenceFor(candidate.Type));
         }
 
         return targets;
     }
+
+    private static Rectangle GetScreenBounds(IReadOnlyList<MonitorInfo> monitors)
+    {
+        if (monitors.Count == 0)
+        {
+            Rectangle virtualScreen = SystemInformation.VirtualScreen;
+            return virtualScreen.Width > 0 && virtualScreen.Height > 0
+                ? virtualScreen
+                : new Rectangle(0, 0, 1, 1);
+        }
+
+        Rectangle screen = monitors[0].Bounds;
+        for (int i = 1; i < monitors.Count; i++)
+        {
+            screen = Rectangle.Union(screen, monitors[i].Bounds);
+        }
+
+        return screen;
+    }
+
+    private static double GetTargetDpiScale(IReadOnlyList<MonitorInfo> monitors)
+    {
+        foreach (MonitorInfo monitor in monitors)
+        {
+            if (double.IsFinite(monitor.Scale) && monitor.Scale > 0)
+            {
+                return monitor.Scale;
+            }
+        }
+
+        return 1.0;
+    }
+
+    private static double ClassificationConfidenceFor(TargetType type) =>
+        type switch
+        {
+            TargetType.Button or TargetType.CheckBox or TargetType.RadioButton or
+            TargetType.ComboBox or TargetType.TabItem or TargetType.MenuItem or
+            TargetType.Hyperlink or TargetType.ListItem or TargetType.TreeItem or
+            TargetType.Edit => 0.98,
+            TargetType.Other => 0.55,
+            _ => 0.40
+        };
 
     private static Point Center(Rectangle bounds) =>
         new(bounds.Left + (bounds.Width / 2), bounds.Top + (bounds.Height / 2));

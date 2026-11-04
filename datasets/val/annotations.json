@@ -1,0 +1,86 @@
+[
+  {
+    "screenshotId": "win-chrome-light-001",
+    "targetId": "val-1",
+    "targetType": "rounded-button",
+    "bbox": [
+      50,
+      100,
+      70,
+      32
+    ],
+    "clickableRegion": [
+      52,
+      102,
+      66,
+      28
+    ],
+    "interactive": true,
+    "text": "Open",
+    "annotationConfidence": 0.94,
+    "difficultCaseCategory": null
+  },
+  {
+    "screenshotId": "win-chrome-light-001",
+    "targetId": "val-2",
+    "targetType": "link",
+    "bbox": [
+      200,
+      100,
+      50,
+      20
+    ],
+    "clickableRegion": [
+      202,
+      102,
+      46,
+      16
+    ],
+    "interactive": true,
+    "text": "Privacy",
+    "annotationConfidence": 0.94,
+    "difficultCaseCategory": null
+  },
+  {
+    "screenshotId": "win-chrome-light-001",
+    "targetId": "val-3",
+    "targetType": "icon-only-button",
+    "bbox": [
+      380,
+      100,
+      32,
+      32
+    ],
+    "clickableRegion": [
+      382,
+      102,
+      28,
+      28
+    ],
+    "interactive": true,
+    "text": null,
+    "annotationConfidence": 0.9,
+    "difficultCaseCategory": "icon-only-button"
+  },
+  {
+    "screenshotId": "win-chrome-light-001",
+    "targetId": "val-3",
+    "targetType": "small-button",
+    "bbox": [
+      450,
+      150,
+      30,
+      22
+    ],
+    "clickableRegion": [
+      452,
+      152,
+      26,
+      18
+    ],
+    "interactive": true,
+    "text": "Delete",
+    "annotationConfidence": 0.88,
+    "difficultCaseCategory": "small-button"
+  }
+]

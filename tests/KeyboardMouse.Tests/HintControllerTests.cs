@@ -19,9 +19,29 @@ public class HintControllerTests
         Assert.Equal(h.Foreground, h.HintScanner.Window);
         Assert.Equal(400, h.HintScanner.Options!.MaxElements);
         Assert.True(h.HintScanner.Options.IncludeTaskbar);
+        Assert.Equal(HintScanScope.ForegroundWindow, h.HintScanner.Options.Scope);
+        Assert.Empty(h.HintScanner.Options.ExcludedRegions);
         Assert.True(h.HintOverlay.Visible);
         Assert.True(h.HintOverlay.Scanning);
         Assert.Equal("Scanning...", h.HintOverlay.ScanText);
+    }
+
+    [Fact]
+    public void ScanScope_AndOverlayExclusions_ArePassedToTheScanner()
+    {
+        var h = new RouterHarness();
+        h.HintSettings.ScanScope = "all-monitors";
+        var exclusion = new TargetBounds(20, 30, 120, 40);
+        h.HintOverlay.ExclusionBounds = [exclusion];
+
+        OpenHint(h);
+
+        Assert.Equal(HintScanScope.AllMonitors, h.HintScanner.Options!.Scope);
+        Assert.Equal(
+            HintScanScopes.BudgetFor(HintScanMode.Auto, HintScanScope.AllMonitors),
+            h.HintScanner.Options.Budget);
+        TargetBounds passed = Assert.Single(h.HintScanner.Options.ExcludedRegions);
+        Assert.Equal(exclusion, passed);
     }
 
     [Fact]

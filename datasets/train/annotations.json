@@ -1,0 +1,170 @@
+[
+  {
+    "screenshotId": "win-calc-light-001",
+    "targetId": "standard-1",
+    "targetType": "rectangular-button",
+    "bbox": [
+      120,
+      200,
+      80,
+      30
+    ],
+    "clickableRegion": [
+      120,
+      200,
+      80,
+      30
+    ],
+    "interactive": true,
+    "text": "Click Me",
+    "annotationConfidence": 0.95,
+    "difficultCaseCategory": null
+  },
+  {
+    "screenshotId": "win-calc-light-001",
+    "targetId": "standard-2",
+    "targetType": "checkbox",
+    "bbox": [
+      250,
+      200,
+      20,
+      20
+    ],
+    "clickableRegion": [
+      250,
+      200,
+      20,
+      20
+    ],
+    "interactive": true,
+    "text": null,
+    "annotationConfidence": 0.95,
+    "difficultCaseCategory": null
+  },
+  {
+    "screenshotId": "win-calc-light-001",
+    "targetId": "standard-3",
+    "targetType": "tab",
+    "bbox": [
+      330,
+      200,
+      60,
+      25
+    ],
+    "clickableRegion": [
+      330,
+      200,
+      60,
+      25
+    ],
+    "interactive": true,
+    "text": "Options",
+    "annotationConfidence": 0.95,
+    "difficultCaseCategory": null
+  },
+  {
+    "screenshotId": "win-calc-light-002",
+    "targetId": "difficult-1",
+    "targetType": "icon-only-button",
+    "bbox": [
+      80,
+      150,
+      32,
+      32
+    ],
+    "clickableRegion": [
+      80,
+      150,
+      32,
+      32
+    ],
+    "interactive": true,
+    "text": null,
+    "annotationConfidence": 0.9,
+    "difficultCaseCategory": "icon-only-button"
+  },
+  {
+    "screenshotId": "win-calc-light-002",
+    "targetId": "difficult-2",
+    "targetType": "borderless-button",
+    "bbox": [
+      180,
+      150,
+      100,
+      30
+    ],
+    "clickableRegion": [
+      180,
+      152,
+      96,
+      26
+    ],
+    "interactive": true,
+    "text": null,
+    "annotationConfidence": 0.88,
+    "difficultCaseCategory": "borderless-button"
+  },
+  {
+    "screenshotId": "win-explorer-001",
+    "targetId": "complex-1",
+    "targetType": "dense-toolbar",
+    "bbox": [
+      0,
+      0,
+      800,
+      40
+    ],
+    "clickableRegion": [
+      2,
+      2,
+      796,
+      36
+    ],
+    "interactive": true,
+    "text": null,
+    "annotationConfidence": 0.92,
+    "difficultCaseCategory": "dense-toolbar"
+  },
+  {
+    "screenshotId": "win-explorer-001",
+    "targetId": "complex-2",
+    "targetType": "menu",
+    "bbox": [
+      100,
+      200,
+      150,
+      28
+    ],
+    "clickableRegion": [
+      102,
+      202,
+      146,
+      24
+    ],
+    "interactive": true,
+    "text": "File",
+    "annotationConfidence": 0.94,
+    "difficultCaseCategory": "menu"
+  },
+  {
+    "screenshotId": "win-settings-dark-001",
+    "targetId": "visual-1",
+    "targetType": "button",
+    "bbox": [
+      100,
+      200,
+      80,
+      30
+    ],
+    "clickableRegion": [
+      100,
+      200,
+      80,
+      30
+    ],
+    "interactive": true,
+    "text": "Save",
+    "annotationConfidence": 0.93,
+    "difficultCaseCategory": "dark-theme"
+  }
+]

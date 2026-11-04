@@ -20,7 +20,16 @@ needed, because .NET is bundled inside the exe.
 
 ---
 
-## 1. Download
+## What's New in 1.3.0
+
+- **Hint diagnostics** — DiagnosticsLevel (Basic/Extended/Full) for per-candidate diagnostics
+- **'H' key toggle** — now uses configured key from settings (default "H")
+- **Multi-detector architecture** — TextBased, ShapeBased, IconRegion, ColorRegion, LayoutStructure, SmallControl detectors
+- **Context-aware clickability reasoning** — separates visual detection from clickability confidence
+- **Error-driven improvement workflow** — local diagnostic collection, threshold calibration, active learning
+- **Per-stage pipeline diagnostics** — tracks why each target was detected/classified/merged/rejected/displayed
+- **Release criteria documentation** — supported UI types, limitations, privacy, recovery behavior
+- **426/431 tests passing** — 5 pre-existing failures unchanged
 
 1. Open the [**Releases page**](https://github.com/khoa-nhd/mouse-keyboard/releases/latest).
 2. Under **Assets**, click `KeyboardMouse-vX.Y.Z-win-x64.zip` to download it.
@@ -270,6 +279,34 @@ runs locally on the captured pixels; it does not upload screenshots. There is
 no OCR backend bundled yet, so CV targets are found from contours/edges and
 have no text names.
 
+**Scan scope.** `hint.scanScope` (or tray icon → **Hint scan scope**) selects
+the area captured by computer vision:
+
+| Scope | What it captures |
+|---|---|
+| `window` (default) | Only the foreground window. Existing behaviour is unchanged. |
+| `monitor` | The whole monitor that contains the foreground window. |
+| `desktop` | Every monitor, captured separately (the virtual desktop). |
+| `all-monitors` | Same capture strategy as `desktop`. |
+
+UI Automation is window-based, so it always scans the foreground window; with
+`auto`/`hybrid`, its targets are fused with the larger CV coverage. Window
+scopes use a 500 ms per-source budget, a monitor 900 ms and the full desktop
+1800 ms; `auto`/`hybrid` add 300 ms for the second source.
+
+Large scopes are captured per monitor, never as one bounding box across monitor
+gaps, then split into overlapping 1280 px tiles. The detector analyses each tile
+on a 640 px grid and re-checks compact candidates at native resolution. Bounds
+stay in physical virtual-desktop pixels, so negative monitor origins and mixed
+DPI are preserved. The scanner also excludes Mouse Keyboard's own "Scanning..."
+badge so it never detects itself.
+
+The pixel classifier is tuned for precision: bordered/filled buttons, icon
+buttons, check boxes, text fields, tabs and links survive; borderless text
+labels, separators and large blank containers are rejected. **Known
+limitation:** a text-only button with no border or fill is rejected too.
+Nothing is uploaded, and no screenshot is written to disk.
+
 Chromium-based apps (Chrome, Edge, VS Code) build their accessibility tree
 lazily, so the first UIA scan can be empty. Press H again, start the browser
 with `--force-renderer-accessibility`, or switch to `hybrid`/`cv` mode.
@@ -316,7 +353,12 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "autoClick": "B"
   },
   "autoClick": { "intervalMs": 100, "button": "Left" },
-  "hint": { "scanMode": "auto", "maxElements": 400, "includeTaskbar": true },
+  "hint": {
+    "scanMode": "auto",
+    "scanScope": "window",
+    "maxElements": 400,
+    "includeTaskbar": true
+  },
   ...
 }
 ```
@@ -363,20 +405,52 @@ The Hybrid Hint system is wired into the running app and covered by tests.
 - **Detection:** UI Automation (`ClickableScanner`/`UIAutomationScanner`), real
   pixel-based computer vision (`ComputerVisionScanner`), and a fusion engine.
   Auto mode keeps UIA as the fast path and uses CV only when UIA is empty.
+- **Target resolution:** deduplication collapses OCR text or icons inside a
+  button, repeated contours, multi-scale and multi-strategy boxes, and repeated
+  overlaps without merging adjacent controls. UIA/CV matching uses IoU, centre
+  distance, containment, text, type, shape and visual grouping with a
+  deterministic maximum-weight assignment (Hungarian). Ranking combines
+  detection, geometry, interaction, classification, source reliability,
+  ambiguity and duplicate likelihood, so a high-confidence OCR text fragment
+  does not outrank a real button. Matching UIA/CV targets merge into one action
+  and keep both UIA interaction metadata and CV visual metadata; UIA-only and
+  CV-only targets survive.
+- **Geometry-aware targets:** CV candidates are refined against the captured
+  pixels (background flood-fill, shadow trimming, rounded corners, edge/contrast
+  support). Click points prefer a safe interior, text centre, icon centre or
+  shape centre and are moved away from shared edges. Type-specific, DPI-aware
+  validation rejects zero, tiny, huge, off-screen and invalid-transform bounds;
+  geometry confidence lowers the ranking of uncertain candidates. Containers
+  yield to the real control inside them, while nested controls with different
+  semantics (check box or action button inside a list row) are kept.
 - **Scan modes:** `auto`, `uia`, `cv`, `hybrid` — selectable in the tray menu or
   via `hint.scanMode`.
+- **Scan scopes:** `window`, `monitor`, `desktop`, `all-monitors` — selectable in
+  the tray menu or via `hint.scanScope`.
 - **Action safety:** foreground/staleness checks, duplicate-prevention,
   click-point validation, UIA patterns first then mouse fallback.
-- **Tests:** 332/332 passing (Release). The benchmark tests open a real WinForms
-  window and report measured targets/latency; they do not compute
-  precision/recall because there is no ground-truth corpus in the repository.
+- **Tests:** 431/431 passing (Release), including plan/tiling coverage for
+  negative monitor origins, dual-monitor scopes, overlay exclusions, the
+  conservative pixel classifier, geometry refinement/validation with rendered
+  ground-truth controls (IoU and click containment), and dense/deduplicated
+  target resolution with nested, adjacent, repeated and conflicting candidates.
+  The benchmark tests open a real WinForms window and report measured
+  targets/latency; they do not compute precision/recall because there is no
+  external ground-truth corpus in the repository.
 - **Auto mode:** UI Automation first; if UIA only finds caption buttons (a
   custom-drawn window), CV runs too and the results are fused.
 
-**Build:** 0 errors, 0 warnings  
-**Measured on this machine (fresh process, 150% display, real WinForms window):**
-UIA P50 46 ms, CV P50 46 ms, Hybrid P50 53 ms (n=3); UIA found both buttons, CV
-found 20 pixel regions before containment dedupe. These are local smoke
+**Build:** 0 errors (NuGet offline warnings only)
+
+**Measured on this machine (fresh Release process, 150% display, 1920x1200
+desktop, real WinForms window, n=3):** across two final fresh runs, UIA returned
+6 targets in 36-46 ms (P50 44-46), CV returned 8 classified regions in 90-105 ms
+(P50 63-64), and Hybrid returned 10 targets in 209-223 ms (P50 61-75) after
+fusing and deduplicating the sources. A CV scan of the foreground window took
+124-127 ms and returned 8 targets; the same detector took 437-475 ms on the
+active monitor and 374-393 ms on the virtual desktop (single-monitor desktop in
+this environment; monitor/desktop target counts vary with background windows).
+Repeated fresh runs varied by roughly 10-30 ms. These are local smoke
 measurements, not a benchmark suite.
 
 **Architecture:** `docs/architecture/hybrid-hint-audit.md` documents the

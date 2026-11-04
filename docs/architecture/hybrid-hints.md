@@ -1,6 +1,9 @@
 # Hybrid UIA + Computer Vision Hint Architecture
 
-**Status:** Architecture audit / proposed design. No application behavior is changed by this document.  
+**Status:** Historical architecture design, kept for rationale. It describes the
+v1.0.9 baseline and the proposed design, so its inventory and “verified absent”
+list are no longer current. See `docs/architecture/hybrid-hint-audit.md` for the
+implemented pipeline, geometry behaviour and current test status.
 **Baseline:** KeyboardMouse v1.0.9, commit `8554828`, clean worktree.  
 **Scope:** Hint mode only. Grid mode, precision mode, movement, activation, and input routing remain behaviorally unchanged except for the scanner/action seams explicitly described below.
 
@@ -747,7 +750,7 @@ No target, grid cell, screenshot region, or click point may be stored in DIPs, p
 - Screen capture must not include the "Scanning..." overlay or the hint labels. If it does, OCR may recognize the app's own text and create false targets.
 - Set `SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)` on overlay windows on Windows 10 2004+; this hides them from capture without changing what the user sees.
 - If the API is unavailable or fails, hide the scanning overlay during capture and restore it afterward. The scanner/capture service should not depend on the overlay implementation; use a small capture-exclusion callback or an overlay `SuspendForCapture`/`Resume` seam supplied by the composition root.
-- Capture only the foreground window region (per monitor) and optional taskbar, not the entire desktop, to reduce OCR cost and incidental sensitive content.
+- Capture only the foreground window region (per monitor) and optional taskbar, not the entire desktop, to reduce OCR cost and incidental sensitive content. **Implementation note:** `hint.scanScope` can opt into `monitor`, `desktop` or `all-monitors`; the default remains `window`, and every scope stays in-memory and local.
 
 ### 8.6 Privacy constraints
 

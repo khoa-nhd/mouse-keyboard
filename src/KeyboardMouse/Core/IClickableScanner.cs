@@ -19,6 +19,18 @@ public sealed record HintScanOptions(int MaxElements, bool IncludeTaskbar)
     /// legacy behaviour: UIA first, CV only when UIA finds nothing.
     /// </summary>
     public HintScanMode Mode { get; init; } = HintScanMode.Auto;
+
+    /// <summary>
+    /// Screen area to scan. Only CV can leave the foreground window; UIA keeps
+    /// its single-window scan and is fused in when the mode asks for it.
+    /// </summary>
+    public HintScanScope Scope { get; init; } = HintScanScope.ForegroundWindow;
+
+    /// <summary>
+    /// Screen regions that belong to Mouse Keyboard's own overlays. CV drops
+    /// candidates that fall inside them so hint labels never detect themselves.
+    /// </summary>
+    public IReadOnlyList<TargetBounds> ExcludedRegions { get; init; } = [];
 }
 
 /// <summary>

@@ -121,6 +121,53 @@ public class SettingsTests
         Assert.Equal(expected, settings.Hint.ScanMode);
     }
 
+    [Theory]
+    [InlineData(null, "window")]
+    [InlineData("", "window")]
+    [InlineData("bogus", "window")]
+    [InlineData("WINDOW", "window")]
+    [InlineData("monitor", "monitor")]
+    [InlineData("Active Monitor", "monitor")]
+    [InlineData("virtual-desktop", "desktop")]
+    [InlineData("desktop", "desktop")]
+    [InlineData("all monitors", "all-monitors")]
+    [InlineData("ALL-MONITORS", "all-monitors")]
+    public void Normalize_RepairsHintScanScope(string? value, string expected)
+    {
+        var settings = new Settings
+        {
+            Hint = new HintSettings { ScanScope = value! }
+        };
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.Hint.ScanScope);
+    }
+
+    [Fact]
+    public void HintScanScopes_BudgetGrowsWithTheScope()
+    {
+        Assert.Equal(
+            HintScanScopes.WindowSourceBudget,
+            HintScanScopes.BudgetFor(HintScanMode.Cv, HintScanScope.ForegroundWindow));
+        Assert.Equal(
+            HintScanScopes.MonitorSourceBudget,
+            HintScanScopes.BudgetFor(HintScanMode.Cv, HintScanScope.ActiveMonitor));
+        Assert.Equal(
+            HintScanScopes.DesktopSourceBudget,
+            HintScanScopes.BudgetFor(HintScanMode.Cv, HintScanScope.VirtualDesktop));
+        Assert.Equal(
+            HintScanScopes.DesktopSourceBudget,
+            HintScanScopes.BudgetFor(HintScanMode.Cv, HintScanScope.AllMonitors));
+
+        Assert.Equal(
+            HintScanScopes.WindowSourceBudget + TimeSpan.FromMilliseconds(300),
+            HintScanScopes.BudgetFor(HintScanMode.Auto, HintScanScope.ForegroundWindow));
+        Assert.Equal(
+            HintScanScopes.DesktopSourceBudget + TimeSpan.FromMilliseconds(300),
+            HintScanScopes.BudgetFor(HintScanMode.Hybrid, HintScanScope.VirtualDesktop));
+    }
+
     [Fact]
     public void HintScanModes_MapSourcesAndDefaults()
     {

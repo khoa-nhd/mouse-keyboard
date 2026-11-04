@@ -1,0 +1,107 @@
+[
+  {
+    "screenshotId": "win-terminal-dark-001",
+    "targetId": "test-1",
+    "targetType": "text-field",
+    "bbox": [
+      50,
+      100,
+      300,
+      25
+    ],
+    "clickableRegion": [
+      52,
+      102,
+      296,
+      21
+    ],
+    "interactive": true,
+    "text": "",
+    "annotationConfidence": 0.92,
+    "difficultCaseCategory": "control-without-ocr-text"
+  },
+  {
+    "screenshotId": "win-terminal-dark-001",
+    "targetId": "test-2",
+    "targetType": "dropdown",
+    "bbox": [
+      50,
+      180,
+      120,
+      28
+    ],
+    "clickableRegion": [
+      52,
+      182,
+      116,
+      24
+    ],
+    "interactive": true,
+    "text": "View",
+    "annotationConfidence": 0.93,
+    "difficultCaseCategory": "dropdown"
+  },
+  {
+    "screenshotId": "win-terminal-dark-001",
+    "targetId": "test-3",
+    "targetType": "context-menu",
+    "bbox": [
+      100,
+      300,
+      120,
+      25
+    ],
+    "clickableRegion": [
+      102,
+      302,
+      116,
+      21
+    ],
+    "interactive": true,
+    "text": "Copy",
+    "annotationConfidence": 0.91,
+    "difficultCaseCategory": "context-menu"
+  },
+  {
+    "screenshotId": "win-terminal-dark-001",
+    "targetId": "test-4",
+    "targetType": "popup",
+    "bbox": [
+      200,
+      400,
+      150,
+      120
+    ],
+    "clickableRegion": [
+      205,
+      405,
+      145,
+      115
+    ],
+    "interactive": true,
+    "text": "Settings",
+    "annotationConfidence": 0.89,
+    "difficultCaseCategory": "popup"
+  },
+  {
+    "screenshotId": "win-terminal-dark-001",
+    "targetId": "test-5",
+    "targetType": "card",
+    "bbox": [
+      300,
+      200,
+      200,
+      120
+    ],
+    "clickableRegion": [
+      305,
+      205,
+      195,
+      115
+    ],
+    "interactive": true,
+    "text": "Card Title",
+    "annotationConfidence": 0.9,
+    "difficultCaseCategory": "card"
+  }
+]

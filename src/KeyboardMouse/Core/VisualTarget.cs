@@ -192,7 +192,9 @@ public sealed record VisualTarget
         double interactionConfidence = 1.0,
         bool isEnabled = true,
         bool isVisible = true,
-        TargetMetadata? metadata = null)
+        TargetMetadata? metadata = null,
+        TargetGeometry? geometry = null,
+        double classificationConfidence = 1.0)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -239,6 +241,22 @@ public sealed record VisualTarget
                 "Interaction confidence must be between 0 and 1.");
         }
 
+        if (!IsConfidenceInRange(geometry?.Confidence ?? 1.0))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(geometry),
+                geometry?.Confidence,
+                "Geometry confidence must be between 0 and 1.");
+        }
+
+        if (!IsConfidenceInRange(classificationConfidence))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(classificationConfidence),
+                classificationConfidence,
+                "Classification confidence must be between 0 and 1.");
+        }
+
         Id = id;
         Source = source;
         Bounds = bounds;
@@ -250,6 +268,8 @@ public sealed record VisualTarget
         IsEnabled = isEnabled;
         IsVisible = isVisible;
         Metadata = metadata ?? TargetMetadata.Empty;
+        Geometry = geometry ?? TargetGeometry.Default;
+        ClassificationConfidence = classificationConfidence;
     }
 
     /// <summary>Scan-local stable id. Never persisted.</summary>
@@ -273,6 +293,28 @@ public sealed record VisualTarget
 
     /// <summary>How sure the scanner is that this target is interactive, in [0, 1].</summary>
     public double InteractionConfidence { get; init; }
+
+    /// <summary>
+    /// Geometry quality and click-point diagnostics. UIA targets default to a
+    /// clear geometry; CV targets carry the pixel-refinement result.
+    /// </summary>
+    public TargetGeometry Geometry { get; init; }
+
+    /// <summary>
+    /// How sure the source is about the semantic <see cref="Type"/> in [0, 1].
+    /// A high OCR confidence is not a classification confidence: text regions
+    /// can be read perfectly and still not be clickable.
+    /// </summary>
+    public double ClassificationConfidence { get; init; }
+
+    /// <summary>
+    /// Detection confidence tempered by geometry confidence. Kept as a simple
+    /// source-level signal; full ordering uses <c>TargetRanker</c>, which also
+    /// considers interaction, classification, source reliability, ambiguity and
+    /// duplicate likelihood.
+    /// </summary>
+    public double RankingConfidence =>
+        DetectionConfidence * (0.25 + (0.75 * Geometry.Confidence));
 
     public bool IsEnabled { get; init; }
 
