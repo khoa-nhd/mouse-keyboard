@@ -16,6 +16,7 @@
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <Platforms>AnyCPU;x64</Platforms>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <Version>1.3.0</Version>
     <Product>KeyboardMouse</Product>
     <Description>Control the mouse entirely from the keyboard.</Description>
