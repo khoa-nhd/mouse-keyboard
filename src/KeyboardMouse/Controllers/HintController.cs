@@ -143,6 +143,20 @@ public sealed class HintController : IModeController
 
     public HandleResult Handle(KeyEvent keyEvent, ModifierState modifiers)
     {
+        // Allow 'H' key to toggle hint mode on/off regardless of current state
+        if (keyEvent.Key == PhysicalKey.H && keyEvent.IsDown && !keyEvent.IsRepeat)
+        {
+            if (_active)
+            {
+                Close();
+            }
+            else
+            {
+                Open();
+            }
+            return HandleResult.Swallow;
+        }
+
         if (!_active)
         {
             return HandleResult.PassThrough;
