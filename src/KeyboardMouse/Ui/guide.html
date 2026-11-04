@@ -902,9 +902,9 @@ const T = {
     "modes.hintT": "Hints", "modes.hint": "Every button and link gets a short label. Type the label and it is clicked — no aiming at all.",
     "modes.hint1": "Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
     "modes.hint2": "<kbd>Shift</kbd> + label = hover · <kbd>F</kbd> + label = right click",
-    "modes.scrollT": "Scroll layer", "modes.scroll": "Hold D and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.",
-    "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways",
-    "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom",
+    "modes.scrollT": "Scroll layer", "modes.scroll": "Hold {key} and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.",
+    "modes.scroll1": "<kbd>{key}</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>{key}</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways",
+    "modes.scroll2": "<kbd>{key}</kbd> + <kbd>U</kbd>/<kbd>O</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom",
     "modes.autoT": "Auto clicker", "modes.auto": "Press B and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press B again to stop.",
     "modes.auto1": "The indicator turns <b style=\"color:#eab308\">yellow</b> while it runs", "modes.auto2": "Speed and button: <b>Settings → Auto clicker</b>",
     "modes.moreT": "More moves",
@@ -985,9 +985,9 @@ const T = {
     "modes.hintT": "Nhãn gợi ý", "modes.hint": "Mỗi nút bấm và link có một nhãn ngắn. Gõ nhãn là click luôn — không cần nhắm.",
     "modes.hint1": "Nhãn chỉ dùng các chữ ở hàng phím chính: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
     "modes.hint2": "<kbd>Shift</kbd> + nhãn = chỉ rê tới · <kbd>F</kbd> + nhãn = click phải",
-    "modes.scrollT": "Cuộn trang", "modes.scroll": "Giữ D thì các phím di chuyển sẽ cuộn trang thay vì di chuột. Mượt, và nhanh dần khi giữ.",
-    "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> lên/xuống · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sang ngang",
-    "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> lật trang · thêm <kbd>Ctrl</kbd> để phóng to",
+    "modes.scrollT": "Cuộn trang", "modes.scroll": "Giữ {key} thì các phím di chuyển sẽ cuộn trang thay vì di chuột. Mượt, và nhanh dần khi giữ.",
+    "modes.scroll1": "<kbd>{key}</kbd> + <kbd>I</kbd>/<kbd>K</kbd> lên/xuống · <kbd>{key}</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sang ngang",
+    "modes.scroll2": "<kbd>{key}</kbd> + <kbd>U</kbd>/<kbd>O</kbd> lật trang · thêm <kbd>Ctrl</kbd> để phóng to",
     "modes.autoT": "Auto click", "modes.auto": "Bấm B là app tự click liên tục tại vị trí con trỏ. Vẫn di chuột được trong lúc đó. Bấm B lần nữa để dừng.",
     "modes.auto1": "Chỉ báo chuyển <b style=\"color:#eab308\">màu vàng</b> khi đang chạy", "modes.auto2": "Tốc độ và nút chuột: <b>Cài đặt → Auto click</b>",
     "modes.moreT": "Thêm vài chiêu",
@@ -1051,7 +1051,7 @@ const ACTIONS = [
   { id: "right", cat: "move", def: "L", en: ["Right", "Move the pointer right. Hold to accelerate."], vi: ["Phải", "Di con trỏ sang phải. Giữ để nhanh dần."] },
   { id: "turboLayer", cat: "layer", def: "A", en: ["Turbo", "Hold for very fast movement across the screen."], vi: ["Siêu nhanh", "Giữ để con trỏ lướt rất nhanh qua màn hình."] },
   { id: "precisionLayer", cat: "layer", def: "S", en: ["Precise", "Hold for slow, pixel-exact movement. One tap = 1 pixel."], vi: ["Chính xác", "Giữ để di chậm, chính xác từng điểm. Mỗi lần bấm = 1 pixel."] },
-  { id: "scrollLayer", cat: "layer", def: "D", en: ["Scroll", "Hold, then I/K scroll up/down, J/L sideways, U/O page up/down."], vi: ["Cuộn", "Giữ, rồi I/K cuộn lên/xuống, J/L cuộn ngang, U/O lật trang."] },
+  { id: "scrollLayer", cat: "layer", def: "D", en: ["Scroll", "Hold {key} then I/K scroll up/down, J/L sideways, U/O page up/down."], vi: ["Cuộn", "Giữ {key} rồi I/K cuộn lên/xuống, J/L cuộn ngang, U/O lật trang."] },
   { id: "leftClick", cat: "click", def: "Space", en: ["Left click", "Left mouse button. Hold while moving to drag."], vi: ["Click trái", "Nút chuột trái. Giữ trong lúc di để kéo thả."] },
   { id: "rightClick", cat: "click", def: "F", en: ["Right click", "Right mouse button — opens context menus."], vi: ["Click phải", "Nút chuột phải — mở menu chuột phải."] },
   { id: "middleClick", cat: "click", def: "E", en: ["Middle", "Middle click — e.g. open a link in a new tab."], vi: ["Click giữa", "Click giữa — vd. mở link trong tab mới."] },
@@ -1986,6 +1986,17 @@ applyText();
   const pages = $$(".page").map(p => p.id.slice(5));
   showPage(pages.includes(fromHash) ? fromHash : pages.includes(load("page", "home")) ? load("page", "home") : "home");
 }
+// Update scroll layer description with actual key after text is applied
+setTimeout(() => {
+  const scrollKey = bindingValue("scrollLayer");
+  const scrollLabels = ["modes.scroll", "modes.scroll1", "modes.scroll2"];
+  scrollLabels.forEach(label => {
+    const el = document.querySelector(`[data-t="${label}"]`);
+    if (el && el.textContent.includes("{key}")) {
+      el.textContent = el.textContent.replace("{key}", scrollKey);
+    }
+  });
+}, 100);
 heroDemo(); gridDemo(); hintDemo(); scrollDemo(); autoDemo();
 send({ cmd: "ready" });
 </script>
