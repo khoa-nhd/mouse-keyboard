@@ -44,6 +44,8 @@ public sealed class TrayApp : ApplicationContext
     private readonly Dictionary<CursorStyle, ToolStripMenuItem> _pointerStyleItems = new();
     private readonly ToolStripMenuItem _hintScanModeItem;
     private readonly Dictionary<HintScanMode, ToolStripMenuItem> _hintScanModeItems = new();
+    private readonly ToolStripMenuItem _hintScanScopeItem;
+    private readonly Dictionary<HintScanScope, ToolStripMenuItem> _hintScanScopeItems = new();
     private readonly ToolStripMenuItem _checkUpdatesItem;
     private readonly UpdateService _updates = new();
 
@@ -171,6 +173,25 @@ public sealed class TrayApp : ApplicationContext
             _hintScanModeItem.DropDownItems.Add(item);
         }
 
+        _hintScanScopeItem = new ToolStripMenuItem("Hint scan scope");
+        foreach (var scope in new[]
+                 {
+                     HintScanScope.ForegroundWindow,
+                     HintScanScope.ActiveMonitor,
+                     HintScanScope.VirtualDesktop,
+                     HintScanScope.AllMonitors
+                 })
+        {
+            var chosen = scope;
+            var item = new ToolStripMenuItem(HintScanScopes.DisplayName(chosen))
+            {
+                CheckOnClick = false
+            };
+            item.Click += (_, _) => SetHintScanScope(chosen);
+            _hintScanScopeItems[chosen] = item;
+            _hintScanScopeItem.DropDownItems.Add(item);
+        }
+
         _checkUpdatesItem = new ToolStripMenuItem("Check for updates…");
         _checkUpdatesItem.Click += (_, _) => _ = CheckForUpdatesAsync(silent: false);
 
@@ -183,6 +204,7 @@ public sealed class TrayApp : ApplicationContext
         _menu.Items.Add(_pauseItem);
         _menu.Items.Add(_pointerStyleItem);
         _menu.Items.Add(_hintScanModeItem);
+        _menu.Items.Add(_hintScanScopeItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(CreateItem("Show keymap", () => ShowGuide("keys")));
         _menu.Items.Add(CreateItem("Open settings file", OpenSettingsFile));
@@ -193,6 +215,7 @@ public sealed class TrayApp : ApplicationContext
         _menu.Items.Add(CreateItem("Open log folder", OpenLogFolder));
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(CreateItem("Restart KeyboardMouse", RestartApp));
+        _menu.Items.Add(CreateItem("Check for updates", () => { _ = CheckForUpdatesAsync(silent: false); }));
         _menu.Items.Add(CreateItem("Exit", ExitThread));
 
         _tray = new NotifyIcon
@@ -209,6 +232,7 @@ public sealed class TrayApp : ApplicationContext
         _autostartItem.Checked = Autostart.IsEnabled();
         UpdatePointerStyleChecks();
         UpdateHintScanModeChecks();
+        UpdateHintScanScopeChecks();
 
         // A throwing hook callback must not do file IO on the hook call stack:
         // it would risk the low-level hook timeout, so defer the logging.
@@ -1150,6 +1174,7 @@ public sealed class TrayApp : ApplicationContext
         _cursorIndicator.SetStyle(ParseCursorStyle());
         UpdatePointerStyleChecks();
         UpdateHintScanModeChecks();
+        UpdateHintScanScopeChecks();
         _screenBorder.Configure(
             BorderStyles.ParseOrDefault(_settings.Feedback.BorderStyle),
             CursorColors.ToColor(_settings.Feedback.BorderColor),
@@ -1242,6 +1267,32 @@ public sealed class TrayApp : ApplicationContext
         foreach (var (mode, item) in _hintScanModeItems)
         {
             item.Checked = mode == current;
+        }
+    }
+
+    /// <summary>Tray submenu: foreground window, monitor or full desktop.</summary>
+    private void SetHintScanScope(HintScanScope scope)
+    {
+        _settings.Hint.ScanScope = HintScanScopes.ToId(scope);
+
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save the hint scan scope", ex);
+        }
+
+        ApplySettings();
+    }
+
+    private void UpdateHintScanScopeChecks()
+    {
+        var current = HintScanScopes.Parse(_settings.Hint.ScanScope);
+        foreach (var (scope, item) in _hintScanScopeItems)
+        {
+            item.Checked = scope == current;
         }
     }
 
