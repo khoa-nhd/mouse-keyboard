@@ -1,26 +1,40 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using KeyboardMouse.Core;
+using KeyboardMouse.Native;
+using KeyboardMouse.Platform;
 
 namespace KeyboardMouse.Capture;
 
 /// <summary>
-/// Computer vision hint scanner that emits <see cref="VisualTarget"/> values
-/// from a screen capture using edge-based region detection and optional OCR.
+/// Computer vision hint scanner. Captures the foreground window with GDI and
+/// finds rectangular UI regions by classical pixel analysis: greyscale
+/// downsampling, gradient thresholding, edge dilation and connected components.
+/// No model files, no cloud calls and no synthetic rectangles.
+///
+/// OCR is optional. When an <see cref="IOcrEngine"/> is available its word
+/// boxes add names/confidence; without one the detector still returns contours
+/// so custom-drawn interfaces get hints.
 /// </summary>
 public sealed class ComputerVisionScanner : IHintScanner
 {
+    private const int MaxAnalysisDimension = 640;
+    private const int MinComponentPixels = 6;
+
     private readonly IScreenCaptureService _capture;
     private readonly IOcrEngine _ocr;
     private readonly TimeSpan _hardTimeout;
     private readonly int _maxElements;
-    private readonly int _visitedLimit;
+    private readonly int _maxComponents;
 
     /// <summary>
-    /// Constructs a CV scanner.  The <paramref name="ocr"/> parameter may be
-    /// <c>null</c>; in that case only edge/region heuristics are used.
+    /// Constructs a CV scanner. The <paramref name="ocr"/> parameter may be
+    /// <c>null</c>; in that case only the pixel detector is used.
     /// </summary>
     public ComputerVisionScanner(
         IScreenCaptureService capture,
@@ -29,11 +43,13 @@ public sealed class ComputerVisionScanner : IHintScanner
         int maxElements = 200,
         int visitedLimit = 5000)
     {
-        _capture = capture ?? throw new System.ArgumentNullException(nameof(capture));
+        _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         _ocr = ocr ?? NullOcrEngine.Instance;
-        _hardTimeout = timeout ?? TimeSpan.FromMilliseconds(400);
-        _maxElements = System.Math.Clamp(maxElements, 1, 2000);
-        _visitedLimit = System.Math.Max(0, visitedLimit);
+        _hardTimeout = timeout is { } value && value > TimeSpan.Zero
+            ? value
+            : TimeSpan.FromMilliseconds(400);
+        _maxElements = Math.Clamp(maxElements, 1, 2000);
+        _maxComponents = Math.Clamp(visitedLimit, 16, 20000);
     }
 
     public void BeginScan(HintScanRequest request, Action<HintScanResult> completed)
@@ -43,7 +59,8 @@ public sealed class ComputerVisionScanner : IHintScanner
 
         if ((request.Options.Sources & TargetSource.Cv) == 0)
         {
-            completed(HintScanResult.FromTargets(Array.Empty<VisualTarget>(),
+            completed(HintScanResult.FromTargets(
+                [],
                 new HintScanDiagnostics(UiaUsed: false, CvUsed: false)));
             return;
         }
@@ -58,23 +75,27 @@ public sealed class ComputerVisionScanner : IHintScanner
 
         var thread = new Thread(() =>
         {
+            HintScanResult result;
+
             try
             {
-                var result = ScanCore(request);
-                completed(result);
+                result = ScanCore(request);
             }
             catch (OperationCanceledException)
             {
-                completed(HintScanResult.Failure(
-                    HintScanStatus.Canceled,
-                    "The CV hint scan was canceled."));
+                result = HintScanResult.Failure(
+                    HintScanStatus.TimedOut,
+                    "The CV hint scan timed out.");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                completed(HintScanResult.Failure(
+                Log.Error("CV hint scan failed", ex);
+                result = HintScanResult.Failure(
                     HintScanStatus.Failed,
-                    "The CV hint scan failed."));
+                    "The CV hint scan failed.");
             }
+
+            completed(result);
         })
         {
             IsBackground = true,
@@ -87,14 +108,33 @@ public sealed class ComputerVisionScanner : IHintScanner
 
     private HintScanResult ScanCore(HintScanRequest request)
     {
+        var stopwatch = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource(_hardTimeout);
         cts.Token.ThrowIfCancellationRequested();
 
-        // 1. Capture the foreground window.
         CaptureResult capture;
+
         try
         {
-            capture = _capture.CaptureForegroundWindow(cts.Token);
+            // Capture the window the caller asked for, not whatever happens to
+            // be foreground once this worker thread runs. Hint mode stores the
+            // foreground handle before the scan starts.
+            if (User32.GetWindowRect(request.Window, out RECT windowRect) &&
+                windowRect.Width > 0 &&
+                windowRect.Height > 0)
+            {
+                capture = _capture.CaptureRegion(
+                    new TargetBounds(
+                        windowRect.Left,
+                        windowRect.Top,
+                        windowRect.Width,
+                        windowRect.Height),
+                    cts.Token);
+            }
+            else
+            {
+                capture = _capture.CaptureForegroundWindow(cts.Token);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -102,254 +142,684 @@ public sealed class ComputerVisionScanner : IHintScanner
                 HintScanStatus.TimedOut,
                 "The CV hint scan timed out during capture.");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Log.Error("CV hint capture failed", ex);
             return HintScanResult.Failure(
                 HintScanStatus.Failed,
-                "The CV hint scan failed during capture.");
+                "The CV hint scan could not capture the foreground window.");
         }
 
-        // 2. Run OCR - convert OcrWord results to (string, TargetBounds, double) tuples.
-        var ocrWords = _ocr.Recognize(capture, cts.Token);
-        var ocrTextBoxes = ConvertOcrWordsToBoxes(ocrWords);
+        using Bitmap bitmap = capture.Bitmap;
 
-        // 3. Detect candidate rectangles from the bitmap.
-        var candidates = DetectCandidates(capture.Bitmap, capture.DpiScale, ocrTextBoxes);
+        IReadOnlyList<(string Text, TargetBounds Bounds, double Confidence)> ocrTextBoxes;
+        try
+        {
+            ocrTextBoxes = ConvertOcrWordsToBoxes(_ocr.Recognize(capture, cts.Token));
+        }
+        catch (OperationCanceledException)
+        {
+            return HintScanResult.Failure(
+                HintScanStatus.TimedOut,
+                "The CV hint scan timed out during OCR.");
+        }
+        catch (Exception ex)
+        {
+            // OCR is optional: a broken engine must not hide contour targets.
+            Log.Error("CV hint OCR failed", ex);
+            ocrTextBoxes = [];
+        }
 
-        // 4. Build VisualTarget values from candidates.
-        var targets = BuildTargets(candidates, capture, ocrTextBoxes);
+        List<Rectangle> candidates = DetectCandidates(bitmap, cts.Token);
+        List<VisualTarget> targets = BuildTargets(candidates, capture, ocrTextBoxes);
+        List<VisualTarget> filtered = ApplyPostProcessing(targets, _maxElements);
 
-        // 5. Apply post-processing (capping, deduplication, ordering).
-        var filtered = ApplyPostProcessing(targets, _maxElements);
-
+        stopwatch.Stop();
         var diagnostics = new HintScanDiagnostics(
             CandidateCount: candidates.Count,
             AcceptedCount: filtered.Count,
-            ElapsedMilliseconds: 0,
+            ElapsedMilliseconds: stopwatch.ElapsedMilliseconds,
             UiaUsed: false,
             CvUsed: true);
+
+        Log.Info(
+            $"CV hint scan found {filtered.Count} target(s) from " +
+            $"{candidates.Count} candidate(s) in {diagnostics.ElapsedMilliseconds} ms.");
 
         return HintScanResult.FromTargets(filtered, diagnostics);
     }
 
     /// <summary>
-    /// Converts OcrWord results into (string Text, TargetBounds Bounds, double Confidence) tuples.
+    /// Converts OcrWord results into text boxes in capture-local coordinates.
+    /// Adjacent words on the same row are merged into one label.
     /// </summary>
     private static IReadOnlyList<(string Text, TargetBounds Bounds, double Confidence)> ConvertOcrWordsToBoxes(
         IReadOnlyList<OcrWord> words)
     {
         var result = new List<(string Text, TargetBounds Bounds, double Confidence)>();
-        if (words.Count == 0) return result;
+        if (words.Count == 0)
+        {
+            return result;
+        }
 
-        var sorted = words.OrderBy(w => w.Bounds.Top).ThenBy(w => w.Bounds.Left).ToList();
-        var used = new HashSet<int>();
+        var sorted = words
+            .Where(word => word.Bounds.IsValid)
+            .OrderBy(word => word.Bounds.Top)
+            .ThenBy(word => word.Bounds.Left)
+            .ToList();
+
+        var used = new bool[sorted.Count];
 
         for (int i = 0; i < sorted.Count; i++)
         {
-            if (used.Contains(i)) continue;
-            used.Add(i);
+            if (used[i])
+            {
+                continue;
+            }
 
-            result.Add((sorted[i].Text, new TargetBounds(sorted[i].Bounds.Left, sorted[i].Bounds.Top, sorted[i].Bounds.Width, sorted[i].Bounds.Height), sorted[i].Confidence));
+            used[i] = true;
+            int left = sorted[i].Bounds.Left;
+            int top = sorted[i].Bounds.Top;
+            int right = sorted[i].Bounds.Right;
+            int bottom = sorted[i].Bounds.Bottom;
+            string text = sorted[i].Text;
+            double confidence = sorted[i].Confidence;
 
             for (int j = i + 1; j < sorted.Count; j++)
             {
-                if (used.Contains(j)) continue;
-                var a = sorted[i];
-                var b = sorted[j];
-                bool sameRow = Math.Abs(a.Bounds.Center.Y - b.Bounds.Center.Y) < 12;
-                bool closeHoriz = Math.Abs(a.Bounds.Center.X - b.Bounds.Center.X) < (a.Bounds.Width + b.Bounds.Width) / 2 + 5;
-                if (sameRow && closeHoriz)
+                if (used[j])
                 {
-                    // Merge: extend the box to include b, keep combined text.
-                    var existing = result[result.Count - 1];
-                    var combinedText = existing.Text + " " + b.Text;
-                    var combinedLeft = System.Math.Min(existing.Bounds.Left, b.Bounds.Left);
-                    var combinedTop = System.Math.Min(existing.Bounds.Top, b.Bounds.Top);
-                    var combinedRight = System.Math.Max(existing.Bounds.Right, b.Bounds.Right);
-                    var combinedBottom = System.Math.Max(existing.Bounds.Bottom, b.Bounds.Bottom);
-                    var combinedBounds = new TargetBounds(combinedLeft, combinedTop, combinedRight - combinedLeft, combinedBottom - combinedTop);
-                    result[result.Count - 1] = (combinedText, combinedBounds, System.Math.Max(existing.Confidence, b.Confidence));
-                    used.Add(j);
+                    continue;
                 }
+
+                OcrWord a = sorted[i];
+                OcrWord b = sorted[j];
+                bool sameRow = Math.Abs(a.Bounds.Center.Y - b.Bounds.Center.Y) <
+                               Math.Max(12, a.Bounds.Height / 2);
+                bool closeHorizontally =
+                    Math.Abs(a.Bounds.Center.X - b.Bounds.Center.X) <
+                    ((a.Bounds.Width + b.Bounds.Width) / 2) + 8;
+
+                if (!sameRow || !closeHorizontally)
+                {
+                    continue;
+                }
+
+                left = Math.Min(left, b.Bounds.Left);
+                top = Math.Min(top, b.Bounds.Top);
+                right = Math.Max(right, b.Bounds.Right);
+                bottom = Math.Max(bottom, b.Bounds.Bottom);
+                text = string.IsNullOrEmpty(text) ? b.Text : text + " " + b.Text;
+                confidence = Math.Max(confidence, b.Confidence);
+                used[j] = true;
             }
+
+            result.Add((
+                text,
+                new TargetBounds(left, top, right - left, bottom - top),
+                confidence));
         }
 
         return result;
     }
 
     /// <summary>
-    /// Detects candidate rectangles using edge-like heuristics on the bitmap.
+    /// Pixel detector. Down-samples the capture into a greyscale grid, marks
+    /// pixels whose local gradient stands out, dilates those edges so letters
+    /// and thin outlines connect, then extracts connected components as boxes.
     /// </summary>
-    private static List<Rectangle> DetectCandidates(
-        Bitmap bitmap,
-        double dpiScale,
-        IReadOnlyList<(string Text, TargetBounds Bounds, double Confidence)> ocrTextBoxes)
+    private static List<Rectangle> DetectCandidates(Bitmap bitmap, CancellationToken cancellationToken)
     {
-        if (bitmap.Width <= 0 || bitmap.Height <= 0)
+        if (bitmap.Width < 16 || bitmap.Height < 16)
+        {
             return [];
-
-        // Simple: return rects from OCR text boxes plus some synthetic region rects.
-        var rects = new List<Rectangle>();
-
-        foreach (var (text, bounds, confidence) in ocrTextBoxes)
-        {
-            // Scale the OCR local bounds to capture pixels.
-            int width = Math.Max(15, (int)(bounds.Width * dpiScale));
-            int height = Math.Max(15, (int)(bounds.Height * dpiScale));
-            int x = Math.Max(0, (int)(bounds.Left * dpiScale));
-            int y = Math.Max(0, (int)(bounds.Top * dpiScale));
-            rects.Add(new Rectangle(x, y, width, height));
         }
 
-        // Also add a few representative region rects if no OCR text found.
-        if (rects.Count == 0)
+        int step = Math.Max(
+            1,
+            (int)Math.Ceiling(Math.Max(bitmap.Width, bitmap.Height) / (double)MaxAnalysisDimension));
+        int gridWidth = Math.Max(3, bitmap.Width / step);
+        int gridHeight = Math.Max(3, bitmap.Height / step);
+
+        byte[] grey = DownsampleGrey(bitmap, gridWidth, gridHeight, step, cancellationToken);
+
+        // Adaptive edge threshold: flat UIs stay sensitive, busy photos do not
+        // turn every texture into a hint.
+        long gradientSum = 0;
+        int gradientSamples = 0;
+
+        for (int y = 1; y < gridHeight - 1; y++)
         {
-            // Add a center region, a left region, a right region.
-            int cw = bitmap.Width / 4, ch = bitmap.Height / 4;
-            rects.Add(new Rectangle(bitmap.Width / 4, bitmap.Height / 4, cw, ch));
-            rects.Add(new Rectangle(bitmap.Width * 3 / 4 - cw, bitmap.Height / 4, cw, ch));
-            rects.Add(new Rectangle(bitmap.Width / 4, bitmap.Height * 3 / 4 - ch, cw, ch));
+            for (int x = 1; x < gridWidth - 1; x++)
+            {
+                int index = (y * gridWidth) + x;
+                int gx = grey[index + 1] - grey[index - 1];
+                int gy = grey[index + gridWidth] - grey[index - gridWidth];
+                gradientSum += Math.Abs(gx) + Math.Abs(gy);
+                gradientSamples++;
+            }
         }
 
-        // Filter: keep only reasonable-size rects.
-        return rects.Where(r => r.Width >= 15 && r.Height >= 15 &&
-                                r.Width <= bitmap.Width && r.Height <= bitmap.Height).ToList();
+        if (gradientSamples == 0)
+        {
+            return [];
+        }
+
+        int threshold = Math.Clamp(
+            (int)((gradientSum / (double)gradientSamples) * 2.0),
+            22,
+            60);
+
+        var edges = new bool[gridWidth * gridHeight];
+
+        for (int y = 1; y < gridHeight - 1; y++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int row = y * gridWidth;
+
+            for (int x = 1; x < gridWidth - 1; x++)
+            {
+                int index = row + x;
+                int gx = grey[index + 1] - grey[index - 1];
+                int gy = grey[index + gridWidth] - grey[index - gridWidth];
+
+                if (Math.Abs(gx) + Math.Abs(gy) >= threshold)
+                {
+                    edges[index] = true;
+                }
+            }
+        }
+
+        int radius = step <= 2 ? 2 : 1;
+        edges = Dilate(edges, gridWidth, gridHeight, radius);
+
+        return FindComponents(
+            edges,
+            gridWidth,
+            gridHeight,
+            step,
+            bitmap.Width,
+            bitmap.Height,
+            cancellationToken);
     }
 
     /// <summary>
-    /// Converts candidate rectangles into <see cref="VisualTarget"/> values,
-    /// using OCR text association when available.
+    /// Copies one pixel per grid cell into a grey buffer. The bitmap is locked
+    /// for the whole copy, so no per-pixel GDI+ calls are made.
+    /// </summary>
+    private static byte[] DownsampleGrey(
+        Bitmap bitmap,
+        int gridWidth,
+        int gridHeight,
+        int step,
+        CancellationToken cancellationToken)
+    {
+        var grey = new byte[gridWidth * gridHeight];
+        Bitmap? converted = null;
+        Bitmap source = bitmap;
+
+        if (bitmap.PixelFormat != PixelFormat.Format32bppArgb &&
+            bitmap.PixelFormat != PixelFormat.Format32bppPArgb &&
+            bitmap.PixelFormat != PixelFormat.Format32bppRgb)
+        {
+            converted = new Bitmap(bitmap.Width, bitmap.Height, PixelFormat.Format32bppArgb);
+            using (Graphics graphics = Graphics.FromImage(converted))
+            {
+                graphics.DrawImage(bitmap, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
+            }
+
+            source = converted;
+        }
+
+        try
+        {
+            var bounds = new Rectangle(0, 0, source.Width, source.Height);
+            BitmapData data = source.LockBits(bounds, ImageLockMode.ReadOnly, source.PixelFormat);
+
+            try
+            {
+                int stride = Math.Abs(data.Stride);
+                bool bottomUp = data.Stride < 0;
+                var row = new byte[stride];
+
+                for (int gy = 0; gy < gridHeight; gy++)
+                {
+                    if ((gy & 31) == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+
+                    int sy = Math.Min(source.Height - 1, gy * step);
+                    int sourceY = bottomUp ? source.Height - 1 - sy : sy;
+                    IntPtr rowPointer = IntPtr.Add(data.Scan0, sourceY * stride);
+                    Marshal.Copy(rowPointer, row, 0, stride);
+
+                    int rowBase = gy * gridWidth;
+
+                    for (int gx = 0; gx < gridWidth; gx++)
+                    {
+                        int sx = Math.Min(source.Width - 1, gx * step);
+                        int offset = sx * 4;
+                        int blue = row[offset];
+                        int green = row[offset + 1];
+                        int red = row[offset + 2];
+                        grey[rowBase + gx] = (byte)((red * 77 + green * 150 + blue * 29) >> 8);
+                    }
+                }
+            }
+            finally
+            {
+                source.UnlockBits(data);
+            }
+        }
+        finally
+        {
+            converted?.Dispose();
+        }
+
+        return grey;
+    }
+
+    /// <summary>Separable box dilation of a boolean mask.</summary>
+    private static bool[] Dilate(bool[] mask, int width, int height, int radius)
+    {
+        if (radius <= 0)
+        {
+            return (bool[])mask.Clone();
+        }
+
+        var horizontal = new bool[mask.Length];
+
+        for (int y = 0; y < height; y++)
+        {
+            int row = y * width;
+
+            for (int x = 0; x < width; x++)
+            {
+                int start = Math.Max(0, x - radius);
+                int end = Math.Min(width - 1, x + radius);
+                bool set = false;
+
+                for (int sample = start; sample <= end; sample++)
+                {
+                    if (mask[row + sample])
+                    {
+                        set = true;
+                        break;
+                    }
+                }
+
+                horizontal[row + x] = set;
+            }
+        }
+
+        var result = new bool[mask.Length];
+
+        for (int y = 0; y < height; y++)
+        {
+            int start = Math.Max(0, y - radius);
+            int end = Math.Min(height - 1, y + radius);
+
+            for (int x = 0; x < width; x++)
+            {
+                bool set = false;
+
+                for (int sample = start; sample <= end; sample++)
+                {
+                    if (horizontal[(sample * width) + x])
+                    {
+                        set = true;
+                        break;
+                    }
+                }
+
+                result[(y * width) + x] = set;
+            }
+        }
+
+        return result;
+    }
+
+    private static List<Rectangle> FindComponents(
+        bool[] mask,
+        int gridWidth,
+        int gridHeight,
+        int step,
+        int bitmapWidth,
+        int bitmapHeight,
+        CancellationToken cancellationToken)
+    {
+        var visited = new bool[mask.Length];
+        var stack = new int[mask.Length];
+        var boxes = new List<Rectangle>(64);
+
+        int minWidth = Math.Max(10, step * 3);
+        int minHeight = Math.Max(8, step * 2);
+        long bitmapArea = (long)bitmapWidth * bitmapHeight;
+
+        for (int start = 0; start < mask.Length; start++)
+        {
+            if ((start & 8191) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (!mask[start] || visited[start])
+            {
+                continue;
+            }
+
+            int top = 0;
+            stack[top++] = start;
+            visited[start] = true;
+
+            int minX = gridWidth;
+            int minY = gridHeight;
+            int maxX = 0;
+            int maxY = 0;
+            int pixelCount = 0;
+
+            while (top > 0)
+            {
+                int index = stack[--top];
+                int x = index % gridWidth;
+                int y = index / gridWidth;
+
+                pixelCount++;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    int ny = y + dy;
+                    if ((uint)ny >= (uint)gridHeight)
+                    {
+                        continue;
+                    }
+
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0)
+                        {
+                            continue;
+                        }
+
+                        int nx = x + dx;
+                        if ((uint)nx >= (uint)gridWidth)
+                        {
+                            continue;
+                        }
+
+                        int neighbour = (ny * gridWidth) + nx;
+                        if (mask[neighbour] && !visited[neighbour])
+                        {
+                            visited[neighbour] = true;
+                            stack[top++] = neighbour;
+                        }
+                    }
+                }
+            }
+
+            if (pixelCount < MinComponentPixels)
+            {
+                continue;
+            }
+
+            int left = minX * step;
+            int upper = minY * step;
+            int right = Math.Min(bitmapWidth, (maxX + 1) * step);
+            int lower = Math.Min(bitmapHeight, (maxY + 1) * step);
+            int width = right - left;
+            int height = lower - upper;
+
+            if (width < minWidth || height < minHeight)
+            {
+                continue;
+            }
+
+            // The window frame and full-width chrome are not clickable targets.
+            if (width > bitmapWidth * 0.92 || height > bitmapHeight * 0.92)
+            {
+                continue;
+            }
+
+            if ((long)width * height > bitmapArea * 4 / 10)
+            {
+                continue;
+            }
+
+            double aspect = (double)width / Math.Max(height, 1);
+            if (aspect > 30 || aspect < 1.0 / 30)
+            {
+                continue;
+            }
+
+            boxes.Add(new Rectangle(left, upper, width, height));
+
+            if (boxes.Count >= 2000)
+            {
+                break;
+            }
+
+            if ((boxes.Count & 63) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
+
+        return MergeBoxes(boxes);
+    }
+
+    /// <summary>
+    /// Drops boxes already covered by a larger box (text inside a button) and
+    /// boxes that overlap almost completely (duplicate contours).
+    /// </summary>
+    private static List<Rectangle> MergeBoxes(List<Rectangle> boxes)
+    {
+        var ordered = boxes
+            .OrderByDescending(box => (long)box.Width * box.Height)
+            .ToList();
+
+        var kept = new List<Rectangle>(ordered.Count);
+
+        foreach (Rectangle box in ordered)
+        {
+            bool covered = false;
+
+            foreach (Rectangle existing in kept)
+            {
+                if (existing.Contains(box))
+                {
+                    covered = true;
+                    break;
+                }
+
+                int overlapWidth = Math.Min(existing.Right, box.Right) -
+                                   Math.Max(existing.Left, box.Left);
+                int overlapHeight = Math.Min(existing.Bottom, box.Bottom) -
+                                    Math.Max(existing.Top, box.Top);
+
+                if (overlapWidth <= 0 || overlapHeight <= 0)
+                {
+                    continue;
+                }
+
+                long overlap = (long)overlapWidth * overlapHeight;
+                long smallerArea = Math.Min(
+                    (long)existing.Width * existing.Height,
+                    (long)box.Width * box.Height);
+
+                if (smallerArea > 0 && overlap * 100 >= smallerArea * 70)
+                {
+                    covered = true;
+                    break;
+                }
+            }
+
+            if (!covered)
+            {
+                kept.Add(box);
+            }
+        }
+
+        return kept
+            .OrderBy(box => box.Top)
+            .ThenBy(box => box.Left)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Converts capture-local candidate rectangles into canonical desktop-space
+    /// <see cref="VisualTarget"/> values.
     /// </summary>
     private static List<VisualTarget> BuildTargets(
         List<Rectangle> candidates,
         CaptureResult capture,
         IReadOnlyList<(string Text, TargetBounds Bounds, double Confidence)> ocrTextBoxes)
     {
-        var targets = new List<VisualTarget>();
+        var targets = new List<VisualTarget>(candidates.Count);
+        Rectangle frame = capture.Region.ToRectangle();
+        int index = 0;
 
-        foreach (var r in candidates)
+        foreach (Rectangle candidate in candidates)
         {
-            // Determine the most relevant OCR text for this rect.
-            string? ocrText = null;
-            double ocrConf = 0.0;
-            var matching = ocrTextBoxes.Where(t =>
-            {
-                // Simple intersection check: does the OCR box intersect this rect?
-                return t.Bounds.IntersectsWith(new TargetBounds(r.Left, r.Top, r.Width, r.Height));
-            }).ToList();
+            TargetBounds desktopBounds = HintCoordinates.FrameToDesktop(
+                frame,
+                candidate,
+                capture.DpiScale,
+                capture.DpiScale);
 
-            if (matching.Count > 0)
+            if (!desktopBounds.IsValid)
             {
-                var best = matching.OrderByDescending(t => t.Confidence).First();
-                ocrText = best.Text;
-                ocrConf = best.Confidence;
+                continue;
             }
 
-            // Heuristic type mapping.
-            TargetType type = HeuristicTargetType(r);
+            string? text = null;
+            double ocrConfidence = 0;
 
-            // Use constructor directly to avoid any type resolution ambiguity with FromRectangle
-            var bounds = new TargetBounds(r.Left, r.Top, r.Width, r.Height);
-            var clickPoint = new Point(
-                bounds.Left + (bounds.Width / 2),
-                bounds.Top + (bounds.Height / 2));
-
-            // Ensure click point is inside bounds.
-            if (!bounds.Contains(clickPoint))
+            if (ocrTextBoxes.Count > 0)
             {
-                clickPoint = HintCoordinates.ClampToBounds(clickPoint, bounds);
+                var matching = ocrTextBoxes
+                    .Where(box => candidate.IntersectsWith(new Rectangle(
+                        box.Bounds.Left,
+                        box.Bounds.Top,
+                        box.Bounds.Width,
+                        box.Bounds.Height)))
+                    .ToList();
+
+                if (matching.Count > 0)
+                {
+                    text = string.Join(
+                        " ",
+                        matching
+                            .Select(box => box.Text)
+                            .Where(value => !string.IsNullOrWhiteSpace(value)));
+                    ocrConfidence = matching.Max(box => box.Confidence);
+
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        text = null;
+                    }
+                }
             }
 
-            var target = new VisualTarget(
-                id: $"cv-{targets.Count + 1}",
-                source: TargetSource.Cv,
-                bounds: bounds,
+            Point clickPoint = HintCoordinates.ClampToBounds(
+                desktopBounds.Center,
+                desktopBounds);
+
+            double detectionConfidence = text is null
+                ? 0.55
+                : Math.Clamp(0.55 + (ocrConfidence * 0.4), 0.55, 0.95);
+
+            targets.Add(new VisualTarget(
+                id: $"cv-{++index}",
+                source: text is null ? TargetSource.CvContour : TargetSource.CvOcr,
+                bounds: desktopBounds,
                 clickPoint: clickPoint,
-                type: type,
-                text: ocrText ?? string.Empty,
-                detectionConfidence: ocrConf > 0 ? ocrConf : 0.5,
-                interactionConfidence: ocrConf > 0 ? ocrConf : 0.5,
+                type: HeuristicTargetType(candidate),
+                text: text ?? string.Empty,
+                detectionConfidence: detectionConfidence,
+                interactionConfidence: detectionConfidence,
                 isEnabled: true,
                 isVisible: true,
                 metadata: new TargetMetadata
                 {
                     Cv = new CvTargetMetadata(
-                        OcrText: ocrText,
-                        OcrConfidence: ocrConf,
+                        OcrText: text,
+                        OcrConfidence: text is null ? null : ocrConfidence,
                         FrameId: 0,
-                        Detector: "cv",
-                        SourceBounds: null)
-                });
-
-            targets.Add(target);
+                        Detector: "edge-components",
+                        SourceBounds: candidate)
+                }));
         }
 
         return targets;
     }
 
-    /// <summary>
-    /// Heuristically maps a rectangle's geometry to a <see cref="TargetType"/>.
-    /// </summary>
-    private static TargetType HeuristicTargetType(Rectangle r)
+    private static TargetType HeuristicTargetType(Rectangle rectangle)
     {
-        double ar = (double)r.Width / Math.Max(r.Height, 1);
+        double aspect = (double)rectangle.Width / Math.Max(rectangle.Height, 1);
 
-        if (ar > 3.0) return TargetType.Button;
-        if (ar < 0.3) return TargetType.Edit;
-        if (ar >= 0.8 && ar <= 1.2) return TargetType.CheckBox;
-        if (r.Height > r.Width * 1.5) return TargetType.ListItem;
+        if (aspect >= 2.5)
+        {
+            return TargetType.Button;
+        }
+
+        if (rectangle.Height > rectangle.Width * 1.8)
+        {
+            return TargetType.ListItem;
+        }
+
+        if (aspect is >= 0.8 and <= 1.2 && rectangle.Width <= 48)
+        {
+            return TargetType.CheckBox;
+        }
+
         return TargetType.Other;
     }
 
-    /// <summary>
-    /// Applies output capping, deduplication, and ordering to the raw targets.
-    /// </summary>
+    /// <summary>Deduplicates by center and caps the output list.</summary>
     private static List<VisualTarget> ApplyPostProcessing(List<VisualTarget> targets, int maxElements)
     {
-        int cap = System.Math.Clamp(targets.Count, 1, maxElements);
+        int cap = Math.Clamp(maxElements, 1, 2000);
+        var centers = new List<Point>(Math.Min(targets.Count, cap));
+        var deduped = new List<VisualTarget>(Math.Min(targets.Count, cap));
 
-        // Deduplicate by visible center.
-        var centers = new HashSet<(int x, int y)>();
-        var deduped = new List<VisualTarget>();
-
-        foreach (var t in targets.OrderBy(t => t.Bounds.Top).ThenBy(t => t.Bounds.Left))
+        foreach (VisualTarget target in targets
+                     .OrderBy(item => item.Bounds.Top)
+                     .ThenBy(item => item.Bounds.Left))
         {
-            int cx = t.Bounds.Center.X;
-            int cy = t.Bounds.Center.Y;
-            if (centers.Contains((cx, cy))) continue;
-            centers.Add((cx, cy));
-            deduped.Add(t);
-        }
+            Point center = target.Bounds.Center;
+            bool duplicate = false;
 
-        var result = deduped.Take(cap).ToList();
-
-        // Ensure click points are inside bounds.
-        for (int i = 0; i < result.Count; i++)
-        {
-            if (!result[i].Bounds.Contains(result[i].ClickPoint))
+            foreach (Point existing in centers)
             {
-                result[i] = new VisualTarget(
-                    id: result[i].Id,
-                    source: result[i].Source,
-                    bounds: result[i].Bounds,
-                    clickPoint: HintCoordinates.ClampToBounds(result[i].ClickPoint, result[i].Bounds),
-                    type: result[i].Type,
-                    text: result[i].Text,
-                    detectionConfidence: result[i].DetectionConfidence,
-                    interactionConfidence: result[i].InteractionConfidence,
-                    isEnabled: result[i].IsEnabled,
-                    isVisible: result[i].IsVisible,
-                    metadata: result[i].Metadata);
+                if (Math.Abs(existing.X - center.X) <= 4 &&
+                    Math.Abs(existing.Y - center.Y) <= 4)
+                {
+                    duplicate = true;
+                    break;
+                }
             }
+
+            if (duplicate)
+            {
+                continue;
+            }
+
+            centers.Add(center);
+            deduped.Add(target);
         }
 
-        return result;
+        return deduped.Take(cap).ToList();
     }
 }
 
 /// <summary>
-/// Provides a no-op OCR implementation that returns empty results.
-/// Used when no local OCR engine is available or configured.
+/// No-op OCR implementation. Used when no local OCR engine is configured; the
+/// contour detector still runs, so this does not disable computer vision.
 /// </summary>
 internal sealed class NullOcrEngine : IOcrEngine
 {

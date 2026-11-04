@@ -13,6 +13,12 @@ public sealed record HintScanOptions(int MaxElements, bool IncludeTaskbar)
     /// their own hard cap.
     /// </summary>
     public TimeSpan Budget { get; init; } = TimeSpan.FromMilliseconds(600);
+
+    /// <summary>
+    /// Requested source strategy. <see cref="HintScanMode.Auto"/> keeps the
+    /// legacy behaviour: UIA first, CV only when UIA finds nothing.
+    /// </summary>
+    public HintScanMode Mode { get; init; } = HintScanMode.Auto;
 }
 
 /// <summary>

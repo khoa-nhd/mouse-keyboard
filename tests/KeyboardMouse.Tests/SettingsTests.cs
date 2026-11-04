@@ -1,4 +1,5 @@
 using KeyboardMouse.Config;
+using KeyboardMouse.Core;
 using KeyboardMouse.Overlays;
 
 namespace KeyboardMouse.Tests;
@@ -98,6 +99,40 @@ public class SettingsTests
         _ = settings.Speed.Normal.ToProfile();
         _ = settings.Speed.Precision.ToProfile();
         _ = settings.Speed.Turbo.ToProfile();
+    }
+
+    [Theory]
+    [InlineData(null, "auto")]
+    [InlineData("", "auto")]
+    [InlineData("bogus", "auto")]
+    [InlineData("AUTO", "auto")]
+    [InlineData("uia", "uia")]
+    [InlineData("CV", "cv")]
+    [InlineData("hybrid", "hybrid")]
+    public void Normalize_RepairsHintScanMode(string? value, string expected)
+    {
+        var settings = new Settings
+        {
+            Hint = new HintSettings { ScanMode = value! }
+        };
+
+        settings.Normalize();
+
+        Assert.Equal(expected, settings.Hint.ScanMode);
+    }
+
+    [Fact]
+    public void HintScanModes_MapSourcesAndDefaults()
+    {
+        Assert.Equal(TargetSource.All, HintScanModes.SourcesFor(HintScanMode.Auto));
+        Assert.Equal(TargetSource.Uia, HintScanModes.SourcesFor(HintScanMode.Uia));
+        Assert.Equal(TargetSource.Cv, HintScanModes.SourcesFor(HintScanMode.Cv));
+        Assert.Equal(TargetSource.All, HintScanModes.SourcesFor(HintScanMode.Hybrid));
+
+        Assert.Equal(HintScanMode.Auto, HintScanModes.Parse(null));
+        Assert.Equal(HintScanMode.Hybrid, HintScanModes.Parse(" Hybrid "));
+        Assert.Equal("cv", HintScanModes.ToId(HintScanMode.Cv));
+        Assert.True(HintScanModes.DefaultBudget > HintScanModes.SourceBudget);
     }
 
     [Fact]

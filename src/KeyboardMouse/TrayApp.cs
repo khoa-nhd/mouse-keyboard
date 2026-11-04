@@ -30,7 +30,7 @@ public sealed class TrayApp : ApplicationContext
     private readonly ScreenBorder _screenBorder;
     private readonly GridOverlay _gridOverlay;
     private readonly HintOverlay _hintOverlay;
-    private readonly ClickableScanner _clickableScanner;
+    private readonly IClickableScanner _clickableScanner;
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu;
     private readonly System.Windows.Forms.Timer _pollTimer;
@@ -42,6 +42,8 @@ public sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _autostartItem;
     private readonly ToolStripMenuItem _pointerStyleItem;
     private readonly Dictionary<CursorStyle, ToolStripMenuItem> _pointerStyleItems = new();
+    private readonly ToolStripMenuItem _hintScanModeItem;
+    private readonly Dictionary<HintScanMode, ToolStripMenuItem> _hintScanModeItems = new();
     private readonly ToolStripMenuItem _checkUpdatesItem;
     private readonly UpdateService _updates = new();
 
@@ -83,7 +85,7 @@ public sealed class TrayApp : ApplicationContext
         _movement = new MovementEngine(_mouse, _profiles, _monitors);
         _gridOverlay = new GridOverlay();
         _hintOverlay = new HintOverlay();
-        _clickableScanner = new ClickableScanner(_monitors);
+        _clickableScanner = new HybridClickableScanner(_monitors);
         _router = new InputRouter(
             _state,
             _movement,
@@ -150,6 +152,25 @@ public sealed class TrayApp : ApplicationContext
             _pointerStyleItem.DropDownItems.Add(item);
         }
 
+        _hintScanModeItem = new ToolStripMenuItem("Hint scan mode");
+        foreach (var mode in new[]
+                 {
+                     HintScanMode.Auto,
+                     HintScanMode.Uia,
+                     HintScanMode.Cv,
+                     HintScanMode.Hybrid
+                 })
+        {
+            var chosen = mode;
+            var item = new ToolStripMenuItem(HintScanModes.DisplayName(chosen))
+            {
+                CheckOnClick = false
+            };
+            item.Click += (_, _) => SetHintScanMode(chosen);
+            _hintScanModeItems[chosen] = item;
+            _hintScanModeItem.DropDownItems.Add(item);
+        }
+
         _checkUpdatesItem = new ToolStripMenuItem("Check for updates…");
         _checkUpdatesItem.Click += (_, _) => _ = CheckForUpdatesAsync(silent: false);
 
@@ -161,6 +182,7 @@ public sealed class TrayApp : ApplicationContext
         _menu.Items.Add(_modeItem);
         _menu.Items.Add(_pauseItem);
         _menu.Items.Add(_pointerStyleItem);
+        _menu.Items.Add(_hintScanModeItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(CreateItem("Show keymap", () => ShowGuide("keys")));
         _menu.Items.Add(CreateItem("Open settings file", OpenSettingsFile));
@@ -186,6 +208,7 @@ public sealed class TrayApp : ApplicationContext
         _state.PausedChanged += ScheduleUiUpdate;
         _autostartItem.Checked = Autostart.IsEnabled();
         UpdatePointerStyleChecks();
+        UpdateHintScanModeChecks();
 
         // A throwing hook callback must not do file IO on the hook call stack:
         // it would risk the low-level hook timeout, so defer the logging.
@@ -1126,6 +1149,7 @@ public sealed class TrayApp : ApplicationContext
         _cursorIndicator.SetPalette(_settings.Feedback.ToPalette());
         _cursorIndicator.SetStyle(ParseCursorStyle());
         UpdatePointerStyleChecks();
+        UpdateHintScanModeChecks();
         _screenBorder.Configure(
             BorderStyles.ParseOrDefault(_settings.Feedback.BorderStyle),
             CursorColors.ToColor(_settings.Feedback.BorderColor),
@@ -1192,6 +1216,32 @@ public sealed class TrayApp : ApplicationContext
         foreach (var (style, item) in _pointerStyleItems)
         {
             item.Checked = style == current;
+        }
+    }
+
+    /// <summary>Tray submenu: UIA, CV or hybrid hint detection.</summary>
+    private void SetHintScanMode(HintScanMode mode)
+    {
+        _settings.Hint.ScanMode = HintScanModes.ToId(mode);
+
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Could not save the hint scan mode", ex);
+        }
+
+        ApplySettings();
+    }
+
+    private void UpdateHintScanModeChecks()
+    {
+        var current = HintScanModes.Parse(_settings.Hint.ScanMode);
+        foreach (var (mode, item) in _hintScanModeItems)
+        {
+            item.Checked = mode == current;
         }
     }
 

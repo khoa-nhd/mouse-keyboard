@@ -138,7 +138,6 @@ internal static class User32
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern IntPtr GetDC(IntPtr hWnd);
 
     [DllImport("user32.dll")]

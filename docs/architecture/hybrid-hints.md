@@ -906,7 +906,7 @@ No target, grid cell, screenshot region, or click point may be stored in DIPs, p
 - `PRIVACY.md`
 - `CHANGELOG.md`
 
-**Exit:** No user-visible regression when the mode stays `"uia"`; hybrid/cv are documented and testable.
+**Exit:** No user-visible regression when the mode stays `"auto"`; hybrid/cv are documented and testable.
 
 ### Phase 6 — Validation and default switch
 
@@ -915,7 +915,7 @@ No target, grid cell, screenshot region, or click point may be stored in DIPs, p
 - Run the acceptance matrix in section 10.
 - Compare UIA-only parity against v1.0.9.
 - Measure p50/p95 scan latency, memory, CPU, and OCR availability.
-- If gates pass, switch `HintSettings.ScannerMode` default to `"hybrid"` and document the change. Otherwise keep it opt-in and record the measured limitations.
+- If gates pass, switch `HintSettings.ScanMode` default to `"hybrid"` and document the change. Otherwise keep it opt-in and record the measured limitations.
 
 **Expected files:**
 

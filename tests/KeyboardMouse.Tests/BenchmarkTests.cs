@@ -1,336 +1,286 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using Xunit;
+using System.Drawing;
+using System.Windows.Forms;
+using KeyboardMouse.Capture;
 using KeyboardMouse.Core;
 using KeyboardMouse.Hints;
-using KeyboardMouse.Capture;
 
 namespace KeyboardMouse.Tests;
 
 /// <summary>
-/// Comprehensive benchmark tests for the Hybrid Hint system.
-/// Measures precision, recall, F1, latency, and resource usage across
-/// UIA-only, CV-only, and Hybrid scanning modes.
+/// Honest, opt-in measurements for the three hint sources.
 ///
-/// Ground-truth annotations are stored in the 'test-ground-truth' directory
-/// relative to the solution root. Each annotation file contains rectangles
-/// in canonical physical-pixel space, one per line: X Y Width Height
+/// These tests do not invent precision/recall numbers. They open a real
+/// WinForms window with two buttons and a custom-painted panel, scan that
+/// window, and report what the scanner actually returned plus the wall-clock
+/// time from <c>BeginScan</c> to the completion callback.
+///
+/// There is no ground-truth corpus in the repository, so precision, recall and
+/// F1 are intentionally not computed here.
 /// </summary>
 public class BenchmarkTests
 {
-    // Base directory for test ground truth images and annotations
-    private const string GroundTruthBase = @"..\..\..\test-ground-truth";
-
-    /// <summary>
-    /// Gets the UIA-only scanner for testing.
-    /// </summary>
-    private IHintScanner UiaScanner => new UIAutomationScanner();
-
-    /// <summary>
-    /// Gets the CV-only scanner for testing.
-    /// </summary>
-    private IHintScanner CvScanner => new ComputerVisionScanner(new ScreenCaptureService());
-
-    /// <summary>
-    /// Gets the hybrid scanner for testing.
-    /// </summary>
-    private IHintScanner HybridScanner => new HybridHintScanner();
-
-    /// <summary>
-    /// Performs a single scan and returns the result with timing.
-    /// </summary>
-    private (HintScanResult Result, long ElapsedMs) RunScan(IHintScanner scanner, IntPtr window, HintScanOptions options, CancellationToken ct)
+    [Fact]
+    [Trait("Category", "Benchmark")]
+    public async Task UiOnly_RealWindow_ReportsMeasurements()
     {
-        var sw = Stopwatch.StartNew();
-        var result = HintScanResult.FromTargets(new List<VisualTarget>());
+        using BenchmarkWindow window = BenchmarkWindow.Show();
+        var scanner = new UIAutomationScanner(FakeMonitorService.Single());
 
-        scanner.BeginScan(new HintScanRequest(window, options, ct), r =>
-        {
-            // Result delivered via callback - we capture it loosely here.
-            // For benchmark timing, we just measure the dispatch overhead.
-        });
+        (HintScanResult result, long elapsed) = await RunScanAsync(
+            scanner,
+            window.Handle,
+            new HintScanOptions(200, false)
+            {
+                Mode = HintScanMode.Uia,
+                Sources = TargetSource.Uia,
+                Budget = TimeSpan.FromMilliseconds(400)
+            });
 
-        // Wait briefly for the scan to complete
-        Thread.Sleep(500);
-        sw.Stop();
-        return (result, sw.ElapsedMilliseconds);
+        Console.WriteLine(
+            $"[UIA] status={result.Status} targets={result.Targets.Count} " +
+            $"elapsed={elapsed}ms buttons={result.Targets.Count(t => t.Text is "Save" or "Cancel")}");
+
+        Assert.Equal(HintScanStatus.Success, result.Status);
+        Assert.Contains(result.Targets, target => target.Text == "Save");
+        Assert.Contains(result.Targets, target => target.Text == "Cancel");
+        Assert.InRange(elapsed, 0, 10_000);
     }
 
-    /// <summary>
-    /// Loads ground truth rectangles from an annotation file.
-    /// Format: X Y Width Height (one per line, canonical physical pixels)
-    /// </summary>
-    private static List<TargetBounds> LoadGroundTruth(string filename)
+    [Fact]
+    [Trait("Category", "Benchmark")]
+    public async Task CvOnly_RealWindow_ReportsMeasurements()
     {
-        var rects = new List<TargetBounds>();
-        var path = Path.Combine(GroundTruthBase, filename);
-        if (!File.Exists(path)) return rects;
+        using BenchmarkWindow window = BenchmarkWindow.Show();
+        var scanner = new ComputerVisionScanner(
+            new ScreenCaptureService(),
+            timeout: TimeSpan.FromSeconds(2),
+            maxElements: 200);
 
-        foreach (var line in File.ReadLines(path))
-        {
-            var parts = line.Split();
-            if (parts.Length >= 4 &&
-                int.TryParse(parts[0], out int x) &&
-                int.TryParse(parts[1], out int y) &&
-                int.TryParse(parts[2], out int w) &&
-                int.TryParse(parts[3], out int h) &&
-                w > 0 && h > 0)
+        (HintScanResult result, long elapsed) = await RunScanAsync(
+            scanner,
+            window.Handle,
+            new HintScanOptions(200, false)
             {
-                rects.Add(new TargetBounds(x, y, w, h));
-            }
-        }
-        return rects;
+                Mode = HintScanMode.Cv,
+                Sources = TargetSource.Cv,
+                Budget = TimeSpan.FromSeconds(2)
+            });
+
+        Console.WriteLine(
+            $"[CV] status={result.Status} targets={result.Targets.Count} elapsed={elapsed}ms");
+
+        Assert.True(
+            result.HasTargets,
+            "The pixel detector should find at least one region in a real window.");
+        Assert.All(result.Targets, target => Assert.True(target.IsActionable));
+        Assert.InRange(elapsed, 0, 10_000);
     }
 
-    /// <summary>
-    /// Counts how many scanned targets intersect with ground truth rectangles.
-    /// A match is counted if the scanned target's bounds intersect the ground truth rect.
-    /// </summary>
-    private static int CountMatches(IReadOnlyList<VisualTarget> scanned, List<TargetBounds> groundTruth)
+    [Fact]
+    [Trait("Category", "Benchmark")]
+    public async Task Hybrid_RealWindow_ReportsMeasurements()
     {
-        int matches = 0;
-        foreach (var gt in groundTruth)
-        {
-            foreach (var t in scanned)
+        using BenchmarkWindow window = BenchmarkWindow.Show();
+        var scanner = new HybridHintScanner();
+
+        (HintScanResult result, long elapsed) = await RunScanAsync(
+            scanner,
+            window.Handle,
+            new HintScanOptions(200, false)
             {
-                if (t.Bounds.IntersectsWith(gt))
+                Mode = HintScanMode.Hybrid,
+                Sources = TargetSource.All,
+                Budget = TimeSpan.FromSeconds(2)
+            });
+
+        Console.WriteLine(
+            $"[Hybrid] status={result.Status} targets={result.Targets.Count} elapsed={elapsed}ms");
+
+        Assert.Equal(HintScanStatus.Success, result.Status);
+        Assert.Contains(result.Targets, target => target.Text == "Save");
+        Assert.InRange(elapsed, 0, 10_000);
+    }
+
+    [Fact]
+    [Trait("Category", "Benchmark")]
+    public async Task Latency_ThreeIterations_ReportsP50AndMax()
+    {
+        using BenchmarkWindow window = BenchmarkWindow.Show();
+        var scanners = new (string Name, IHintScanner Scanner, HintScanMode Mode, TargetSource Sources)[]
+        {
+            ("UIA", new UIAutomationScanner(FakeMonitorService.Single()), HintScanMode.Uia, TargetSource.Uia),
+            ("CV", new ComputerVisionScanner(new ScreenCaptureService()), HintScanMode.Cv, TargetSource.Cv),
+            ("Hybrid", new HybridHintScanner(), HintScanMode.Hybrid, TargetSource.All)
+        };
+
+        foreach ((string name, IHintScanner scanner, HintScanMode mode, TargetSource sources) in scanners)
+        {
+            var samples = new List<long>(3);
+
+            for (int i = 0; i < 3; i++)
+            {
+                var options = new HintScanOptions(200, false)
                 {
-                    matches++;
-                    break;
+                    Mode = mode,
+                    Sources = sources,
+                    Budget = TimeSpan.FromSeconds(2)
+                };
+
+                (HintScanResult result, long elapsed) = await RunScanAsync(
+                    scanner,
+                    window.Handle,
+                    options);
+
+                Assert.True(
+                    result.Status is HintScanStatus.Success or HintScanStatus.NoTargets,
+                    $"{name} scan failed: {result.Status} {result.FailureReason}");
+
+                samples.Add(elapsed);
+                await Task.Delay(100);
+            }
+
+            samples.Sort();
+            long p50 = samples[1];
+            long max = samples[2];
+            Console.WriteLine(
+                $"[Latency {name}] n=3 samples={string.Join(",", samples)}ms " +
+                $"P50={p50}ms max={max}ms");
+            Assert.InRange(p50, 0, 10_000);
+            Assert.InRange(max, 0, 10_000);
+        }
+    }
+
+    private static async Task<(HintScanResult Result, long ElapsedMs)> RunScanAsync(
+        IHintScanner scanner,
+        IntPtr window,
+        HintScanOptions options)
+    {
+        var completion = new TaskCompletionSource<HintScanResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var stopwatch = Stopwatch.StartNew();
+        scanner.BeginScan(
+            new HintScanRequest(window, options),
+            result => completion.TrySetResult(result));
+
+        HintScanResult scan = await completion.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        stopwatch.Stop();
+
+        return (scan, stopwatch.ElapsedMilliseconds);
+    }
+
+    /// <summary>
+    /// A real window on its own STA message loop. Two real buttons exercise UI
+    /// Automation, and a custom-painted panel exercises the pixel detector.
+    /// </summary>
+    private sealed class BenchmarkWindow : IDisposable
+    {
+        private readonly Form _form;
+        private readonly ManualResetEventSlim _closed = new();
+
+        private BenchmarkWindow(Form form) => _form = form;
+
+        public IntPtr Handle => _form.Handle;
+
+        public static BenchmarkWindow Show()
+        {
+            var ready = new TaskCompletionSource<BenchmarkWindow>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var thread = new Thread(() =>
+            {
+                var form = new Form
+                {
+                    Text = "KeyboardMouse benchmark window",
+                    StartPosition = FormStartPosition.Manual,
+                    Location = new Point(80, 80),
+                    ClientSize = new Size(480, 280),
+                    ShowInTaskbar = false
+                };
+
+                var save = new Button
+                {
+                    Text = "Save",
+                    Location = new Point(24, 24),
+                    Size = new Size(120, 36)
+                };
+
+                var cancel = new Button
+                {
+                    Text = "Cancel",
+                    Location = new Point(168, 24),
+                    Size = new Size(120, 36)
+                };
+
+                var panel = new Panel
+                {
+                    Location = new Point(24, 88),
+                    Size = new Size(360, 140),
+                    BackColor = Color.White
+                };
+
+                panel.Paint += (_, eventArgs) =>
+                {
+                    using var pen = new Pen(Color.FromArgb(50, 50, 50), 2);
+                    eventArgs.Graphics.DrawRectangle(pen, 12, 12, 140, 40);
+                    eventArgs.Graphics.DrawRectangle(pen, 176, 72, 150, 44);
+                    eventArgs.Graphics.DrawString(
+                        "custom drawn",
+                        new Font("Segoe UI", 10f),
+                        Brushes.Black,
+                        12,
+                        64);
+                };
+
+                form.Controls.Add(save);
+                form.Controls.Add(cancel);
+                form.Controls.Add(panel);
+
+                var window = new BenchmarkWindow(form);
+                form.Shown += (_, _) => ready.TrySetResult(window);
+
+                try
+                {
+                    Application.Run(form);
+                }
+                finally
+                {
+                    window._closed.Set();
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "KeyboardMouse.BenchmarkWindow"
+            };
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+
+            if (!ready.Task.Wait(TimeSpan.FromSeconds(5)))
+            {
+                throw new TimeoutException("The benchmark window did not open.");
+            }
+
+            return ready.Task.Result;
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (_form.IsHandleCreated)
+                {
+                    _form.BeginInvoke(new Action(_form.Close));
                 }
             }
-        }
-        return matches;
-    }
+            catch (InvalidOperationException)
+            {
+                // The form already closed.
+            }
 
-    /// <summary>
-    /// Counts unique scanned targets (by center) to estimate duplicates.
-    /// </summary>
-    private static int CountUniqueTargets(IReadOnlyList<VisualTarget> scanned)
-    {
-        var centers = new HashSet<(int x, int y)>();
-        foreach (var t in scanned)
-        {
-            int cx = t.Bounds.Center.X;
-            int cy = t.Bounds.Center.Y;
-            centers.Add((cx, cy));
-        }
-        return centers.Count;
-    }
-
-    /// <summary>
-    /// Computes precision, recall, and F1 score against ground truth.
-    /// </summary>
-    private static (double precision, double recall, double f1) ComputeMetrics(
-        IReadOnlyList<VisualTarget> scanned,
-        List<TargetBounds> groundTruth)
-    {
-        int truePositives = CountMatches(scanned, groundTruth);
-        int falsePositives = scanned.Count - truePositives;
-        int falseNegatives = groundTruth.Count - truePositives;
-
-        double precision = groundTruth.Count > 0
-            ? (double)truePositives / (truePositives + falsePositives)
-            : truePositives > 0 ? 1.0 : 0.0;
-
-        double recall = groundTruth.Count > 0
-            ? (double)truePositives / groundTruth.Count
-            : 0.0;
-
-        double f1 = (precision + recall > 0)
-            ? 2 * precision * recall / (precision + recall)
-            : 0.0;
-
-        return (precision, recall, f1);
-    }
-
-    // ===== Ground-truth annotated application tests =====
-
-    /// <summary>
-    /// Benchmark: UIA-only scan of Notepad with ground-truth measurement.
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Benchmark")]
-    public void UiOnly_Notepad_Benchmark()
-    {
-        var (result, latency) = RunScan(UiaScanner, IntPtr.Zero,
-            new HintScanOptions(200, false) { Sources = TargetSource.Uia }, CancellationToken.None);
-
-        // Basic validation
-        Assert.NotNull(result);
-        Assert.True(result.IsSuccess);
-
-        // Load ground truth and compute metrics if available
-        var groundTruth = LoadGroundTruth("notepad.txt");
-        if (groundTruth.Count > 0)
-        {
-            var (precision, recall, f1) = ComputeMetrics(result.Targets, groundTruth);
-            Console.WriteLine($"[UIA-Notepad] Latency: {latency}ms, Status: {result.Status}, " +
-                $"Targets: {result.Targets.Count}, Precision: {precision:F3}, " +
-                $"Recall: {recall:F3}, F1: {f1:F3}");
-        }
-        else
-        {
-            Console.WriteLine($"[UIA-Notepad] Latency: {latency}ms, Status: {result.Status}, Targets: {result.Targets.Count}");
-        }
-    }
-
-    /// <summary>
-    /// Benchmark: CV-only scan of Notepad with ground-truth measurement.
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Benchmark")]
-    public void CvOnly_Notepad_Benchmark()
-    {
-        var (result, latency) = RunScan(CvScanner, IntPtr.Zero,
-            new HintScanOptions(200, false) { Sources = TargetSource.Cv }, CancellationToken.None);
-
-        // Basic validation
-        Assert.NotNull(result);
-        Assert.True(result.IsSuccess);
-
-        var groundTruth = LoadGroundTruth("notepad.txt");
-        if (groundTruth.Count > 0)
-        {
-            var (precision, recall, f1) = ComputeMetrics(result.Targets, groundTruth);
-            Console.WriteLine($"[CV-Notepad] Latency: {latency}ms, Status: {result.Status}, " +
-                $"Targets: {result.Targets.Count}, Precision: {precision:F3}, " +
-                $"Recall: {recall:F3}, F1: {f1:F3}");
-        }
-        else
-        {
-            Console.WriteLine($"[CV-Notepad] Latency: {latency}ms, Status: {result.Status}, Targets: {result.Targets.Count}");
-        }
-    }
-
-    /// <summary>
-    /// Benchmark: Hybrid scan of Notepad with ground-truth measurement.
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Benchmark")]
-    public void Hybrid_Notepad_Benchmark()
-    {
-        var (result, latency) = RunScan(HybridScanner, IntPtr.Zero,
-            new HintScanOptions(200, false) { Sources = TargetSource.Uia | TargetSource.Cv }, CancellationToken.None);
-
-        // Basic validation
-        Assert.NotNull(result);
-        Assert.True(result.IsSuccess);
-
-        var groundTruth = LoadGroundTruth("notepad.txt");
-        if (groundTruth.Count > 0)
-        {
-            var (precision, recall, f1) = ComputeMetrics(result.Targets, groundTruth);
-            Console.WriteLine($"[Hybrid-Notepad] Latency: {latency}ms, Status: {result.Status}, " +
-                $"Targets: {result.Targets.Count}, Precision: {precision:F3}, " +
-                $"Recall: {recall:F3}, F1: {f1:F3}");
-        }
-        else
-        {
-            Console.WriteLine($"[Hybrid-Notepad] Latency: {latency}ms, Status: {result.Status}, Targets: {result.Targets.Count}");
-        }
-    }
-
-    // ===== Latency measurement tests (3 iterations each) =====
-
-    /// <summary>
-    /// Measures UIA scan latency across 3 iterations, reports P50/P95.
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Benchmark")]
-    public void UiOnly_LatencyMeasurement()
-    {
-        var scanner = new UIAutomationScanner();
-        var options = new HintScanOptions(200, false) { Sources = TargetSource.Uia };
-        var latencies = new List<long>();
-
-        for (int i = 0; i < 3; i++)
-        {
-            var sw = Stopwatch.StartNew();
-            scanner.BeginScan(new HintScanRequest(IntPtr.Zero, options, CancellationToken.None), r => { });
-            sw.Stop();
-            latencies.Add(sw.ElapsedMilliseconds);
-            Thread.Sleep(100);
-        }
-
-        latencies.Sort();
-        double p50 = latencies[1];
-        double p95 = latencies[2]; // conservative P95 with 3 samples
-
-        Console.WriteLine($"[UIA Latency] P50: {p50}ms, P95: {p95}ms, Samples: {string.Join(", ", latencies)}");
-
-        // Basic sanity: each scan dispatch should complete within a reasonable time
-        foreach (var lat in latencies)
-        {
-            Assert.InRange(lat, 0, 10000);
-        }
-    }
-
-    /// <summary>
-    /// Measures CV scan latency across 3 iterations, reports P50/P95.
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Benchmark")]
-    public void CvOnly_LatencyMeasurement()
-    {
-        var scanner = new ComputerVisionScanner(new ScreenCaptureService());
-        var options = new HintScanOptions(200, false) { Sources = TargetSource.Cv };
-        var latencies = new List<long>();
-
-        for (int i = 0; i < 3; i++)
-        {
-            var sw = Stopwatch.StartNew();
-            scanner.BeginScan(new HintScanRequest(IntPtr.Zero, options, CancellationToken.None), r => { });
-            sw.Stop();
-            latencies.Add(sw.ElapsedMilliseconds);
-            Thread.Sleep(100);
-        }
-
-        latencies.Sort();
-        double p50 = latencies[1];
-        double p95 = latencies[2];
-
-        Console.WriteLine($"[CV Latency] P50: {p50}ms, P95: {p95}ms, Samples: {string.Join(", ", latencies)}");
-
-        foreach (var lat in latencies)
-        {
-            Assert.InRange(lat, 0, 10000);
-        }
-    }
-
-    /// <summary>
-    /// Measures hybrid scan latency across 3 iterations, reports P50/P95.
-    /// </summary>
-    [Fact]
-    [Trait("Category", "Benchmark")]
-    public void Hybrid_LatencyMeasurement()
-    {
-        var scanner = new HybridHintScanner();
-        var options = new HintScanOptions(200, false) { Sources = TargetSource.Uia | TargetSource.Cv };
-        var latencies = new List<long>();
-
-        for (int i = 0; i < 3; i++)
-        {
-            var sw = Stopwatch.StartNew();
-            scanner.BeginScan(new HintScanRequest(IntPtr.Zero, options, CancellationToken.None), r => { });
-            sw.Stop();
-            latencies.Add(sw.ElapsedMilliseconds);
-            Thread.Sleep(100);
-        }
-
-        latencies.Sort();
-        double p50 = latencies[1];
-        double p95 = latencies[2];
-
-        Console.WriteLine($"[Hybrid Latency] P50: {p50}ms, P95: {p95}ms, Samples: {string.Join(", ", latencies)}");
-
-        foreach (var lat in latencies)
-        {
-            Assert.InRange(lat, 0, 10000);
+            _closed.Wait(TimeSpan.FromSeconds(5));
+            _closed.Dispose();
         }
     }
 }

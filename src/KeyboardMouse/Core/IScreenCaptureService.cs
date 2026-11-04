@@ -51,7 +51,7 @@ public sealed record CaptureResult
     /// The captured bitmap in the canonical physical-pixel coordinate space.
     /// Caller must dispose.
     /// </summary>
-    public Bitmap Bitmap { get; init; }
+    public Bitmap Bitmap { get; init; } = null!;
 
     /// <summary>
     /// The desktop-origin rectangle that was captured.  In the canonical

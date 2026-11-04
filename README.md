@@ -255,9 +255,24 @@ Labels appear on every clickable element of the foreground window (and the
 taskbar). Type a label's letters (`a s d f j k l ;`) to click that element.
 Shift + label hovers, F + label right-clicks, Backspace deletes a letter, Esc cancels.
 
+**Detection sources.** Hint mode can find targets three ways:
+
+| Mode | What it does |
+|---|---|
+| `auto` (default) | UI Automation first; if UIA finds nothing, fall back to computer vision. Normal apps keep the old fast path. |
+| `uia` | UI Automation only (legacy behaviour). |
+| `cv` | Computer vision only: captures the window and finds rectangular/pixel regions. For custom-drawn UIs that expose no UIA tree. |
+| `hybrid` | Runs UIA and CV, fuses overlapping targets, and keeps CV-only targets. |
+
+Pick the mode from tray icon → **Hint scan mode**, or set
+`"hint": { "scanMode": "cv" }` in `settings.json` and reload. The CV detector
+runs locally on the captured pixels; it does not upload screenshots. There is
+no OCR backend bundled yet, so CV targets are found from contours/edges and
+have no text names.
+
 Chromium-based apps (Chrome, Edge, VS Code) build their accessibility tree
-lazily, so the first scan can be empty. Press H again, or start the browser
-with `--force-renderer-accessibility`.
+lazily, so the first UIA scan can be empty. Press H again, start the browser
+with `--force-renderer-accessibility`, or switch to `hybrid`/`cv` mode.
 
 ### Jumps and marks
 
@@ -301,6 +316,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "autoClick": "B"
   },
   "autoClick": { "intervalMs": 100, "button": "Left" },
+  "hint": { "scanMode": "auto", "maxElements": 400, "includeTaskbar": true },
   ...
 }
 ```
@@ -342,16 +358,27 @@ dotnet test tests/KeyboardMouse.Tests -c Release
 dotnet run --project src/KeyboardMouse -c Release
 ```
 
-All 9 tasks complete: Hybrid Hint system fully implemented with 320/320 tests passing.
+The Hybrid Hint system is wired into the running app and covered by tests.
 
-- **Tasks 1-3:** Screen capture, OCR abstraction, CV scanner (conservative heuristic-based, no ONNX/models)
-- **Tasks 4-6:** Target fusion engine, hybrid scanner, action executor with 6 safety checks
-- **Tasks 7-8:** Action execution layer (foreground validation, staleness, UIA patterns, precision refinement, double-click)
-- **Task 9:** Comprehensive audit, benchmark tests, release readiness verification
+- **Detection:** UI Automation (`ClickableScanner`/`UIAutomationScanner`), real
+  pixel-based computer vision (`ComputerVisionScanner`), and a fusion engine.
+  Auto mode keeps UIA as the fast path and uses CV only when UIA is empty.
+- **Scan modes:** `auto`, `uia`, `cv`, `hybrid` — selectable in the tray menu or
+  via `hint.scanMode`.
+- **Action safety:** foreground/staleness checks, duplicate-prevention,
+  click-point validation, UIA patterns first then mouse fallback.
+- **Tests:** 329/329 passing (Release). The benchmark tests open a real WinForms
+  window and report measured targets/latency; they do not compute
+  precision/recall because there is no ground-truth corpus in the repository.
 
 **Build:** 0 errors, 0 warnings  
-**Tests:** 320/320 passed (314 original + 6 benchmark)  
-**Architecture:** `docs/architecture/hybrid-hint-audit.md` with precision behavior, compatibility matrix, security review, performance profile, known limitations, release readiness checklist
+**Measured on this machine (3 runs, real WinForms window):** UIA P50 48 ms,
+CV P50 38 ms, Hybrid P50 56 ms; UIA found both buttons, CV found 9 pixel
+regions. These are local smoke measurements, not a benchmark suite.
+
+**Architecture:** `docs/architecture/hybrid-hint-audit.md` documents the
+pipeline, security/privacy review, known limitations and the honest
+measurement status.
 
 Build the single portable exe (it lands in `publish\KeyboardMouse.exe`):
 

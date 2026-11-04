@@ -116,9 +116,15 @@ public sealed class HintController : IModeController
             return;
         }
 
+        var mode = HintScanModes.Parse(_settings.ScanMode);
         var options = new HintScanOptions(
             Math.Clamp(_settings.MaxElements, 1, 2000),
-            _settings.IncludeTaskbar);
+            _settings.IncludeTaskbar)
+        {
+            Mode = mode,
+            Sources = HintScanModes.SourcesFor(mode),
+            Budget = HintScanModes.BudgetFor(mode)
+        };
 
         try
         {

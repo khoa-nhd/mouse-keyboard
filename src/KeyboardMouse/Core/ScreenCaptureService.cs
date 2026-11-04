@@ -47,10 +47,12 @@ internal sealed class ScreenCaptureService : IScreenCaptureService
 
         Rectangle desktopRegion = ToRectangle(rect);
 
-        var desktopDc = User32.GetDC(hwnd);
+        // The screen DC is required: the source coordinates below are desktop
+        // coordinates, while a window DC origin is the window's client area.
+        var desktopDc = User32.GetDC(IntPtr.Zero);
         if (desktopDc == IntPtr.Zero)
         {
-            throw new InvalidOperationException("Could not obtain the window device context.");
+            throw new InvalidOperationException("Could not obtain the desktop device context.");
         }
 
         try
@@ -147,7 +149,7 @@ internal sealed class ScreenCaptureService : IScreenCaptureService
         }
         finally
         {
-            User32.ReleaseDC(hwnd, desktopDc);
+            User32.ReleaseDC(IntPtr.Zero, desktopDc);
         }
     }
 
