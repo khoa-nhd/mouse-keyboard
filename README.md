@@ -259,7 +259,7 @@ Shift + label hovers, F + label right-clicks, Backspace deletes a letter, Esc ca
 
 | Mode | What it does |
 |---|---|
-| `auto` (default) | UI Automation first; if UIA finds nothing, fall back to computer vision. Normal apps keep the old fast path. |
+| `auto` (default) | UI Automation first; if UIA finds nothing inside the window's client area (including the case where it only sees Minimize/Close), fall back to computer vision. Normal apps keep the old fast path. |
 | `uia` | UI Automation only (legacy behaviour). |
 | `cv` | Computer vision only: captures the window and finds rectangular/pixel regions. For custom-drawn UIs that expose no UIA tree. |
 | `hybrid` | Runs UIA and CV, fuses overlapping targets, and keeps CV-only targets. |
@@ -367,14 +367,17 @@ The Hybrid Hint system is wired into the running app and covered by tests.
   via `hint.scanMode`.
 - **Action safety:** foreground/staleness checks, duplicate-prevention,
   click-point validation, UIA patterns first then mouse fallback.
-- **Tests:** 331/331 passing (Release). The benchmark tests open a real WinForms
+- **Tests:** 332/332 passing (Release). The benchmark tests open a real WinForms
   window and report measured targets/latency; they do not compute
   precision/recall because there is no ground-truth corpus in the repository.
+- **Auto mode:** UI Automation first; if UIA only finds caption buttons (a
+  custom-drawn window), CV runs too and the results are fused.
 
 **Build:** 0 errors, 0 warnings  
-**Measured on this machine (3 runs, real WinForms window):** UIA P50 48 ms,
-CV P50 38 ms, Hybrid P50 56 ms; UIA found both buttons, CV found 9 pixel
-regions. These are local smoke measurements, not a benchmark suite.
+**Measured on this machine (fresh process, 150% display, real WinForms window):**
+UIA P50 46 ms, CV P50 46 ms, Hybrid P50 53 ms (n=3); UIA found both buttons, CV
+found 20 pixel regions before containment dedupe. These are local smoke
+measurements, not a benchmark suite.
 
 **Architecture:** `docs/architecture/hybrid-hint-audit.md` documents the
 pipeline, security/privacy review, known limitations and the honest

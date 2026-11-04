@@ -1,3 +1,5 @@
+using System.Drawing;
+using KeyboardMouse.Native;
 using KeyboardMouse.Platform;
 
 namespace KeyboardMouse.Core;
@@ -9,7 +11,8 @@ namespace KeyboardMouse.Core;
 /// same way.
 ///
 /// Every mode starts the fastest useful source first:
-/// Auto runs UIA and CV concurrently but only waits for CV when UIA is empty,
+/// Auto runs UIA and CV concurrently and only waits for CV when UIA found no
+/// target inside the window's client area (window chrome does not count),
 /// Uia/Cv run a single source, and Hybrid fuses both. The whole scan has one
 /// hard deadline and exactly one terminal result.
 /// </summary>
@@ -63,7 +66,7 @@ internal static class HintScanCoordinator
                 HintScanMode.Hybrid => await ScanHybridAsync(
                     uia, cv, fusion, window, options, overall.Token)
                     .ConfigureAwait(false),
-                _ => await ScanAutoAsync(uia, cv, window, options, overall.Token)
+                _ => await ScanAutoAsync(uia, cv, fusion, window, options, overall.Token)
                     .ConfigureAwait(false)
             };
         }
@@ -100,12 +103,15 @@ internal static class HintScanCoordinator
     }
 
     /// <summary>
-    /// UIA first for speed. CV is started at the same time, but is only awaited
-    /// when UIA produced nothing, so ordinary apps never pay the CV cost.
+    /// UIA first for speed. CV is started at the same time but is only awaited
+    /// when UIA produced nothing, or when every UIA target is window chrome
+    /// (caption buttons). A custom-drawn window exposes its Minimize/Close
+    /// buttons to UIA, so "UIA is not empty" alone must not suppress CV.
     /// </summary>
     private static async Task<HintScanResult> ScanAutoAsync(
         IHintScanner uia,
         IHintScanner cv,
+        TargetFusionEngine fusion,
         IntPtr window,
         HintScanOptions options,
         CancellationToken token)
@@ -119,23 +125,98 @@ internal static class HintScanCoordinator
             cv, window, options, HintScanMode.Cv, TargetSource.Cv, cvCts.Token);
 
         HintScanResult uiaResult = await uiaTask.ConfigureAwait(false);
-        if (uiaResult.HasTargets)
+
+        if (uiaResult.HasTargets && HasContentTargets(uiaResult.Targets, window))
         {
             cvCts.Cancel();
             return uiaResult;
         }
 
         HintScanResult cvResult = await cvTask.ConfigureAwait(false);
-        return cvResult.HasTargets || cvResult.Status == HintScanStatus.Success
-            ? cvResult
-            : HintScanResult.FromTargets(
-                [],
-                new HintScanDiagnostics(
-                    CandidateCount: 0,
-                    AcceptedCount: 0,
-                    ElapsedMilliseconds: 0,
-                    UiaUsed: uiaResult.Diagnostics?.UiaUsed ?? false,
-                    CvUsed: cvResult.Diagnostics?.CvUsed ?? false));
+
+        if (!uiaResult.HasTargets)
+        {
+            return cvResult.HasTargets || cvResult.Status == HintScanStatus.Success
+                ? cvResult
+                : HintScanResult.FromTargets(
+                    [],
+                    new HintScanDiagnostics(
+                        CandidateCount: 0,
+                        AcceptedCount: 0,
+                        ElapsedMilliseconds: 0,
+                        UiaUsed: uiaResult.Diagnostics?.UiaUsed ?? false,
+                        CvUsed: cvResult.Diagnostics?.CvUsed ?? false));
+        }
+
+        // UIA found only caption buttons. Keep them and add the CV content so
+        // the user can still reach Close/Minimize.
+        if (!cvResult.HasTargets)
+        {
+            return uiaResult;
+        }
+
+        IReadOnlyList<VisualTarget> targets = fusion
+            .Fuse(uiaResult.Targets, cvResult.Targets)
+            .Targets;
+
+        return HintScanResult.FromTargets(
+            targets,
+            new HintScanDiagnostics(
+                CandidateCount: uiaResult.Targets.Count + cvResult.Targets.Count,
+                AcceptedCount: targets.Count,
+                ElapsedMilliseconds: Math.Max(
+                    uiaResult.Diagnostics?.ElapsedMilliseconds ?? 0,
+                    cvResult.Diagnostics?.ElapsedMilliseconds ?? 0),
+                UiaUsed: true,
+                CvUsed: true));
+    }
+
+    /// <summary>
+    /// True when at least one target intersects the window's client area.
+    /// When the client rectangle cannot be resolved the caller should keep
+    /// trusting UIA rather than pay for an unnecessary CV scan.
+    /// </summary>
+    private static bool HasContentTargets(
+        IReadOnlyList<VisualTarget> targets,
+        IntPtr window)
+    {
+        if (targets.Count == 0)
+        {
+            return false;
+        }
+
+        if (window == IntPtr.Zero ||
+            !User32.GetClientRect(window, out RECT client))
+        {
+            return true;
+        }
+
+        var origin = new POINT(client.Left, client.Top);
+        if (!User32.ClientToScreen(window, ref origin))
+        {
+            return true;
+        }
+
+        var clientBounds = new Rectangle(
+            origin.X,
+            origin.Y,
+            client.Width,
+            client.Height);
+
+        if (clientBounds.Width <= 0 || clientBounds.Height <= 0)
+        {
+            return true;
+        }
+
+        foreach (VisualTarget target in targets)
+        {
+            if (clientBounds.IntersectsWith(target.Bounds.ToRectangle()))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task<HintScanResult> ScanHybridAsync(

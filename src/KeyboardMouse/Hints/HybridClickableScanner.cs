@@ -12,7 +12,7 @@ namespace KeyboardMouse.Hints;
 ///
 /// Modes are read from <see cref="HintScanOptions.Mode"/> on every scan, so a
 /// settings reload takes effect immediately:
-/// Auto - UIA first, CV only when UIA finds nothing.
+/// Auto - UIA first, CV when UIA finds nothing inside the client area.
 /// Uia  - UI Automation only (legacy behaviour).
 /// Cv   - screen-capture pixel analysis only.
 /// Hybrid - UIA and CV fused by <see cref="TargetFusionEngine"/>.

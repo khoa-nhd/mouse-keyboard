@@ -57,6 +57,41 @@ public class HybridClickableScannerTests
     }
 
     [Fact]
+    public async Task AutoMode_FallsBackToCv_WhenUiaFindsOnlyCaptionButtons()
+    {
+        // No child controls: the only UIA targets are Minimize/Maximize/Close.
+        // Auto must not stop there; it has to bring in the CV content.
+        using var window = TestWindow.Show(withButton: false);
+        var scanner = new HybridClickableScanner(FakeMonitorService.Single());
+
+        var completion = new TaskCompletionSource<IReadOnlyList<ClickableTarget>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        scanner.BeginScan(
+            window.Handle,
+            new HintScanOptions(200, false)
+            {
+                Mode = HintScanMode.Auto,
+                Sources = TargetSource.All,
+                Budget = TimeSpan.FromSeconds(3)
+            },
+            targets => completion.TrySetResult(targets),
+            () => completion.TrySetResult([]));
+
+        IReadOnlyList<ClickableTarget> targets =
+            await completion.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.NotEmpty(targets);
+
+        Rectangle client = window.ClientBounds;
+        Assert.Contains(
+            targets,
+            target => client.Contains(target.Bounds) &&
+                      target.Bounds.Width >= 40 &&
+                      target.Bounds.Height >= 20);
+    }
+
+    [Fact]
     public async Task ZeroWindow_CompletesWithNoTargets()
     {
         var scanner = new HybridClickableScanner(FakeMonitorService.Single());
@@ -86,7 +121,9 @@ public class HybridClickableScannerTests
 
         public IntPtr Handle => _form.Handle;
 
-        public static TestWindow Show()
+        public Rectangle ClientBounds => _form.RectangleToScreen(_form.ClientRectangle);
+
+        public static TestWindow Show(bool withButton = true)
         {
             var ready = new TaskCompletionSource<TestWindow>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -125,6 +162,12 @@ public class HybridClickableScannerTests
 
                 form.Controls.Add(button);
                 form.Controls.Add(panel);
+
+                if (!withButton)
+                {
+                    form.Controls.Remove(button);
+                    button.Dispose();
+                }
 
                 var window = new TestWindow(form);
                 form.Shown += (_, _) => ready.TrySetResult(window);

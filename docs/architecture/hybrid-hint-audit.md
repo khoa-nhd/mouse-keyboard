@@ -1,7 +1,7 @@
 # Hybrid Hint System — Implementation and Validation
 
 **Date:** November 4, 2026
-**Status:** Implemented, wired into the app, 331/331 tests passing (Release build,
+**Status:** Implemented, wired into the app, 332/332 tests passing (Release build,
 0 errors, 0 warnings).
 
 > **Correction notice.** An earlier revision of this document contained latency,
@@ -25,9 +25,13 @@ are used.
 
 | Mode | Result status | Targets returned | One-shot elapsed | Latency test P50 / max (n=3) |
 |---|---|---|---|---|
-| UIA only | Success | 6 (both buttons found) | 43 ms | 48 ms / 52 ms |
-| CV only | Success | 9 pixel regions | 46 ms | 38 ms / 56 ms |
-| Hybrid | Success | 15 raw targets | 145 ms | 56 ms / 65 ms |
+| UIA only | Success | 6 (both buttons found) | 63 ms | 46 ms / 57 ms |
+| CV only | Success | 20 pixel regions | 39 ms | 46 ms / 64 ms |
+| Hybrid | Success | 20 raw targets | 136 ms | 53 ms / 60 ms |
+
+Run in a fresh test process on a 150% display, after the test host was switched
+to PerMonitorV2 to match the app. An earlier run in the DPI-unaware host saw a
+shifted capture crop, which is why its CV count was lower.
 
 Notes:
 
@@ -51,7 +55,7 @@ Notes:
 | Memory usage per scan | **Not measured.** |
 | Scans per second / FPS | **Not measured.** |
 | Cross-application compatibility matrix | **Not systematically verified.** |
-| Multi-monitor and mixed-DPI behavior | Unit-tested for coordinate math; not benchmarked on a mixed-DPI desk. |
+| Multi-monitor and mixed-DPI behavior | Unit-tested for coordinate math; the test host now runs PerMonitorV2 like the app, so CV captures are correct at 150% scaling. Not benchmarked on a physical multi-monitor desk. |
 
 Any future numbers for these rows must come from a real harness with checked-in
 ground truth. They must not be estimated and presented as measurements.
@@ -86,6 +90,13 @@ Relevant types:
 
 The scan mode is read on every scan from `HintSettings.ScanMode`, so changing it
 in the tray menu or reloading `settings.json` takes effect without a restart.
+
+`auto` compares every UIA target against the window's client rectangle. A
+custom-drawn window still exposes Minimize/Maximize/Close/System to UIA, so
+"UIA returned something" is not enough to skip CV. If every UIA target is
+outside the client area, auto waits for the concurrent CV result and fuses the
+caption buttons with the CV content. Apps with real UIA content keep the fast
+UIA-only path.
 
 ---
 
@@ -161,9 +172,9 @@ These are code-inspection findings, not a penetration test.
 | Check | Result |
 |---|---|
 | Release build | 0 errors, 0 warnings |
-| Test suite | 331/331 passed |
+| Test suite | 332/332 passed |
 | CV detector tests | Finds drawn rectangles; returns no synthetic targets on a blank capture; honours `Sources` |
-| Adapter tests | `HybridClickableScanner` returns real `ClickableTarget`s in CV mode and handles a zero window |
+| Adapter tests | `HybridClickableScanner` returns real `ClickableTarget`s in CV mode, handles a zero window, and falls back to CV in auto mode when UIA only sees caption buttons |
 | Scan-mode tests | `auto`/`uia`/`cv`/`hybrid` normalization, source mapping and defaults |
 | Real-window benchmarks | UIA, CV and Hybrid scans complete against a real WinForms window |
 | UIA integration test | Real WinForms button found via FlaUI |
@@ -181,6 +192,7 @@ not fabricated quality scores.
 - [x] Real pixel-based CV detection (no synthetic rectangles).
 - [x] Screen capture P/Invoke fixed and exercised by tests.
 - [x] Single terminal callback in auto/hybrid orchestration.
+- [x] Auto falls back to CV when UIA only sees caption buttons.
 - [x] Contour deduplication and output cap.
 - [x] Build clean; all tests pass.
 - [x] No screenshot uploads or persistent captures.

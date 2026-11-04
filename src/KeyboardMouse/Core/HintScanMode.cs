@@ -4,7 +4,9 @@ namespace KeyboardMouse.Core;
 /// Which detection source hint mode should use.
 ///
 /// <para><see cref="Auto"/> is the safe default: UI Automation runs first and
-/// computer vision is only used when UIA finds nothing (custom-drawn UIs).</para>
+/// computer vision is only used when UIA finds nothing inside the window's
+/// client area (custom-drawn UIs, or a window that only exposes caption
+/// buttons).</para>
 /// </summary>
 public enum HintScanMode
 {
