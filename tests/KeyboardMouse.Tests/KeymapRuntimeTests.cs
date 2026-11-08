@@ -41,7 +41,7 @@ public class KeymapRuntimeTests
     }
 
     [Fact]
-    public void RemappedGridOpenAndCloseKey_Works()
+    public void RemappedGridKey_OpensAndCtrlCloses()
     {
         var h = new RouterHarness();
         h.KeySettings.Grid = "Q";
@@ -52,30 +52,40 @@ public class KeymapRuntimeTests
         Assert.True(h.Grid.Visible);
         Assert.True(h.Up(PhysicalKey.Q));
 
+        Assert.False(h.Down(PhysicalKey.LeftCtrl));
         Assert.True(h.Down(PhysicalKey.Q));
         Assert.False(h.Grid.Visible);
+
+        h.Up(PhysicalKey.Q);
+        h.Up(PhysicalKey.LeftCtrl);
     }
 
     [Fact]
-    public void RemappedGridNextMonitor_Works()
+    public void GridMonitorSwitchIsFixedToTab()
     {
         var h = new RouterHarness(monitors: FakeMonitorService.Dual());
-        h.KeySettings.NextMonitor = "H";
+        h.KeySettings.NextMonitor = "N";
         h.Router.UpdateKeys(h.KeySettings);
         h.TapCaps();
 
         h.Down(PhysicalKey.G);
         h.Up(PhysicalKey.G);
-        Assert.True(h.Grid.Visible);
+        Assert.Equal(new Rectangle(0, 0, 1920, 1080), h.Grid.State!.Monitor.Bounds);
 
-        h.Down(PhysicalKey.H);
-        h.Up(PhysicalKey.H);
+        h.Down(PhysicalKey.N);
+        h.Up(PhysicalKey.N);
 
-        Assert.True(h.Pointer.X >= 1920);
+        // N is a level-2 key now, not a monitor switch.
+        Assert.Equal(new Rectangle(0, 0, 1920, 1080), h.Grid.State!.Monitor.Bounds);
+
+        h.Down(PhysicalKey.Tab);
+        h.Up(PhysicalKey.Tab);
+
+        Assert.Equal(new Rectangle(1920, 0, 1280, 1024), h.Grid.State!.Monitor.Bounds);
     }
 
     [Fact]
-    public void RemappedGridClickKeys_Work()
+    public void GridClickKeysAreFixedToSpaceAndEnter()
     {
         var h = new RouterHarness();
         h.KeySettings.LeftClick = "Q";
@@ -85,13 +95,13 @@ public class KeymapRuntimeTests
 
         h.Down(PhysicalKey.G);
         h.Up(PhysicalKey.G);
-        Assert.True(h.Down(PhysicalKey.Q));
+        Assert.True(h.Down(PhysicalKey.Space));
         Assert.Equal(1, h.Mouse.Count("left-click"));
         Assert.False(h.Grid.Visible);
 
         h.Down(PhysicalKey.G);
         h.Up(PhysicalKey.G);
-        Assert.True(h.Down(PhysicalKey.W));
+        Assert.True(h.Down(PhysicalKey.Enter));
         Assert.Equal(1, h.Mouse.Count("right-click"));
         Assert.False(h.Grid.Visible);
     }
@@ -100,7 +110,7 @@ public class KeymapRuntimeTests
     public void EmptyGridCell_IsUnselectable()
     {
         var h = new RouterHarness();
-        h.GridSettings.Keys[0] = "";
+        h.GridSettings.Level1Keys[0] = "";
         h.Router.UpdateGrid(h.GridSettings);
         h.TapCaps();
 
@@ -109,8 +119,8 @@ public class KeymapRuntimeTests
         int showBefore = h.Grid.ShowCount;
         int movesBefore = h.Mouse.Calls.Count;
 
-        Assert.True(h.Down(PhysicalKey.U));
-        Assert.True(h.Up(PhysicalKey.U));
+        Assert.True(h.Down(PhysicalKey.A));
+        Assert.True(h.Up(PhysicalKey.A));
         Assert.Equal(showBefore, h.Grid.ShowCount);
         Assert.Equal(movesBefore, h.Mouse.Calls.Count);
     }

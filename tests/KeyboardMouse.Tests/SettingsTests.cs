@@ -42,7 +42,13 @@ public class SettingsTests
             {
                 Normal = new SpeedConfig { Base = 100, Max = 50, Accel = -1, TapStep = -2 }
             },
-            Grid = new GridSettings { MaxDepth = 99, Keys = [] },
+            Grid = new GridSettings
+            {
+                Level1Keys = [],
+                Level2Keys = null!,
+                SubgridKeys = ["x"],
+                ActionLevel = "nope"
+            },
             Hint = new HintSettings { Alphabet = "a", MaxElements = 0 },
             Scroll = new ScrollSettings { Base = 100, Max = 50, Accel = -3 },
             Feedback = new FeedbackSettings { DotSize = 0 }
@@ -55,8 +61,10 @@ public class SettingsTests
         Assert.Equal(100, settings.Speed.Normal.Max);
         Assert.Equal(0, settings.Speed.Normal.Accel);
         Assert.Equal(0, settings.Speed.Normal.TapStep);
-        Assert.Equal(3, settings.Grid.MaxDepth);
-        Assert.Equal(9, settings.Grid.Keys.Length);
+        Assert.Equal("subgrid", settings.Grid.ActionLevel);
+        Assert.Equal(10, settings.Grid.Level1Keys.Length);
+        Assert.Equal(30, settings.Grid.Level2Keys.Length);
+        Assert.Equal(30, settings.Grid.SubgridKeys.Length);
         Assert.Equal("asdfjkl;", settings.Hint.Alphabet);
         Assert.Equal(1, settings.Hint.MaxElements);
         Assert.Equal(100, settings.Scroll.Max);

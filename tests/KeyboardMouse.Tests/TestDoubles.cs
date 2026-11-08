@@ -200,24 +200,13 @@ internal sealed class FakeGridOverlay : IGridOverlay
 
     public int HideCount { get; private set; }
 
-    public MonitorInfo? Monitor { get; private set; }
+    public GridOverlayState? State { get; private set; }
 
-    public Rectangle ActiveRect { get; private set; }
-
-    public IReadOnlyList<string> Labels { get; private set; } = [];
-
-    public void Show(
-        MonitorInfo monitor,
-        Rectangle activeRect,
-        IReadOnlyList<string> labels,
-        int depth,
-        int maxDepth)
+    public void Show(GridOverlayState state)
     {
         Visible = true;
         ShowCount++;
-        Monitor = monitor;
-        ActiveRect = activeRect;
-        Labels = labels;
+        State = state;
     }
 
     public void Hide()

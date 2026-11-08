@@ -65,10 +65,7 @@ public sealed class Settings
         Speed.Precision = NormalizeSpeed(Speed.Precision, SpeedConfig.Precision);
         Speed.Turbo = NormalizeSpeed(Speed.Turbo, SpeedConfig.Turbo);
 
-        if (Grid.MaxDepth is < 1 or > 5)
-        {
-            Grid.MaxDepth = 3;
-        }
+        Grid.ActionLevel = GridSettings.NormalizeActionLevel(Grid.ActionLevel);
 
         Hint.Alphabet = KeyNames.NormalizeHintAlphabet(Hint.Alphabet);
         Hint.MaxElements = Math.Clamp(Hint.MaxElements, 1, 2000);
@@ -177,11 +174,40 @@ public sealed class AutoClickSettings
     public string Button { get; set; } = "Left";
 }
 
+/// <summary>
+/// Mouseless v1.0 "position based columns" grid: ten columns at level 1,
+/// thirty vertical bands at level 2, then a ten by three subgrid.
+/// </summary>
 public sealed class GridSettings
 {
-    public string[] Keys { get; set; } = ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"];
+    public string[] Level1Keys { get; set; } = DefaultLevel1Keys();
 
-    public int MaxDepth { get; set; } = 3;
+    public string[] Level2Keys { get; set; } = DefaultLevel2Keys();
+
+    public string[] SubgridKeys { get; set; } = DefaultSubgridKeys();
+
+    /// <summary>"subgrid" (default), "2" or "1".</summary>
+    public string ActionLevel { get; set; } = "subgrid";
+
+    public static string[] DefaultLevel1Keys() =>
+        ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"];
+
+    public static string[] DefaultLevel2Keys() =>
+    [
+        "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+        "A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon",
+        "Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"
+    ];
+
+    public static string[] DefaultSubgridKeys() => DefaultLevel2Keys();
+
+    public static string NormalizeActionLevel(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "1" => "1",
+            "2" => "2",
+            _ => "subgrid"
+        };
 }
 
 public sealed class HintSettings

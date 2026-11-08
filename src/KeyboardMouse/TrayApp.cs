@@ -443,7 +443,7 @@ public sealed class TrayApp : ApplicationContext
                 autoClick = new { intervalMs = _settings.AutoClick.IntervalMs, button = _settings.AutoClick.Button },
                 updateCheckOnStart = _settings.Update.CheckOnStart,
                 keys = _settings.Keys,
-                gridKeys = _settings.Grid.Keys,
+                gridKeys = _settings.Grid.Level1Keys,
                 hintAlphabet = _settings.Hint.Alphabet
             }
         });

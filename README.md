@@ -5,9 +5,9 @@ the home row and the right hand on **I J K L**.
 
 Every mouse feature works from the keyboard: move, click, drag, drag lock,
 scroll (vertical, horizontal, zoom), back/forward, double click, modifier
-clicks and hover. It's fastest over long distances, thanks to a 3×3 grid jump,
-hint labels on every clickable element, window/monitor jumps and saved
-position marks.
+clicks and hover. It's fastest over long distances, thanks to a ten-column
+grid jump, hint labels on every clickable element, window/monitor jumps and
+saved position marks.
 
 It works **alongside** a TrackPoint, touchpad or real mouse. Physical pointer
 movement is never blocked, and the program always re-syncs to wherever the
@@ -241,13 +241,20 @@ or `Middle`. To use a different key, set `keys.autoClick`.
 ### Grid mode (G)
 
 ```
-U I O
-J K L      each press jumps into that cell, and the cell becomes the
-M , .      new grid, so any point on screen is 2–3 keys away
+Level 1   A S D F G H J K L ;                    ten columns
+Level 2   QWERTYUIOP / ASDFGHJKL; / ZXCVBNM,./   thirty rows inside the column
+Subgrid   QWERTYUIOP / ASDFGHJKL; / ZXCVBNM,./   ten by three sub-cells
 ```
 
-Space = click here and close · F = right click here and close · G = close ·
-Backspace = up one level · N = next monitor · Esc = cancel and restore the pointer.
+The screen splits into ten columns. Pick a column, then a row, then a sub-cell;
+the overlay shows each step and keeps a virtual cursor on the target. The real
+pointer moves only when you click, so any spot is 2–3 keys away and the pointer
+never drifts while you choose.
+
+Space = click · Enter or Shift = right click · Backspace = up one level ·
+Tab = next monitor · Ctrl + G = close without moving · Esc = cancel and restore
+the pointer. Set `grid.actionLevel` to `"2"` or `"1"` to click as soon as the
+row or column is picked, without the subgrid step.
 
 ### Hint mode (H)
 
@@ -301,6 +308,16 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "autoClick": "B"
   },
   "autoClick": { "intervalMs": 100, "button": "Left" },
+  "grid": {
+    "actionLevel": "subgrid",
+    "level1Keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
+    "level2Keys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+                   "A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon",
+                   "Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"],
+    "subgridKeys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
+                    "A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon",
+                    "Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"]
+  },
   ...
 }
 ```
@@ -309,7 +326,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
 - The same file holds speeds, scroll feel, the pointer indicator
   (`feedback.cursorStyle` = `dot`, `halo`, `spotlight`, `reticle`, `arrow`,
   `comet`, `orbit` or `brackets`, and `feedback.dotSize`), the tap timeout,
-  auto-off and grid depth.
+  auto-off, and the grid's action level and three key sets.
 - To use a different toggle key, set `activation.toggleKey` (e.g. `"ScrollLock"`).
 - Key names are physical names (`I`, `Space`, `Apostrophe`, `Comma`, `PageUp`, …).
   The symbols `;` `,` `.` `'` `[` `]` `-` `=` `/` `\` also work.

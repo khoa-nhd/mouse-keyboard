@@ -6,35 +6,65 @@ namespace KeyboardMouse.Tests;
 public class GridMathTests
 {
     [Fact]
-    public void NineCells_CoverTheParentWithoutGaps()
+    public void TenColumns_CoverTheParentWithoutGaps()
     {
-        var parent = new Rectangle(0, 0, 900, 600);
-        var cells = Enumerable.Range(0, GridMath.Cells)
-            .Select(i => GridMath.SubRect(parent, i))
+        var parent = new Rectangle(0, 0, 1000, 700);
+        var cells = Enumerable.Range(0, GridMath.Level1Cells)
+            .Select(i => GridMath.SubRect(parent, i, GridMath.Level1Columns, GridMath.Level1Rows))
             .ToArray();
 
         Assert.Equal(parent.Width * parent.Height, cells.Sum(c => c.Width * c.Height));
-        Assert.All(cells, c => Assert.Equal(300, c.Width));
-        Assert.All(cells, c => Assert.Equal(200, c.Height));
+        Assert.All(cells, c => Assert.Equal(100, c.Width));
+        Assert.All(cells, c => Assert.Equal(700, c.Height));
 
-        Assert.Equal(new Rectangle(0, 0, 300, 200), cells[0]);
-        Assert.Equal(new Rectangle(600, 400, 300, 200), cells[8]);
+        Assert.Equal(new Rectangle(0, 0, 100, 700), cells[0]);
+        Assert.Equal(new Rectangle(900, 0, 100, 700), cells[9]);
+    }
+
+    [Fact]
+    public void ThirtyBands_CoverAColumnWithoutGaps()
+    {
+        var column = new Rectangle(192, 0, 192, 1080);
+        var bands = Enumerable.Range(0, GridMath.Level2Cells)
+            .Select(i => GridMath.SubRect(column, i, GridMath.Level2Columns, GridMath.Level2Rows))
+            .ToArray();
+
+        Assert.Equal(column.Width * column.Height, bands.Sum(b => b.Width * b.Height));
+        Assert.All(bands, b => Assert.Equal(192, b.Width));
+        Assert.Equal(36, bands[0].Height);
+        Assert.Equal(new Rectangle(192, 0, 192, 36), bands[0]);
+        Assert.Equal(new Rectangle(192, 1044, 192, 36), bands[29]);
+    }
+
+    [Fact]
+    public void SubgridIsTenByThree()
+    {
+        var cell = new Rectangle(192, 360, 192, 36);
+        var subcells = Enumerable.Range(0, GridMath.SubgridCells)
+            .Select(i => GridMath.SubRect(cell, i, GridMath.SubgridColumns, GridMath.SubgridRows))
+            .ToArray();
+
+        Assert.Equal(cell.Width * cell.Height, subcells.Sum(c => c.Width * c.Height));
+        Assert.Equal(new Rectangle(192, 360, 19, 12), subcells[0]);
+        Assert.Equal(new Rectangle(364, 384, 20, 12), subcells[29]);
     }
 
     [Fact]
     public void OddSizes_DoNotOverlapOrLosePixels()
     {
-        var parent = new Rectangle(0, 0, 1000, 700);
-        var row = Enumerable.Range(0, GridMath.Columns)
-            .Select(i => GridMath.SubRect(parent, i))
+        var parent = new Rectangle(0, 0, 1003, 701);
+        var row = Enumerable.Range(0, GridMath.Level1Columns)
+            .Select(i => GridMath.SubRect(parent, i, GridMath.Level1Columns, 1))
             .ToArray();
 
         Assert.Equal(0, row[0].Left);
-        Assert.Equal(row[0].Right, row[1].Left);
-        Assert.Equal(row[1].Right, row[2].Left);
-        Assert.Equal(1000, row[2].Right);
+        for (int i = 1; i < row.Length; i++)
+        {
+            Assert.Equal(row[i - 1].Right, row[i].Left);
+        }
+
+        Assert.Equal(parent.Width, row[^1].Right);
         Assert.Equal(parent.Width, row.Sum(c => c.Width));
-        Assert.Equal([333, 333, 334], row.Select(c => c.Width));
     }
 
     [Fact]
@@ -42,8 +72,10 @@ public class GridMathTests
     {
         var parent = new Rectangle(-1920, -200, 1920, 1080);
 
-        Assert.Equal(new Rectangle(-1920, -200, 640, 360), GridMath.SubRect(parent, 0));
-        Assert.Equal(new Rectangle(-640, 520, 640, 360), GridMath.SubRect(parent, 8));
+        Assert.Equal(new Rectangle(-1920, -200, 192, 1080),
+            GridMath.SubRect(parent, 0, GridMath.Level1Columns, 1));
+        Assert.Equal(new Rectangle(-192, -200, 192, 1080),
+            GridMath.SubRect(parent, 9, GridMath.Level1Columns, 1));
     }
 
     [Fact]
@@ -56,22 +88,32 @@ public class GridMathTests
     public void RepeatedSubdivision_StaysInsideTheChosenCell()
     {
         var monitor = new Rectangle(-1280, 0, 1280, 1024);
-        var level1 = GridMath.SubRect(monitor, 4);
-        var level2 = GridMath.SubRect(level1, 4);
-        var level3 = GridMath.SubRect(level2, 4);
+        var column = GridMath.SubRect(monitor, 4, GridMath.Level1Columns, 1);
+        var band = GridMath.SubRect(column, 15, 1, GridMath.Level2Rows);
+        var subcell = GridMath.SubRect(band, 7, GridMath.SubgridColumns, GridMath.SubgridRows);
 
-        Assert.True(monitor.Contains(level1));
-        Assert.True(level1.Contains(level2));
-        Assert.True(level2.Contains(level3));
-        Assert.True(level3.Width > 0 && level3.Height > 0);
+        Assert.True(monitor.Contains(column));
+        Assert.True(column.Contains(band));
+        Assert.True(band.Contains(subcell));
+        Assert.True(subcell.Width > 0 && subcell.Height > 0);
     }
 
     [Fact]
-    public void InvalidCell_Throws()
+    public void InvalidIndexOrDimensions_Throw()
     {
         var parent = new Rectangle(0, 0, 300, 300);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => GridMath.SubRect(parent, -1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => GridMath.SubRect(parent, 9));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridMath.SubRect(parent, -1, 10, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridMath.SubRect(parent, 10, 10, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridMath.SubRect(parent, 0, 0, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridMath.SubRect(parent, 0, 1, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridMath.Cell(parent, 10, 0, 10, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridMath.Cell(parent, 0, 1, 10, 1));
     }
 }

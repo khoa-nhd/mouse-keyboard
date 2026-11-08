@@ -17,7 +17,9 @@ public sealed record KeyBindingDefinition(
 
 /// <summary>
 /// The single source of truth for every editable binding: the activation
-/// toggle, the normal-layer actions, and the nine grid cells.
+/// toggle, the normal-layer actions, and the ten level-1 grid columns.
+/// Level-2 and subgrid keys are file-only settings handled by
+/// <see cref="Normalize"/>.
 ///
 /// The normal pool (toggle + <see cref="KeysSettings"/>) and the grid pool are
 /// independent, so a grid cell can reuse a normal-layer key. Inside a pool a
@@ -65,15 +67,16 @@ public static class KeyBindingCatalog
         new("undo", "edit", "Z"),
         new("redo", "edit", "W"),
 
-        new("grid0", "grid", "U", 0),
-        new("grid1", "grid", "I", 1),
-        new("grid2", "grid", "O", 2),
-        new("grid3", "grid", "J", 3),
-        new("grid4", "grid", "K", 4),
-        new("grid5", "grid", "L", 5),
-        new("grid6", "grid", "M", 6),
-        new("grid7", "grid", "Comma", 7),
-        new("grid8", "grid", "Period", 8)
+        new("grid0", "grid", "A", 0),
+        new("grid1", "grid", "S", 1),
+        new("grid2", "grid", "D", 2),
+        new("grid3", "grid", "F", 3),
+        new("grid4", "grid", "G", 4),
+        new("grid5", "grid", "H", 5),
+        new("grid6", "grid", "J", 6),
+        new("grid7", "grid", "K", 7),
+        new("grid8", "grid", "L", 8),
+        new("grid9", "grid", "Semicolon", 9)
     ];
 
     public static IReadOnlyList<KeyBindingDefinition> All => Definitions;
@@ -148,7 +151,8 @@ public static class KeyBindingCatalog
     {
         swappedId = null;
         if (!TryGet(id, out var definition) ||
-            !TryParseBindingKey(keyName, out var key))
+            !TryParseBindingKey(keyName, out var key) ||
+            (definition.IsGrid && IsReservedGridKey(key)))
         {
             return false;
         }
@@ -201,13 +205,20 @@ public static class KeyBindingCatalog
         return true;
     }
 
-    /// <summary>Restores every editable binding, including grid cells, to defaults.</summary>
+    /// <summary>Restores every editable binding, including all grid levels, to defaults.</summary>
     public static void ResetAll(Settings settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
+        settings.Grid ??= new GridSettings();
+
         foreach (var definition in Definitions)
         {
             Set(settings, definition, definition.DefaultKey);
         }
+
+        settings.Grid.Level2Keys = GridSettings.DefaultLevel2Keys();
+        settings.Grid.SubgridKeys = GridSettings.DefaultSubgridKeys();
+        settings.Grid.ActionLevel = "subgrid";
     }
 
     /// <summary>
@@ -225,18 +236,19 @@ public static class KeyBindingCatalog
         settings.Keys ??= new KeysSettings();
         settings.Grid ??= new GridSettings();
 
-        if (settings.Grid.Keys is null || settings.Grid.Keys.Length != 9)
-        {
-            settings.Grid.Keys = new GridSettings().Keys;
-        }
+        EnsureGridKeys(settings);
+        settings.Grid.ActionLevel = GridSettings.NormalizeActionLevel(settings.Grid.ActionLevel);
 
-        foreach (var definition in Definitions)
+        foreach (var definition in NormalPool)
         {
             NormalizeValue(settings, definition);
         }
 
         ResolveDuplicates(settings, NormalPool);
-        ResolveDuplicates(settings, GridPool);
+
+        NormalizeGridLevel(settings.Grid.Level1Keys, GridSettings.DefaultLevel1Keys());
+        NormalizeGridLevel(settings.Grid.Level2Keys, GridSettings.DefaultLevel2Keys());
+        NormalizeGridLevel(settings.Grid.SubgridKeys, GridSettings.DefaultSubgridKeys());
     }
 
     public static bool TryParseBindingKey(string? name, out PhysicalKey key)
@@ -257,8 +269,8 @@ public static class KeyBindingCatalog
 
     private static string GetGrid(Settings settings, int index)
     {
-        settings.Grid.Keys ??= new GridSettings().Keys;
-        string[] keys = settings.Grid.Keys;
+        settings.Grid.Level1Keys ??= GridSettings.DefaultLevel1Keys();
+        string[] keys = settings.Grid.Level1Keys;
         return index >= 0 && index < keys.Length ? keys[index] : string.Empty;
     }
 
@@ -295,9 +307,11 @@ public static class KeyBindingCatalog
             case "undo": settings.Keys.Undo = value; break;
             case "redo": settings.Keys.Redo = value; break;
             default:
-                if (definition.GridIndex >= 0 && definition.GridIndex < settings.Grid.Keys.Length)
+                if (definition.GridIndex >= 0 &&
+                    settings.Grid.Level1Keys is { } gridKeys &&
+                    definition.GridIndex < gridKeys.Length)
                 {
-                    settings.Grid.Keys[definition.GridIndex] = value;
+                    gridKeys[definition.GridIndex] = value;
                 }
 
                 break;
@@ -351,6 +365,91 @@ public static class KeyBindingCatalog
             }
         }
     }
+
+    private static void EnsureGridKeys(Settings settings)
+    {
+        var defaults = new GridSettings();
+        if (settings.Grid.Level1Keys is null ||
+            settings.Grid.Level1Keys.Length != defaults.Level1Keys.Length)
+        {
+            settings.Grid.Level1Keys = GridSettings.DefaultLevel1Keys();
+        }
+
+        if (settings.Grid.Level2Keys is null ||
+            settings.Grid.Level2Keys.Length != defaults.Level2Keys.Length)
+        {
+            settings.Grid.Level2Keys = GridSettings.DefaultLevel2Keys();
+        }
+
+        if (settings.Grid.SubgridKeys is null ||
+            settings.Grid.SubgridKeys.Length != defaults.SubgridKeys.Length)
+        {
+            settings.Grid.SubgridKeys = GridSettings.DefaultSubgridKeys();
+        }
+    }
+
+    private static void NormalizeGridLevel(string[] keys, string[] defaults)
+    {
+        for (int i = 0; i < keys.Length; i++)
+        {
+            string current = keys[i] ?? string.Empty;
+            if (IsUnbound(current))
+            {
+                keys[i] = string.Empty;
+                continue;
+            }
+
+            if (TryParseBindingKey(current, out var key) && !IsReservedGridKey(key))
+            {
+                keys[i] = KeyNames.Canonical(key);
+            }
+            else
+            {
+                keys[i] = defaults[i];
+            }
+        }
+
+        ResolveGridDuplicates(keys, defaults);
+    }
+
+    private static void ResolveGridDuplicates(string[] keys, string[] defaults)
+    {
+        var used = new HashSet<PhysicalKey>();
+
+        for (int i = 0; i < keys.Length; i++)
+        {
+            if (!TryParseBindingKey(keys[i], out var key) || IsReservedGridKey(key))
+            {
+                continue;
+            }
+
+            if (used.Add(key))
+            {
+                continue;
+            }
+
+            if (TryParseBindingKey(defaults[i], out var fallback) &&
+                !IsReservedGridKey(fallback) &&
+                used.Add(fallback))
+            {
+                keys[i] = KeyNames.Canonical(fallback);
+            }
+            else
+            {
+                keys[i] = string.Empty;
+            }
+        }
+    }
+
+    private static bool IsReservedGridKey(PhysicalKey key) =>
+        key is PhysicalKey.None
+            or PhysicalKey.Escape
+            or PhysicalKey.Backspace
+            or PhysicalKey.Space
+            or PhysicalKey.Enter
+            or PhysicalKey.Tab
+            or PhysicalKey.CapsLock ||
+        key.IsModifier();
 
     private static IEnumerable<KeyBindingDefinition> Pool(KeyBindingDefinition definition) =>
         definition.IsGrid ? GridPool : NormalPool;

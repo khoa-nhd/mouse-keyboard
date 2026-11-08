@@ -258,7 +258,7 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .row-act { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; width: 28px; height: 28px; padding: 0; cursor: pointer; color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; }
 .row-act:hover { border-color: var(--accent); color: var(--accent); }
 .row-act.danger { border-color: #ef4444; color: #ef4444; }
-.grid-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; }
+.grid-pad { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; max-width: 580px; }
 .grid-cell {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   min-height: 62px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer;
@@ -379,10 +379,24 @@ td:first-child { width: 168px; white-space: nowrap; }
 .demo { position: relative; height: 200px; border-radius: 12px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--line); }
 .demo .screen { position: absolute; inset: 12px; border-radius: 8px; background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, var(--panel)), var(--panel)); border: 1px solid var(--line); }
 .demo .screen.clip { overflow: hidden; }
-.gcell { position: absolute; border: 1px solid color-mix(in srgb, var(--c-jump) 55%, transparent); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--c-jump); transition: all .35s ease; }
+.gcell { position: absolute; border: 1px solid color-mix(in srgb, var(--c-jump) 55%, transparent); display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--c-jump); line-height: 1; overflow: hidden; }
+.gcell .glbl { position: absolute; left: 0; right: 0; transform: translateY(-50%); text-align: center; }
 .gcell.hit { background: color-mix(in srgb, var(--c-jump) 22%, transparent); color: var(--text); }
-.gptr { position: absolute; width: 16px; height: 22px; transition: left .35s ease, top .35s ease; z-index: 3; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
+.gcell.faint { opacity: .3; }
+.gcell.sel { border-color: var(--c-jump); background: color-mix(in srgb, var(--c-jump) 18%, transparent); }
+.gcell.band { border-color: transparent; color: var(--text); }
+.gcell.band.band0 { background: color-mix(in srgb, var(--c-jump) 14%, transparent); }
+.gcell.band.band1 { background: color-mix(in srgb, var(--c-move) 14%, transparent); }
+.gcell.band.band2 { background: color-mix(in srgb, var(--c-nav) 14%, transparent); }
+.gcell.band.hit { background: color-mix(in srgb, var(--c-jump) 36%, transparent); }
+.gcell.sub0 { background: color-mix(in srgb, var(--c-jump) 13%, transparent); }
+.gcell.sub1 { background: color-mix(in srgb, var(--c-move) 11%, transparent); }
+.gcell.sub2 { background: color-mix(in srgb, var(--c-nav) 11%, transparent); }
+.gclick { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid var(--c-jump); animation: gclick .65s ease-out forwards; z-index: 5; pointer-events: none; }
+@keyframes gclick { from { opacity: 1; transform: scale(.4); } to { opacity: 0; transform: scale(2.4); } }
+.gptr { position: absolute; width: 16px; height: 22px; margin: -11px 0 0 -8px; transition: left .35s ease, top .35s ease; z-index: 3; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
 .typed { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 4px; z-index: 4; }
+.typed-bar { position: static; justify-content: flex-end; margin-top: -4px; }
 .hbtn { position: absolute; height: 26px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font-size: 11px; display: grid; place-items: center; color: var(--muted); padding: 0 10px; transition: all .2s; }
 .hbtn.hit { border-color: var(--c-jump); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-jump) 30%, transparent); }
 .hlabel { position: absolute; top: -9px; left: -6px; background: #fde047; color: #422006; font: 700 10.5px/1 "Segoe UI", sans-serif; padding: 3px 5px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: opacity .2s; }
@@ -454,6 +468,7 @@ td:first-child { width: 168px; white-space: nowrap; }
 @media (max-width: 900px) {
   .grid-3, .tips { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
+  .grid-pad { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .page { padding: 26px 22px 40px; }
   .key .act { display: none; }
   .detail { flex-wrap: wrap; }
@@ -637,11 +652,12 @@ td:first-child { width: 168px; white-space: nowrap; }
       <div class="grid-2">
         <div class="card mode">
           <div class="head"><span class="kbd" data-key="grid">G</span><h2 data-t="modes.gridT">Grid jump</h2></div>
-          <div class="demo"><div class="screen" id="grid-demo"></div></div>
-          <p data-t="modes.grid">The screen splits into 9 boxes laid out like the keys under your right hand. Each press zooms into that box — any spot is 2–3 keys away.</p>
+          <div class="demo" style="height:280px"><div class="screen" id="grid-demo"></div></div>
+          <p data-t="modes.grid">The screen splits into ten columns. Type the column key, then the row key, then pick a sub-cell — any spot is 2–3 keys away.</p>
           <ul>
-            <li data-t="modes.grid1"><kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> / <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> / <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> pick a box</li>
-            <li data-t="modes.grid2"><kbd>Space</kbd> click there · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> go back</li>
+            <li data-t="modes.grid1"><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> pick a column</li>
+            <li data-t="modes.grid2"><kbd>QWERTYUIOP</kbd> / <kbd>ASDFGHJKL;</kbd> / <kbd>ZXCVBNM,./</kbd> pick a row, then a sub-cell</li>
+            <li data-t="modes.grid3"><kbd>Space</kbd> click · <kbd>Enter</kbd> right-click · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back</li>
           </ul>
         </div>
         <div class="card mode">
@@ -711,7 +727,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         </div>
       </div>
       <div class="tips">
-        <div class="card"><b data-t="practice.tip1t">Use the grid</b><span data-t="practice.tip1">Press G, then the box where the target is. Two presses usually land on it.</span></div>
+        <div class="card"><b data-t="practice.tip1t">Use the grid</b><span data-t="practice.tip1">Press G, then the column key and the row key. Two or three presses land anywhere.</span></div>
         <div class="card"><b data-t="practice.tip2t">Try hints</b><span data-t="practice.tip2">Press H — the target gets a label. Type it to click instantly.</span></div>
         <div class="card"><b data-t="practice.tip3t">Go precise</b><span data-t="practice.tip3">Hold S for slow, exact moves on the small targets.</span></div>
       </div>
@@ -744,9 +760,9 @@ td:first-child { width: 168px; white-space: nowrap; }
             <button class="btn" id="capture-cancel" type="button" data-t="keymap.cancel">Cancel</button>
           </div>
           <div class="keymap-groups" id="keymap-groups"></div>
-          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.gridT">Grid cells</h3><span data-t="keymap.gridLead">Click a cell, then press the key that should pick it. Empty cells cannot be selected.</span></div>
+          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.gridT">Grid columns (level 1)</h3><span data-t="keymap.gridLead">These ten keys pick the column. Level-2 and subgrid keys can be edited in settings.json.</span></div>
           <div class="grid-pad" id="keymap-grid"></div>
-          <p class="keymap-note" data-t="keymap.gridMode">Grid mode keys: {grid} opens, {next} moves to the next monitor, {left} clicks, {right} right-clicks.</p>
+          <p class="keymap-note" data-t="keymap.gridMode">In grid mode: Space clicks, Enter or Shift right-clicks, Backspace goes back, Tab switches monitor, Ctrl + the Grid key closes, Esc cancels.</p>
           <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.hintT">Hint characters</h3><span data-t="keymap.hintLead">Letters, digits and punctuation the hint labels can use. At least two different characters.</span></div>
           <div class="hint-editor">
             <div class="hint-row">
@@ -896,9 +912,10 @@ const T = {
     "keys.notMapped": "Not used in mouse mode — this key types as usual.",
     "cat.system": "On / off", "cat.move": "Move", "cat.layer": "Hold layers", "cat.click": "Click", "cat.nav": "Back / forward", "cat.jump": "Jump", "cat.edit": "Edit",
     "modes.title": "Power moves", "modes.lead": "Moving across a big screen with I J K L is fine — but these are much faster.",
-    "modes.gridT": "Grid jump", "modes.grid": "The screen splits into 9 boxes laid out like the keys under your right hand. Each press zooms into that box — any spot is 2–3 keys away.",
-    "modes.grid1": "<kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> / <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> / <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> pick a box",
-    "modes.grid2": "<kbd>Space</kbd> click there · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> go back",
+    "modes.gridT": "Grid jump", "modes.grid": "The screen splits into ten columns. Type the column key, then the row key, then pick a sub-cell — any spot is 2–3 keys away.",
+    "modes.grid1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> pick a column",
+    "modes.grid2": "<kbd>QWERTYUIOP</kbd> / <kbd>ASDFGHJKL;</kbd> / <kbd>ZXCVBNM,./</kbd> pick a row, then a sub-cell",
+    "modes.grid3": "<kbd>Space</kbd> click · <kbd>Enter</kbd> right-click · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back",
     "modes.hintT": "Hints", "modes.hint": "Every button and link gets a short label. Type the label and it is clicked — no aiming at all.",
     "modes.hint1": "Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
     "modes.hint2": "<kbd>Shift</kbd> + label = hover · <kbd>F</kbd> + label = right click",
@@ -920,7 +937,7 @@ const T = {
     "practice.hits": "Hits", "practice.time": "Time", "practice.best": "Best", "practice.size": "Target size", "practice.big": "Big", "practice.small": "Small",
     "practice.ready": "Ready?", "practice.how": "Tap Caps Lock, move onto the button with I J K L, then press Space.", "practice.start": "Start",
     "practice.done": "Nice! {time}", "practice.newBest": "New personal best!", "practice.again": "Play again",
-    "practice.tip1t": "Use the grid", "practice.tip1": "Press G, then the box where the target is. Two presses usually land on it.",
+    "practice.tip1t": "Use the grid", "practice.tip1": "Press G, then the column key and the row key. Two or three presses land anywhere.",
     "practice.tip2t": "Try hints", "practice.tip2": "Press H — the target gets a label. Type it to click instantly.",
     "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
     "settings.title": "Settings", "settings.lead": "Adjust a slider, a colour or any key below. Sliders and colours apply on Enter, blur or Apply; keys apply immediately.",
@@ -953,7 +970,7 @@ const T = {
     "toast.bindingReset": "Key reset", "toast.bindingUnbound": "Key unbound", "toast.allReset": "All keys reset", "toast.hintSaved": "Hint characters saved", "toast.hintInvalid": "Use at least two different supported characters",
     "perSec": "{n} / s",
     "keymap.title": "Keymap", "keymap.lead": "Every key that runs in mouse mode can be changed. Click a key, then press the replacement.",
-    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed in grid and hint modes.", "keymap.gridT": "Grid cells", "keymap.gridLead": "Click a cell, then press the key that should pick it. Empty cells cannot be selected.", "keymap.gridMode": "Grid mode keys: {grid} opens, {next} moves to the next monitor, {left} clicks, {right} right-clicks.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid cells"
+    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid columns (level 1)", "keymap.gridLead": "These ten keys pick the column. Level-2 and subgrid keys can be edited in settings.json.", "keymap.gridMode": "In grid mode: Space clicks, Enter or Shift right-clicks, Backspace goes back, Tab switches monitor, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid column {n}", "keymap.gridColDesc": "Picks this column on the first grid level.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid columns"
   },
   vi: {
     "nav.home": "Bắt đầu", "nav.keys": "Phím", "nav.modes": "Tuyệt chiêu", "nav.practice": "Luyện tập", "nav.settings": "Cài đặt", "nav.about": "Giới thiệu",
@@ -979,9 +996,10 @@ const T = {
     "keys.notMapped": "Không dùng trong chế độ chuột — phím này vẫn gõ bình thường.",
     "cat.system": "Bật / tắt", "cat.move": "Di chuyển", "cat.layer": "Giữ để đổi", "cat.click": "Click", "cat.nav": "Lùi / tới", "cat.jump": "Nhảy nhanh", "cat.edit": "Chỉnh sửa",
     "modes.title": "Tuyệt chiêu", "modes.lead": "Di chuột qua màn hình lớn bằng I J K L vẫn ổn — nhưng các chiêu này nhanh hơn nhiều.",
-    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Màn hình chia thành 9 ô, xếp đúng như các phím dưới tay phải. Mỗi lần bấm sẽ phóng vào ô đó — điểm nào cũng chỉ cách 2–3 phím.",
-    "modes.grid1": "<kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> / <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> / <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> chọn ô",
-    "modes.grid2": "<kbd>Space</kbd> click tại đó · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại",
+    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Màn hình chia thành mười cột. Gõ phím chọn cột, rồi phím chọn hàng, rồi chọn ô con — điểm nào cũng chỉ cách 2–3 phím.",
+    "modes.grid1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> chọn cột",
+    "modes.grid2": "<kbd>QWERTYUIOP</kbd> / <kbd>ASDFGHJKL;</kbd> / <kbd>ZXCVBNM,./</kbd> chọn hàng, rồi chọn ô con",
+    "modes.grid3": "<kbd>Space</kbd> click · <kbd>Enter</kbd> click phải · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại",
     "modes.hintT": "Nhãn gợi ý", "modes.hint": "Mỗi nút bấm và link có một nhãn ngắn. Gõ nhãn là click luôn — không cần nhắm.",
     "modes.hint1": "Nhãn chỉ dùng các chữ ở hàng phím chính: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
     "modes.hint2": "<kbd>Shift</kbd> + nhãn = chỉ rê tới · <kbd>F</kbd> + nhãn = click phải",
@@ -1003,7 +1021,7 @@ const T = {
     "practice.hits": "Trúng", "practice.time": "Thời gian", "practice.best": "Kỷ lục", "practice.size": "Cỡ mục tiêu", "practice.big": "To", "practice.small": "Nhỏ",
     "practice.ready": "Sẵn sàng chưa?", "practice.how": "Bấm Caps Lock, di con trỏ lên nút bằng I J K L, rồi bấm Space.", "practice.start": "Bắt đầu",
     "practice.done": "Giỏi lắm! {time}", "practice.newBest": "Kỷ lục mới!", "practice.again": "Chơi lại",
-    "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G, rồi bấm ô có mục tiêu. Thường hai lần bấm là trúng.",
+    "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G, rồi phím chọn cột và phím chọn hàng. Hai hoặc ba lần bấm là tới nơi.",
     "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
     "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
     "settings.title": "Cài đặt", "settings.lead": "Kéo thanh, chọn màu hoặc đổi bất kỳ phím nào bên dưới. Thanh và màu áp dụng khi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng; phím áp dụng ngay.",
@@ -1036,7 +1054,7 @@ const T = {
     "toast.bindingReset": "Đã đặt lại phím", "toast.bindingUnbound": "Đã bỏ gán phím", "toast.allReset": "Đã đặt lại mọi phím", "toast.hintSaved": "Đã lưu ký tự gợi ý", "toast.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau",
     "perSec": "{n} / giây",
     "keymap.title": "Bản đồ phím", "keymap.lead": "Mọi phím chạy trong chế độ chuột đều đổi được. Bấm vào phím, rồi bấm phím thay thế.",
-    "keymap.search": "Tìm phím hoặc chức năng", "keymap.resetAll": "Đặt lại tất cả", "keymap.confirmReset": "Bấm lần nữa để đặt lại", "keymap.change": "Đổi", "keymap.reset": "Đặt lại", "keymap.unbind": "Bỏ gán", "keymap.unbound": "Chưa gán", "keymap.listening": "Bấm một phím cho {action}", "keymap.listeningSub": "Esc hủy. Phím chỉ chứa modifier sẽ bị bỏ qua.", "keymap.cancel": "Hủy", "keymap.swapped": "{action} giờ là {key}. {other} nhận {old}.", "keymap.bound": "{action} giờ là {key}.", "keymap.captureCancelled": "Đã hủy đổi phím", "keymap.fixed": "Cố định", "keymap.fixedLead": "Esc và Backspace luôn cố định trong chế độ lưới và gợi ý.", "keymap.gridT": "Các ô lưới", "keymap.gridLead": "Bấm vào ô, rồi bấm phím chọn ô đó. Ô trống không thể chọn.", "keymap.gridMode": "Phím chế độ lưới: {grid} mở, {next} sang màn hình kế, {left} click, {right} click phải.", "keymap.hintT": "Ký tự gợi ý", "keymap.hintLead": "Chữ cái, chữ số và dấu câu nhãn gợi ý có thể dùng. Ít nhất hai ký tự khác nhau.", "keymap.hintSave": "Lưu", "keymap.hintPreview": "Xem trước", "keymap.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau.", "keymap.group.toggle": "Chế độ chuột", "keymap.group.move": "Di chuyển", "keymap.group.layer": "Giữ để đổi", "keymap.group.click": "Click", "keymap.group.nav": "Lùi / tới", "keymap.group.jump": "Nhảy & chế độ", "keymap.group.edit": "Chỉnh sửa", "keymap.group.grid": "Các ô lưới"
+    "keymap.search": "Tìm phím hoặc chức năng", "keymap.resetAll": "Đặt lại tất cả", "keymap.confirmReset": "Bấm lần nữa để đặt lại", "keymap.change": "Đổi", "keymap.reset": "Đặt lại", "keymap.unbind": "Bỏ gán", "keymap.unbound": "Chưa gán", "keymap.listening": "Bấm một phím cho {action}", "keymap.listeningSub": "Esc hủy. Phím chỉ chứa modifier sẽ bị bỏ qua.", "keymap.cancel": "Hủy", "keymap.swapped": "{action} giờ là {key}. {other} nhận {old}.", "keymap.bound": "{action} giờ là {key}.", "keymap.captureCancelled": "Đã hủy đổi phím", "keymap.fixed": "Cố định", "keymap.fixedLead": "Esc và Backspace luôn cố định; chế độ lưới còn dành riêng Space, Enter và Tab.", "keymap.gridT": "Cột lưới (mức 1)", "keymap.gridLead": "Mười phím này chọn cột. Phím mức 2 và lưới con sửa trong settings.json.", "keymap.gridMode": "Trong chế độ lưới: Space click, Enter hoặc Shift click phải, Backspace lùi lại, Tab sang màn hình kế, Ctrl + phím Lưới đóng, Esc hủy.", "keymap.gridCol": "Cột lưới {n}", "keymap.gridColDesc": "Chọn cột này ở mức đầu của lưới.", "keymap.hintT": "Ký tự gợi ý", "keymap.hintLead": "Chữ cái, chữ số và dấu câu nhãn gợi ý có thể dùng. Ít nhất hai ký tự khác nhau.", "keymap.hintSave": "Lưu", "keymap.hintPreview": "Xem trước", "keymap.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau.", "keymap.group.toggle": "Chế độ chuột", "keymap.group.move": "Di chuyển", "keymap.group.layer": "Giữ để đổi", "keymap.group.click": "Click", "keymap.group.nav": "Lùi / tới", "keymap.group.jump": "Nhảy & chế độ", "keymap.group.edit": "Chỉnh sửa", "keymap.group.grid": "Cột lưới"
   }
 };
 
@@ -1061,7 +1079,7 @@ const ACTIONS = [
   { id: "autoClick", cat: "click", def: "B", en: ["Auto click", "Clicks repeatedly at the pointer until you press it again."], vi: ["Auto click", "Tự click liên tục tại con trỏ cho tới khi bấm lại."] },
   { id: "back", cat: "nav", def: "U", en: ["Back", "Mouse back button (browser back)."], vi: ["Lùi", "Nút lùi của chuột (quay lại trang trước)."] },
   { id: "forward", cat: "nav", def: "O", en: ["Forward", "Mouse forward button."], vi: ["Tới", "Nút tới của chuột."] },
-  { id: "grid", cat: "jump", def: "G", en: ["Grid", "Split the screen into 9 boxes and jump there."], vi: ["Lưới", "Chia màn hình thành 9 ô rồi nhảy tới."] },
+  { id: "grid", cat: "jump", def: "G", en: ["Grid", "Ten columns, thirty rows, then a 10×3 subgrid — like Mouseless."], vi: ["Lưới", "Mười cột, ba mươi hàng, rồi lưới con 10×3 — giống Mouseless."] },
   { id: "hint", cat: "jump", def: "H", en: ["Hints", "Label every clickable thing; type a label to click it."], vi: ["Nhãn", "Gắn nhãn cho mọi thứ bấm được; gõ nhãn để click."] },
   { id: "centerScreen", cat: "jump", def: "X", en: ["Screen", "Jump to the center of the current screen."], vi: ["Giữa MH", "Nhảy tới giữa màn hình hiện tại."] },
   { id: "centerWindow", cat: "jump", def: "C", en: ["Window", "Jump to the center of the active window."], vi: ["Giữa CS", "Nhảy tới giữa cửa sổ đang mở."] },
@@ -1347,12 +1365,12 @@ function renderSettings() {
 }
 
 function actionName(id) {
-  if (id.startsWith("grid")) return (t("keymap.gridT") + " " + (Number(id.slice(4)) + 1));
+  if (id.startsWith("grid")) return t("keymap.gridCol", { n: Number(id.slice(4)) + 1 });
   const a = ACTIONS.find(x => x.id === id);
   return a ? a[lang][0] : id;
 }
 function actionDesc(id) {
-  if (id.startsWith("grid")) return t("keymap.gridLead");
+  if (id.startsWith("grid")) return t("keymap.gridColDesc");
   const a = ACTIONS.find(x => x.id === id);
   return a ? a[lang][1] : "";
 }
@@ -1408,7 +1426,7 @@ function renderKeymap() {
   const gridEl = $("#keymap-grid");
   if (gridEl) {
     const gridKeys = state.settings.gridKeys || [];
-    gridEl.innerHTML = Array.from({ length: 9 }, (_, i) => {
+    gridEl.innerHTML = Array.from({ length: 10 }, (_, i) => {
       const key = gridKeys[i] == null ? "" : norm(gridKeys[i]);
       const unbound = !key;
       const cls = "grid-cell" + (unbound ? " unbound" : "") + (capture && capture.id === "grid" + i ? " capturing" : "");
@@ -1548,45 +1566,117 @@ function heroDemo() {
 
 function gridDemo() {
   const host = $("#grid-demo");
-  const labels = ["U", "I", "O", "J", "K", "L", "M", ",", "."];
-  const plan = [2, 3, 4];
+  if (!host) return;
+  const level1 = ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"];
+  const level2 = ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"];
+  const plan = [4, 16, 16]; // G column, J row, J sub-cell
   const ptr = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   ptr.setAttribute("class", "gptr"); ptr.innerHTML = '<use href="#ptr"/>';
   host.appendChild(ptr);
-  let level = 0, rect;
-  const typed = document.createElement("div"); typed.className = "typed"; host.parentElement.appendChild(typed);
-  function draw() {
-    $$(".gcell", host).forEach(c => c.remove());
-    const W = host.clientWidth, H = host.clientHeight;
-    if (level === 0) { rect = { x: 0, y: 0, w: W, h: H }; typed.innerHTML = '<kbd>G</kbd>'; }
-    const cw = rect.w / 3, ch = rect.h / 3;
-    labels.forEach((l, i) => {
-      const c = document.createElement("div");
-      c.className = "gcell";
-      c.style.cssText = `left:${rect.x + (i % 3) * cw}px;top:${rect.y + Math.floor(i / 3) * ch}px;width:${cw}px;height:${ch}px;font-size:${Math.max(9, 13 - level * 2)}px`;
-      c.textContent = l;
-      host.appendChild(c);
+  const typed = document.createElement("div"); typed.className = "typed typed-bar";
+  host.parentElement.insertAdjacentElement("afterend", typed);
+  let phase = 0;
+
+  const cellRect = (r, i, columns, rows) => ({
+    x: r.x + (r.w * (i % columns)) / columns,
+    y: r.y + (r.h * Math.floor(i / columns)) / rows,
+    w: r.w / columns,
+    h: r.h / rows
+  });
+  const center = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  function wipe() { $$(".gcell, .gclick", host).forEach(c => c.remove()); }
+  function placePtr(r) {
+    const c = center(r);
+    ptr.style.left = c.x + "px"; ptr.style.top = c.y + "px";
+  }
+  function add(r, cls, html, size) {
+    const el = document.createElement("div");
+    el.className = "gcell " + cls;
+    el.style.cssText = `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;font-size:${size}px`;
+    if (html != null) el.innerHTML = html;
+    host.appendChild(el);
+    return el;
+  }
+  // Level 1 repeats its letter at three heights, like the real overlay.
+  function addColumn(r, text, cls, size) {
+    const el = add(r, cls, "", size);
+    [17, 50, 83].forEach(top => {
+      const span = document.createElement("span");
+      span.className = "glbl";
+      span.style.top = top + "%";
+      span.textContent = text;
+      el.appendChild(span);
     });
-    ptr.style.left = (rect.x + rect.w / 2) + "px"; ptr.style.top = (rect.y + rect.h / 2) + "px";
+  }
+  function drawLevel1(root) {
+    wipe();
+    typed.innerHTML = "<kbd>G</kbd>";
+    for (let i = 0; i < 10; i++) {
+      const r = cellRect(root, i, 10, 1);
+      addColumn(r, level1[i], "", Math.max(9, Math.min(18, r.w * 0.3)));
+    }
+    placePtr({ x: root.w * 0.72, y: root.h * 0.44, w: 0, h: 0 });
+  }
+  function drawLevel2(root, selected) {
+    wipe();
+    for (let i = 0; i < 10; i++) {
+      const r = cellRect(root, i, 10, 1);
+      if (i === selected) add(r, "sel", "", Math.max(9, Math.min(18, r.w * 0.3)));
+      else addColumn(r, level1[i], "faint", Math.max(9, Math.min(18, r.w * 0.3)));
+    }
+    const column = cellRect(root, selected, 10, 1);
+    for (let i = 0; i < 30; i++) {
+      const r = cellRect(column, i, 1, 30);
+      add(r, "band band" + Math.floor(i / 10), level2[i], Math.max(5, Math.min(9, r.h * 0.82)));
+    }
+    placePtr(column);
+  }
+  function drawSubgrid(root, hit = -1) {
+    wipe();
+    for (let i = 0; i < 30; i++) {
+      const r = cellRect(root, i, 10, 3);
+      add(r, "sub" + Math.floor(i / 10) + (i === hit ? " hit" : ""), level2[i], Math.max(10, Math.min(24, Math.min(r.w * 0.3, r.h * 0.5))));
+    }
+  }
+  function clickPulse(r) {
+    const c = center(r);
+    const dot = document.createElement("div");
+    dot.className = "gclick";
+    dot.style.left = c.x + "px"; dot.style.top = c.y + "px";
+    host.appendChild(dot);
+    setTimeout(() => dot.remove(), 700);
   }
   function step() {
-    if (!host.clientWidth || document.hidden) return;
-    if (level >= plan.length) { level = 0; draw(); return; }
-    const pick = plan[level];
-    const cells = $$(".gcell", host);
-    cells[pick].classList.add("hit");
-    typed.innerHTML += `<kbd>${labels[pick] === "," ? "," : labels[pick]}</kbd>`;
-    setTimeout(() => {
-      rect = { x: rect.x + (pick % 3) * rect.w / 3, y: rect.y + Math.floor(pick / 3) * rect.h / 3, w: rect.w / 3, h: rect.h / 3 };
-      level++;
-      if (level >= plan.length) {
-        $$(".gcell", host).forEach(c => c.remove());
-        ptr.style.left = (rect.x + rect.w / 2) + "px"; ptr.style.top = (rect.y + rect.h / 2) + "px";
-        typed.innerHTML += '<kbd>Space</kbd>';
-      } else draw();
-    }, 450);
+    const W = host.clientWidth, H = host.clientHeight;
+    if (!W || !H || document.hidden) return;
+    const root = { x: 0, y: 0, w: W, h: H };
+    if (phase === 0) {
+      drawLevel2(root, plan[0]);
+      typed.innerHTML = "<kbd>G</kbd><kbd>G</kbd>";
+    } else if (phase === 1) {
+      drawSubgrid(root);
+      typed.innerHTML += "<kbd>J</kbd>";
+      placePtr(root);
+    } else if (phase === 2) {
+      drawSubgrid(root, plan[2]);
+      typed.innerHTML += "<kbd>J</kbd>";
+      placePtr(cellRect(root, plan[2], 10, 3));
+    } else if (phase === 3) {
+      drawSubgrid(root, plan[2]);
+      typed.innerHTML += "<kbd>Space</kbd>";
+      const target = cellRect(root, plan[2], 10, 3);
+      placePtr(target);
+      clickPulse(target);
+    } else {
+      phase = 0;
+      drawLevel1(root);
+      return;
+    }
+    phase++;
   }
-  new ResizeObserver(() => { level = 0; draw(); }).observe(host);
+  new ResizeObserver(() => { phase = 0; const W = host.clientWidth, H = host.clientHeight; if (W && H) drawLevel1({ x: 0, y: 0, w: W, h: H }); }).observe(host);
+  const W = host.clientWidth, H = host.clientHeight;
+  if (W && H) drawLevel1({ x: 0, y: 0, w: W, h: H });
   setInterval(step, 1300);
 }
 

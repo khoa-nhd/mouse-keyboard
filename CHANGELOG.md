@@ -3,6 +3,16 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.1.0] - 2026-11-08
+
+### Changed
+- **Grid mode now matches Mouseless's default `position_based_columns` preset:**
+  - Ten columns at level 1 (`A S D F G H J K L ;`), thirty rows inside the chosen column (`QWERTYUIOP / ASDFGHJKL; / ZXCVBNM,./`), then a ten-by-three subgrid for the exact click point.
+  - A virtual cursor follows the selection while the real pointer stays put; the pointer moves only for the final click or when Esc restores it.
+  - Space clicks, Enter or Shift right-clicks, Backspace goes back, Tab switches monitor, Ctrl + the Grid key closes in place, and Esc cancels.
+  - `grid.actionLevel` can stop at the subgrid (default), the row (`"2"`) or the column (`"1"`).
+  - The guide, keymap editor and README document the new flow; level-2 and subgrid keys remain editable in `settings.json`.
+
 ## [1.0.9] - 2026-11-03
 
 ### Fixed & Enhanced
