@@ -286,7 +286,7 @@ public sealed class MovementEngine : IMovementControl, IDisposable
 
                     if (highResolutionPeriod)
                     {
-                        Winmm.timeEndPeriod(1);
+                        // timeEndPeriod(1) removed to allow system sleep/screen saver
                         highResolutionPeriod = false;
                     }
 
@@ -301,9 +301,8 @@ public sealed class MovementEngine : IMovementControl, IDisposable
 
                     if (timer == IntPtr.Zero)
                     {
-                        // Fallback path: ask the scheduler for 1 ms sleeps.
-                        Winmm.timeBeginPeriod(1);
-                        highResolutionPeriod = true;
+                        // timerBeginPeriod removed to allow system sleep/screen saver
+                        // highResolutionPeriod = true;
                     }
                 }
 
@@ -336,13 +335,9 @@ public sealed class MovementEngine : IMovementControl, IDisposable
             {
                 Kernel32.CloseHandle(timer);
             }
-
-            if (highResolutionPeriod)
-            {
-                Winmm.timeEndPeriod(1);
-            }
         }
-    }
+
+    }  // <-- added missing closing brace for Loop method
 
     private void StartMotion()
     {
