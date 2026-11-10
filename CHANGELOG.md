@@ -3,6 +3,23 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.5.0] - 2026-11-10
+
+### Added & Enhanced
+- **Grid mode now works like Mouseless:**
+  - The overlay opens on the whole ten by thirty lattice and writes the complete key sequence in every cell (`AG`, `SW`, …), so a target's code is readable before typing instead of appearing one column at a time. Cells that stop matching the typed prefix fade out.
+  - Typing the two letters of a cell zooms into it as a ten by three subgrid labelled with full three-letter codes, and the third letter zooms into a new three by three micro grid labelled with four-letter codes; the fourth letter clicks.
+  - `grid.microKeys` (default `Q W E A S D Z X C`) configures the micro grid; `grid.actionLevel` now defaults to `"micro"`, while `"subgrid"`, `"2"` and `"1"` still stop earlier.
+
+### Fixed
+- **Hint mode no longer comes back empty, and the pixel pass actually adds targets:**
+  - A scan that finished a little after its budget used to be thrown away: the 400 ms timer fired first, so a 506 ms scan of 27 elements produced no hints at all. The budget is now a soft deadline with a grace period, and the result is shown when it arrives.
+  - The pixel pass captures the region up front and runs beside UI Automation on its own budget, instead of receiving whatever automation left over (usually nothing, which is why it reported `0 from pixels`). On a 1280×800 screen it now finds 117 controls besides the accessible ones.
+  - Each window's accessibility tree is read on its own thread with its own time slice; one Electron window that took 1.7 s no longer delays or cancels the rest. A full-monitor scan dropped from 3.7 s to 2.2 s.
+  - Duplicate suppression is offset-tolerant: two boxes describing one control are one hint (18 duplicate pairs on one screen became 0), and uncertain geometry is dropped instead of hinted.
+  - When a scan finds more targets than `hint.maxElements`, the list is sampled across the whole screen instead of keeping only the top-left ones, so the lower part of the screen keeps its hints.
+- `hint.visualDetection` now runs at native resolution (no downscaled pass), which is what small icon strokes need to be detected at all.
+
 ## [1.4.1] - 2026-11-10
 
 ### Fixed

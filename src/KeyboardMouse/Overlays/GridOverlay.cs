@@ -5,10 +5,16 @@ using KeyboardMouse.Core;
 namespace KeyboardMouse.Overlays;
 
 /// <summary>
-/// One monitor-sized layered window for grid mode, styled after Mouseless:
-/// translucent colour-blocked columns (each label repeated down its column, as
-/// Mouseless does), a highlighted column with thirty row keys, and a
-/// full-screen ten by three subgrid for the final click.
+/// One monitor-sized layered window for grid mode, styled after Mouseless.
+///
+/// Primary phase: the whole ten by thirty lattice is drawn at once and every
+/// cell carries the complete code that reaches it (`AG`, `SW`, ...), so the
+/// target is identifiable before anything is typed. Cells that stop matching the
+/// typed prefix fade instead of disappearing.
+///
+/// Subgrid phase: the chosen cell fills the screen as a ten by three grid, and
+/// each sub-cell shows its full three-key code. Micro phase: the chosen
+/// sub-cell fills the screen as a three by three grid with four-key codes.
 /// </summary>
 public sealed class GridOverlay : IGridOverlay
 {
@@ -35,11 +41,7 @@ public sealed class GridOverlay : IGridOverlay
             Color.FromArgb(48, 100, 141)
         ];
 
-        // Mouseless repeats a level-1 label down its whole column instead of
-        // printing it once, so the column is readable wherever the eye lands.
-        private const int ColumnLabelRepeats = 10;
-
-        private static readonly Color[] SubgridTints =
+        private static readonly Color[] RowTints =
         [
             Color.FromArgb(52, 88, 138),
             Color.FromArgb(45, 116, 118),
@@ -62,41 +64,56 @@ public sealed class GridOverlay : IGridOverlay
                 Math.Clamp(state.Target.X - bounds.Left, 0, width - 1),
                 Math.Clamp(state.Target.Y - bounds.Top, 0, height - 1));
 
-            // The subgrid is a full-screen zoom of the selected band, so the
-            // virtual cursor is drawn at the target's position relative to the
-            // band rather than at its absolute spot on the monitor.
+            // The subgrid and micro grids are full-screen zooms of the chosen
+            // box, so the virtual cursor is drawn at its position inside that
+            // box rather than at its absolute spot on the monitor.
             if (state.Phase == GridOverlayPhase.Subgrid && state.Cell is { } cell)
             {
                 target = MapIntoSpan(target, Local(cell, bounds), width, height);
             }
+            else if (state.Phase == GridOverlayPhase.Micro && state.Subcell is { } subcell)
+            {
+                target = MapIntoSpan(target, Local(subcell, bounds), width, height);
+            }
 
             RenderSurface(width, height, bounds.Left, bounds.Top, g =>
             {
-                using (var backdrop = new SolidBrush(Color.FromArgb(
-                           state.Phase == GridOverlayPhase.Level1 ? 52 : 148,
-                           7, 10, 18)))
+                int backdropAlpha = state.Phase == GridOverlayPhase.Primary ? 118 : 196;
+                using (var backdrop = new SolidBrush(Color.FromArgb(backdropAlpha, 7, 10, 18)))
                 {
                     g.FillRectangle(backdrop, 0, 0, width, height);
                 }
 
                 switch (state.Phase)
                 {
-                    case GridOverlayPhase.Level1:
-                        DrawColumns(g, root, state.Level1Labels, scale);
-                        break;
-
-                    case GridOverlayPhase.Level2:
-                        DrawRows(
-                            g,
-                            root,
-                            state.Column is { } column ? Local(column, bounds) : null,
-                            state.Level1Labels,
-                            state.Level2Labels,
-                            scale);
+                    case GridOverlayPhase.Primary:
+                        DrawPrimary(g, root, state, scale);
                         break;
 
                     case GridOverlayPhase.Subgrid:
-                        DrawSubgrid(g, root, state.SubgridLabels, scale);
+                        DrawCodes(
+                            g,
+                            root,
+                            GridMath.SubgridColumns,
+                            GridMath.SubgridRows,
+                            state.SubgridLabels,
+                            state.Typed,
+                            scale,
+                            15f,
+                            64f);
+                        break;
+
+                    case GridOverlayPhase.Micro:
+                        DrawCodes(
+                            g,
+                            root,
+                            GridMath.MicroColumns,
+                            GridMath.MicroRows,
+                            state.MicroLabels,
+                            state.Typed,
+                            scale,
+                            20f,
+                            96f);
                         break;
                 }
 
@@ -105,239 +122,146 @@ public sealed class GridOverlay : IGridOverlay
             });
         }
 
-        private static void DrawColumns(
+        /// <summary>
+        /// The full lattice: colour blocked columns, thin row rules, and the
+        /// complete two-key code in every cell.
+        /// </summary>
+        private static void DrawPrimary(
             Graphics g,
             Rectangle root,
-            IReadOnlyList<string> labels,
+            GridOverlayState state,
             float scale)
         {
-            for (int i = 0; i < GridMath.Level1Columns; i++)
+            int selected = ColumnIndexOf(root, state.Column);
+
+            for (int i = 0; i < GridMath.PrimaryColumns; i++)
             {
-                var cell = GridMath.Cell(root, i, 0, GridMath.Level1Columns, 1);
+                var strip = GridMath.Cell(root, i, 0, GridMath.PrimaryColumns, 1);
                 Color tint = ColumnTints[(i / 2) % ColumnTints.Length];
 
-                using (var fill = new LinearGradientBrush(
-                           cell,
-                           WithAlpha(tint, 58),
-                           WithAlpha(tint, 104),
-                           LinearGradientMode.Vertical))
+                if (i == selected)
                 {
-                    g.FillRectangle(fill, cell);
+                    using var fill = new LinearGradientBrush(
+                        strip,
+                        WithAlpha(tint, 96),
+                        WithAlpha(tint, 148),
+                        LinearGradientMode.Vertical);
+                    g.FillRectangle(fill, strip);
+                }
+                else
+                {
+                    using var fill = new SolidBrush(WithAlpha(tint, 34));
+                    g.FillRectangle(fill, strip);
                 }
             }
 
-            DrawGridLines(g, root, GridMath.Level1Columns, 1, scale);
+            DrawGridLines(g, root, GridMath.PrimaryColumns, GridMath.PrimaryRows, scale, rowAlpha: 92);
 
-            if (labels.Count < GridMath.Level1Cells)
-            {
-                return;
-            }
-
-            float slotHeight = root.Height / (float)ColumnLabelRepeats;
+            float cellWidth = root.Width / (float)GridMath.PrimaryColumns;
+            float cellHeight = root.Height / (float)GridMath.PrimaryRows;
             float fontSize = Math.Clamp(
-                Math.Min(root.Width / (float)GridMath.Level1Columns * 0.30f, slotHeight * 0.56f),
-                13f,
-                54f);
+                Math.Min(cellWidth * 0.40f, cellHeight * 0.66f),
+                9f,
+                26f);
             using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
             using var format = CenteredFormat();
-            using var brush = new SolidBrush(Color.FromArgb(238, 255, 255, 255));
-            float offset = Math.Max(1.5f, 2f * scale);
+            using var bright = new SolidBrush(Color.FromArgb(238, 255, 255, 255));
+            using var dim = new SolidBrush(Color.FromArgb(58, 255, 255, 255));
+            float offset = Math.Max(1f, 1.4f * scale);
+            string typed = state.Typed;
 
-            for (int i = 0; i < GridMath.Level1Columns; i++)
+            for (int row = 0; row < GridMath.PrimaryRows; row++)
             {
-                string text = labels[i];
-                if (string.IsNullOrEmpty(text))
+                if (row >= state.Level2Labels.Count)
                 {
-                    continue;
+                    break;
                 }
 
-                var cell = GridMath.Cell(root, i, 0, GridMath.Level1Columns, 1);
-                for (int repeat = 0; repeat < ColumnLabelRepeats; repeat++)
+                for (int column = 0; column < GridMath.PrimaryColumns; column++)
                 {
-                    float y = cell.Top + (cell.Height * (repeat + 0.5f) / ColumnLabelRepeats);
-                    DrawShadowedString(g, text, font, brush, cell.Left + (cell.Width / 2f), y, offset, format);
-                }
-            }
-        }
+                    if (column >= state.Level1Labels.Count)
+                    {
+                        break;
+                    }
 
-        private static void DrawRows(
-            Graphics g,
-            Rectangle root,
-            Rectangle? selected,
-            IReadOnlyList<string> level1Labels,
-            IReadOnlyList<string> level2Labels,
-            float scale)
-        {
-            if (selected is not { } column)
-            {
-                return;
-            }
-
-            int columnIndex = Math.Clamp(
-                (int)((long)(column.Left - root.Left) * GridMath.Level1Columns / Math.Max(1, root.Width)),
-                0,
-                GridMath.Level1Columns - 1);
-            Color selectedTint = ColumnTints[(columnIndex / 2) % ColumnTints.Length];
-
-            for (int i = 0; i < GridMath.Level1Columns; i++)
-            {
-                var cell = GridMath.Cell(root, i, 0, GridMath.Level1Columns, 1);
-                Color tint = ColumnTints[(i / 2) % ColumnTints.Length];
-                using var fill = new SolidBrush(WithAlpha(tint, 24));
-                g.FillRectangle(fill, cell);
-            }
-
-            using (var fill = new LinearGradientBrush(
-                       column,
-                       WithAlpha(selectedTint, 86),
-                       WithAlpha(selectedTint, 138),
-                       LinearGradientMode.Vertical))
-            {
-                g.FillRectangle(fill, column);
-            }
-
-            DrawGridLines(g, root, GridMath.Level1Columns, 1, scale);
-
-            // Faint level-1 letters keep the column map visible around the
-            // selected column, like Mouseless does.
-            if (level1Labels.Count >= GridMath.Level1Cells)
-            {
-                float columnFontSize = Math.Clamp(column.Width * 0.30f, 13f, 54f);
-                using var columnFont = new Font("Segoe UI", columnFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-                using var faintFormat = CenteredFormat();
-                using var faint = new SolidBrush(Color.FromArgb(72, 255, 255, 255));
-                float faintOffset = Math.Max(1.5f, 2f * scale);
-
-                for (int i = 0; i < GridMath.Level1Columns; i++)
-                {
-                    if (i == columnIndex || string.IsNullOrEmpty(level1Labels[i]))
+                    string code = state.Level1Labels[column] + state.Level2Labels[row];
+                    if (code.Length < 2)
                     {
                         continue;
                     }
 
-                    var cell = GridMath.Cell(root, i, 0, GridMath.Level1Columns, 1);
-                    for (int repeat = 0; repeat < ColumnLabelRepeats; repeat++)
-                    {
-                        DrawShadowedString(
-                            g,
-                            level1Labels[i],
-                            columnFont,
-                            faint,
-                            cell.Left + (cell.Width / 2f),
-                            cell.Top + (cell.Height * (repeat + 0.5f) / ColumnLabelRepeats),
-                            faintOffset,
-                            faintFormat,
-                            shadowAlpha: 90);
-                    }
-                }
-            }
+                    bool matches = typed.Length == 0 ||
+                        code.StartsWith(typed, StringComparison.OrdinalIgnoreCase);
 
-            using (var border = new Pen(Color.FromArgb(220, 255, 255, 255), Math.Max(1.5f, 2f * scale)))
-            {
-                g.DrawRectangle(border, column);
-            }
-
-            if (level2Labels.Count < GridMath.Level2Cells)
-            {
-                return;
-            }
-
-            float bandHeight = column.Height / (float)GridMath.Level2Rows;
-            float fontSize = Math.Clamp(Math.Min(column.Width * 0.26f, bandHeight * 0.62f), 9f, 30f);
-            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var format = CenteredFormat();
-            using var text = new SolidBrush(Color.FromArgb(245, 255, 255, 255));
-            using var pill = new SolidBrush(Color.FromArgb(112, 9, 14, 24));
-            using var pillLine = new Pen(Color.FromArgb(70, 255, 255, 255), Math.Max(1f, scale));
-            float offset = Math.Max(1f, 1.4f * scale);
-
-            for (int row = 0; row < GridMath.Level2Rows; row++)
-            {
-                string label = level2Labels[row];
-                if (string.IsNullOrEmpty(label))
-                {
-                    continue;
-                }
-
-                var band = GridMath.Cell(column, 0, row, 1, GridMath.Level2Rows);
-                float cx = band.Left + (band.Width / 2f);
-                float cy = band.Top + (band.Height / 2f);
-
-                var size = g.MeasureString(label, font);
-                float pillWidth = Math.Max(font.Size * 1.15f, size.Width + (font.Size * 0.3f));
-                float pillHeight = Math.Min(band.Height, Math.Max(font.Size * 1.2f, size.Height * 0.9f));
-                using (var path = RoundedRect(
-                           cx - (pillWidth / 2f),
-                           cy - (pillHeight / 2f),
-                           pillWidth,
-                           pillHeight,
-                           Math.Min(pillHeight / 2.4f, font.Size * 0.24f)))
-                {
-                    g.FillPath(pill, path);
-                    g.DrawPath(pillLine, path);
-                }
-
-                DrawShadowedString(g, label, font, text, cx, cy, offset, format, shadowAlpha: 150);
-
-                if (row is 9 or 19)
-                {
-                    using var groupLine = new Pen(Color.FromArgb(90, 255, 255, 255), Math.Max(1f, scale));
-                    g.DrawLine(groupLine, band.Left, band.Bottom, band.Right, band.Bottom);
+                    var cell = GridMath.Cell(root, column, row, GridMath.PrimaryColumns, GridMath.PrimaryRows);
+                    DrawShadowedString(
+                        g,
+                        code,
+                        font,
+                        matches ? bright : dim,
+                        cell.Left + (cell.Width / 2f),
+                        cell.Top + (cell.Height / 2f),
+                        offset,
+                        format,
+                        shadowAlpha: matches ? 175 : 60);
                 }
             }
         }
 
-        private static void DrawSubgrid(
+        /// <summary>
+        /// One zoomed level: every cell of the chosen box fills the screen and
+        /// carries its complete code, so the next key is obvious.
+        /// </summary>
+        private static void DrawCodes(
             Graphics g,
             Rectangle root,
+            int columns,
+            int rows,
             IReadOnlyList<string> labels,
-            float scale)
+            string prefix,
+            float scale,
+            float minFont,
+            float maxFont)
         {
-            for (int row = 0; row < GridMath.SubgridRows; row++)
+            for (int row = 0; row < rows; row++)
             {
-                Color tint = SubgridTints[row % SubgridTints.Length];
-                for (int column = 0; column < GridMath.SubgridColumns; column++)
+                Color tint = RowTints[row % RowTints.Length];
+                for (int column = 0; column < columns; column++)
                 {
-                    var cell = GridMath.Cell(
-                        root,
-                        column,
-                        row,
-                        GridMath.SubgridColumns,
-                        GridMath.SubgridRows);
-                    using var fill = new SolidBrush(WithAlpha(tint, 94));
+                    var cell = GridMath.Cell(root, column, row, columns, rows);
+                    using var fill = new SolidBrush(WithAlpha(tint, 96));
                     g.FillRectangle(fill, cell);
                 }
             }
 
-            DrawGridLines(g, root, GridMath.SubgridColumns, GridMath.SubgridRows, scale);
+            DrawGridLines(g, root, columns, rows, scale, rowAlpha: 214);
 
-            if (labels.Count < GridMath.SubgridCells)
+            if (labels.Count < columns * rows)
             {
                 return;
             }
 
-            var sample = GridMath.Cell(root, 0, 0, GridMath.SubgridColumns, GridMath.SubgridRows);
+            var sample = GridMath.Cell(root, 0, 0, columns, rows);
             float fontSize = Math.Clamp(
-                Math.Min(sample.Width * 0.38f, sample.Height * 0.42f),
-                18f,
-                96f);
+                Math.Min(sample.Width * 0.34f, sample.Height * 0.40f),
+                minFont,
+                maxFont);
             using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
             using var format = CenteredFormat();
             using var brush = new SolidBrush(Color.FromArgb(248, 255, 255, 255));
             float offset = Math.Max(2f, 2.4f * scale);
 
-            for (int i = 0; i < GridMath.SubgridCells; i++)
+            for (int i = 0; i < columns * rows; i++)
             {
-                string text = labels[i];
-                if (string.IsNullOrEmpty(text))
+                if (string.IsNullOrEmpty(labels[i]))
                 {
                     continue;
                 }
 
-                var cell = GridMath.SubRect(root, i, GridMath.SubgridColumns, GridMath.SubgridRows);
+                var cell = GridMath.SubRect(root, i, columns, rows);
                 DrawShadowedString(
                     g,
-                    text,
+                    prefix + labels[i],
                     font,
                     brush,
                     cell.Left + (cell.Width / 2f),
@@ -347,28 +271,43 @@ public sealed class GridOverlay : IGridOverlay
             }
         }
 
+        private static int ColumnIndexOf(Rectangle root, Rectangle? column)
+        {
+            if (column is not { } value || root.Width <= 0)
+            {
+                return -1;
+            }
+
+            return Math.Clamp(
+                (int)((long)(value.Left - root.Left) * GridMath.PrimaryColumns / root.Width),
+                0,
+                GridMath.PrimaryColumns - 1);
+        }
+
         private static void DrawGridLines(
             Graphics g,
             Rectangle rect,
             int columns,
             int rows,
-            float scale)
+            float scale,
+            int rowAlpha = 214)
         {
-            using var shadow = new Pen(Color.FromArgb(150, 0, 0, 0), Math.Max(3f, 2.6f * scale));
-            using var line = new Pen(Color.FromArgb(214, 255, 255, 255), Math.Max(1f, 1.15f * scale));
+            using var shadow = new Pen(Color.FromArgb(120, 0, 0, 0), Math.Max(3f, 2.6f * scale));
+            using var vertical = new Pen(Color.FromArgb(200, 255, 255, 255), Math.Max(1f, 1.15f * scale));
+            using var horizontal = new Pen(Color.FromArgb(rowAlpha, 255, 255, 255), Math.Max(1f, scale));
 
             for (int i = 1; i < columns; i++)
             {
                 int x = rect.Left + (int)((long)rect.Width * i / columns);
                 g.DrawLine(shadow, x, rect.Top, x, rect.Bottom);
-                g.DrawLine(line, x, rect.Top, x, rect.Bottom);
+                g.DrawLine(vertical, x, rect.Top, x, rect.Bottom);
             }
 
             for (int i = 1; i < rows; i++)
             {
                 int y = rect.Top + (int)((long)rect.Height * i / rows);
                 g.DrawLine(shadow, rect.Left, y, rect.Right, y);
-                g.DrawLine(line, rect.Left, y, rect.Right, y);
+                g.DrawLine(horizontal, rect.Left, y, rect.Right, y);
             }
         }
 
@@ -424,18 +363,6 @@ public sealed class GridOverlay : IGridOverlay
             Alignment = StringAlignment.Center,
             LineAlignment = StringAlignment.Center
         };
-
-        private static GraphicsPath RoundedRect(float x, float y, float width, float height, float radius)
-        {
-            float diameter = Math.Min(radius * 2f, Math.Min(width, height));
-            var path = new GraphicsPath();
-            path.AddArc(x, y, diameter, diameter, 180, 90);
-            path.AddArc(x + width - diameter, y, diameter, diameter, 270, 90);
-            path.AddArc(x + width - diameter, y + height - diameter, diameter, diameter, 0, 90);
-            path.AddArc(x, y + height - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
 
         private static Color WithAlpha(Color color, int alpha) =>
             Color.FromArgb(alpha, color.R, color.G, color.B);

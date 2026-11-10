@@ -113,10 +113,29 @@ public static class HintTargetFilter
             targets.Add(new ClickableTarget(bounds, candidate.Name));
         }
 
-        return targets
+        var ordered = targets
             .OrderBy(t => t.Bounds.Top)
             .ThenBy(t => t.Bounds.Left)
-            .Take(cap)
             .ToArray();
+
+        if (ordered.Length <= cap)
+        {
+            return ordered;
+        }
+
+        // Too many targets for one set of labels. Taking the first ones would
+        // leave the bottom of the screen without hints, so keep the reading
+        // order and sample the whole list instead: every part of the screen
+        // stays addressable.
+        var spread = new List<ClickableTarget>(cap);
+        double step = ordered.Length / (double)cap;
+
+        for (int i = 0; i < cap; i++)
+        {
+            int index = (int)Math.Round(i * step);
+            spread.Add(ordered[Math.Clamp(index, 0, ordered.Length - 1)]);
+        }
+
+        return spread;
     }
 }

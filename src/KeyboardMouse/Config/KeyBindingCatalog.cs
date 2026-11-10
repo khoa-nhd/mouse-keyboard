@@ -218,7 +218,8 @@ public static class KeyBindingCatalog
 
         settings.Grid.Level2Keys = GridSettings.DefaultLevel2Keys();
         settings.Grid.SubgridKeys = GridSettings.DefaultSubgridKeys();
-        settings.Grid.ActionLevel = "subgrid";
+        settings.Grid.MicroKeys = GridSettings.DefaultMicroKeys();
+        settings.Grid.ActionLevel = "micro";
     }
 
     /// <summary>
@@ -249,6 +250,7 @@ public static class KeyBindingCatalog
         NormalizeGridLevel(settings.Grid.Level1Keys, GridSettings.DefaultLevel1Keys());
         NormalizeGridLevel(settings.Grid.Level2Keys, GridSettings.DefaultLevel2Keys());
         NormalizeGridLevel(settings.Grid.SubgridKeys, GridSettings.DefaultSubgridKeys());
+        NormalizeGridLevel(settings.Grid.MicroKeys ??= GridSettings.DefaultMicroKeys(), GridSettings.DefaultMicroKeys());
     }
 
     public static bool TryParseBindingKey(string? name, out PhysicalKey key)

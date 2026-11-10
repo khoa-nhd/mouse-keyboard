@@ -75,7 +75,7 @@ public class KeyBindingCatalogTests
         Assert.Equal(10, settings.Grid.Level1Keys.Length);
         Assert.Equal(30, settings.Grid.Level2Keys.Length);
         Assert.Equal(30, settings.Grid.SubgridKeys.Length);
-        Assert.Equal("subgrid", settings.Grid.ActionLevel);
+        Assert.Equal("micro", settings.Grid.ActionLevel);
         Assert.Equal("Q", settings.Grid.Level2Keys[0]);
         Assert.Equal("Slash", settings.Grid.SubgridKeys[29]);
     }
@@ -192,7 +192,7 @@ public class KeyBindingCatalogTests
         Assert.Equal("A", settings.Grid.Level1Keys[0]);
         Assert.Equal("Q", settings.Grid.Level2Keys[0]);
         Assert.Equal("Q", settings.Grid.SubgridKeys[0]);
-        Assert.Equal("subgrid", settings.Grid.ActionLevel);
+        Assert.Equal("micro", settings.Grid.ActionLevel);
     }
 
     [Fact]

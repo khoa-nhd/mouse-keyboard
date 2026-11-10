@@ -79,8 +79,11 @@ public class HintTargetFilterTests
     }
 
     [Fact]
-    public void CapsTheNumberOfTargets_KeepingTheTopLeftOnes()
+    public void CapsTheNumberOfTargets_AcrossTheWholeScreen()
     {
+        // Ten targets on a diagonal, capped at three. Sampling the ordered list
+        // keeps the top, the middle and the bottom: taking the first three left
+        // the rest of the screen without hints.
         var raw = Enumerable.Range(0, 10)
             .Select(i => new RawClickableTarget(
                 new Rectangle(5 + (i * 9), 5 + (i * 9), 5, 5),
@@ -92,8 +95,8 @@ public class HintTargetFilterTests
 
         Assert.Equal(3, result.Count);
         Assert.Equal(new Point(7, 7), result[0].Center);
-        Assert.Equal(new Point(16, 16), result[1].Center);
-        Assert.Equal(new Point(25, 25), result[2].Center);
+        Assert.Equal(new Point(34, 34), result[1].Center);
+        Assert.Equal(new Point(70, 70), result[2].Center);
     }
 
     [Fact]

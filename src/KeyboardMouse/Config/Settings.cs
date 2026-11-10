@@ -180,8 +180,9 @@ public sealed class AutoClickSettings
 }
 
 /// <summary>
-/// Mouseless v1.0 "position based columns" grid: ten columns at level 1,
-/// thirty vertical bands at level 2, then a ten by three subgrid.
+/// Mouseless "position based columns" grid: ten columns by thirty rows drawn as
+/// one lattice with complete two-key codes, a ten by three subgrid inside the
+/// chosen cell, and a three by three micro grid inside the chosen sub-cell.
 /// </summary>
 public sealed class GridSettings
 {
@@ -191,8 +192,11 @@ public sealed class GridSettings
 
     public string[] SubgridKeys { get; set; } = DefaultSubgridKeys();
 
-    /// <summary>"subgrid" (default), "2" or "1".</summary>
-    public string ActionLevel { get; set; } = "subgrid";
+    /// <summary>Nine keys for the final three by three micro grid.</summary>
+    public string[] MicroKeys { get; set; } = DefaultMicroKeys();
+
+    /// <summary>"micro" (default), "subgrid", "2" or "1".</summary>
+    public string ActionLevel { get; set; } = "micro";
 
     public static string[] DefaultLevel1Keys() =>
         ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"];
@@ -206,12 +210,15 @@ public sealed class GridSettings
 
     public static string[] DefaultSubgridKeys() => DefaultLevel2Keys();
 
+    public static string[] DefaultMicroKeys() => ["Q", "W", "E", "A", "S", "D", "Z", "X", "C"];
+
     public static string NormalizeActionLevel(string? value) =>
         value?.Trim().ToLowerInvariant() switch
         {
             "1" => "1",
             "2" => "2",
-            _ => "subgrid"
+            "3" or "subgrid" => "subgrid",
+            _ => "micro"
         };
 }
 

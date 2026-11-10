@@ -241,20 +241,27 @@ or `Middle`. To use a different key, set `keys.autoClick`.
 ### Grid mode (G)
 
 ```
-Level 1   A S D F G H J K L ;                    ten columns
-Level 2   QWERTYUIOP / ASDFGHJKL; / ZXCVBNM,./   thirty rows inside the column
-Subgrid   QWERTYUIOP / ASDFGHJKL; / ZXCVBNM,./   ten by three sub-cells
+Primary   10 x 30 lattice, every cell shows its full code   AG  SW  DQ  ...
+Subgrid   10 x 3 inside the chosen cell                     AGQ AGW AGE ...
+Micro     3 x 3 inside the chosen sub-cell                  AGQQ AGQW ...
 ```
 
-The screen splits into ten columns. Pick a column, then a row, then a sub-cell;
-the overlay shows each step and keeps a virtual cursor on the target. The real
-pointer moves only when you click, so any spot is 2–3 keys away and the pointer
-never drifts while you choose.
+The overlay opens on the whole ten by thirty lattice at once and writes the
+complete key sequence in every cell, so you can read a target's code before
+typing anything instead of discovering it one column at a time. Type those
+letters: the first highlights the column, the second selects the cell and zooms
+into it as a ten by three subgrid whose cells carry their full three-letter
+code, and the third zooms into a three by three micro grid, where the fourth
+letter clicks. Cells that stop matching what you typed fade out. The real
+pointer moves only on the click, so it never drifts while you choose.
 
 Space = click · Enter or Shift = right click · Backspace = up one level ·
 Tab = next monitor · Ctrl + G = close without moving · Esc = cancel and restore
-the pointer. Set `grid.actionLevel` to `"2"` or `"1"` to click as soon as the
-row or column is picked, without the subgrid step.
+the pointer. `grid.actionLevel` can stop earlier: `"subgrid"` clicks on the
+third key, `"2"` on the second and `"1"` on the first; the default `"micro"`
+uses all four. All four key sets are editable in `settings.json`
+(`grid.level1Keys`, `grid.level2Keys`, `grid.subgridKeys`, `grid.microKeys`,
+default `Q W E A S D Z X C`).
 
 ### Hint mode (H)
 
@@ -268,6 +275,17 @@ Shift + label hovers, F + label right-clicks, Backspace deletes a letter, Esc ca
 |---|---|
 | `activeMonitor` (default) | every window, dialog and the taskbar on the monitor under the pointer |
 | `foreground` | only the active window, plus the menus, dropdowns and dialogs it owns |
+
+A scan runs two passes at the same time. UI Automation reads the windows in
+scope; the pixel pass captures the same area first and analyses it on a worker
+thread, so it keeps a full budget of its own and finds controls the accessibility
+tree never reports (canvas toolbars, games, remote desktops, custom-drawn UI).
+Its boxes are merged at the click point, offset-tolerant, so one control never
+gets two labels, and a box whose geometry is uncertain is dropped rather than
+hinted. Windows are read in parallel, so one unresponsive app cannot stall the
+scan, and a scan that runs slightly over its budget is still shown instead of
+being discarded. When there are more targets than `hint.maxElements`, the list is
+sampled across the screen so every part of it stays addressable.
 | `allMonitors` | everything on every monitor |
 | `virtualDesktop` | the whole virtual desktop, including the gaps between monitors |
 

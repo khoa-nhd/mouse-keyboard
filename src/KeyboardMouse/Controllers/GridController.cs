@@ -8,13 +8,24 @@ using KeyboardMouse.Overlays;
 namespace KeyboardMouse.Controllers;
 
 /// <summary>
-/// Mouseless-style grid mode. Ten column keys pick a column, thirty band keys
-/// pick a row inside it, and the ten by three subgrid picks the exact click
-/// point (controlled by <see cref="GridSettings.ActionLevel"/>). Space clicks
-/// the virtual cursor, Enter or Shift clicks it with the right button,
-/// Backspace goes back one level, Tab moves to the next monitor, Ctrl + the
-/// grid key closes keeping the position, and Esc cancels and restores the
-/// original pointer.
+/// Mouseless-style grid mode.
+///
+/// The overlay opens on the whole primary lattice, ten columns by thirty rows,
+/// with every cell labelled by the complete code that reaches it (`AG`, `SW`,
+/// ...), so the whole screen is addressable at a glance instead of one column
+/// at a time. Typing the first key highlights its column; typing the second
+/// picks the cell and zooms into it, showing a ten by three subgrid whose cells
+/// carry the full three-key code. Typing the third key picks a sub-cell and
+/// zooms into a three by three micro grid, where the fourth key clicks.
+///
+/// Space clicks the virtual cursor at any stage, Enter or Shift clicks it with
+/// the right button, Backspace goes back one stage, Tab moves to the next
+/// monitor, Ctrl + the grid key closes keeping the position, and Esc cancels
+/// and restores the original pointer.
+///
+/// <see cref="GridSettings.ActionLevel"/> decides how early a click happens:
+/// "1" after the column, "2" after the cell, "subgrid" after the sub-cell, and
+/// the default "micro" only after the micro cell.
 /// </summary>
 public sealed class GridController : IModeController
 {
@@ -33,15 +44,20 @@ public sealed class GridController : IModeController
     private string[] _level2Labels = [];
     private PhysicalKey[] _subgridKeys = [];
     private string[] _subgridLabels = [];
-    private int _actionLevel = 3;
+    private PhysicalKey[] _microKeys = [];
+    private string[] _microLabels = [];
+    private int _actionLevel = 4;
     private bool _active;
     private Point _savedPointer;
     private MonitorInfo? _monitor;
     private Rectangle _root;
+    private int _columnIndex = -1;
     private Rectangle? _column;
     private Rectangle? _cell;
+    private Rectangle? _subcell;
+    private string _typed = string.Empty;
     private Point _target;
-    private GridOverlayPhase _phase = GridOverlayPhase.Level1;
+    private GridOverlayPhase _phase = GridOverlayPhase.Primary;
 
     public GridController(
         IMouseOutput mouse,
@@ -96,10 +112,8 @@ public sealed class GridController : IModeController
         _savedPointer = _cursor();
         _monitor = _monitors.GetAtPoint(_savedPointer);
         _root = _monitor.Bounds;
-        _column = null;
-        _cell = null;
+        ResetSelection();
         _target = _savedPointer;
-        _phase = GridOverlayPhase.Level1;
         _active = true;
         Show();
     }
@@ -161,37 +175,53 @@ public sealed class GridController : IModeController
 
         int index = _phase switch
         {
-            GridOverlayPhase.Level1 => FindKey(_level1Keys, keyEvent.Key),
-            GridOverlayPhase.Level2 => FindKey(_level2Keys, keyEvent.Key),
+            // The primary lattice answers to both key sets: the first key picks
+            // a column, the second the row inside it.
+            GridOverlayPhase.Primary => _typed.Length == 0
+                ? FindKey(_level1Keys, keyEvent.Key)
+                : FindKey(_level2Keys, keyEvent.Key),
             GridOverlayPhase.Subgrid => FindKey(_subgridKeys, keyEvent.Key),
+            GridOverlayPhase.Micro => FindKey(_microKeys, keyEvent.Key),
             _ => -1
         };
 
         if (index >= 0)
         {
-            switch (_phase)
-            {
-                case GridOverlayPhase.Level1:
-                    SelectColumn(index, modifiers.Shift);
-                    break;
-
-                case GridOverlayPhase.Level2:
-                    SelectRow(index, modifiers.Shift);
-                    break;
-
-                case GridOverlayPhase.Subgrid:
-                    SelectSubcell(index, modifiers.Shift);
-                    break;
-            }
+            Advance(index, modifiers.Shift);
         }
 
         return HandleResult.Swallow;
     }
 
+    private void Advance(int index, bool right)
+    {
+        switch (_phase)
+        {
+            case GridOverlayPhase.Primary when _typed.Length == 0:
+                SelectColumn(index, right);
+                break;
+
+            case GridOverlayPhase.Primary:
+                SelectRow(index, right);
+                break;
+
+            case GridOverlayPhase.Subgrid:
+                SelectSubcell(index, right);
+                break;
+
+            case GridOverlayPhase.Micro:
+                SelectMicrocell(index, right);
+                break;
+        }
+    }
+
     private void SelectColumn(int index, bool right)
     {
-        _column = GridMath.Cell(_root, index, 0, GridMath.Level1Columns, 1);
+        _columnIndex = index;
+        _column = GridMath.Cell(_root, index, 0, GridMath.PrimaryColumns, 1);
         _cell = null;
+        _subcell = null;
+        _typed = _level1Labels[index];
         _target = GridMath.Center(_column.Value);
 
         if (_actionLevel == 1)
@@ -200,18 +230,19 @@ public sealed class GridController : IModeController
             return;
         }
 
-        _phase = GridOverlayPhase.Level2;
         Show();
     }
 
     private void SelectRow(int index, bool right)
     {
-        if (_column is not { } column)
+        if (_columnIndex < 0)
         {
             return;
         }
 
-        _cell = GridMath.Cell(column, 0, index, 1, GridMath.Level2Rows);
+        _cell = GridMath.Cell(_root, _columnIndex, index, GridMath.PrimaryColumns, GridMath.PrimaryRows);
+        _subcell = null;
+        _typed = _level1Labels[_columnIndex] + _level2Labels[index];
         _target = GridMath.Center(_cell.Value);
 
         if (_actionLevel == 2)
@@ -231,8 +262,30 @@ public sealed class GridController : IModeController
             return;
         }
 
-        var subcell = GridMath.SubRect(cell, index, GridMath.SubgridColumns, GridMath.SubgridRows);
-        _target = GridMath.Center(subcell);
+        _subcell = GridMath.SubRect(cell, index, GridMath.SubgridColumns, GridMath.SubgridRows);
+        _typed += _subgridLabels[index];
+        _target = GridMath.Center(_subcell.Value);
+
+        if (_actionLevel <= 3)
+        {
+            ExecuteAction(right);
+            return;
+        }
+
+        _phase = GridOverlayPhase.Micro;
+        Show();
+    }
+
+    private void SelectMicrocell(int index, bool right)
+    {
+        if (_subcell is not { } subcell)
+        {
+            return;
+        }
+
+        var micro = GridMath.SubRect(subcell, index, GridMath.MicroColumns, GridMath.MicroRows);
+        _typed += _microLabels[index];
+        _target = GridMath.Center(micro);
         ExecuteAction(right);
     }
 
@@ -255,21 +308,36 @@ public sealed class GridController : IModeController
     {
         switch (_phase)
         {
+            case GridOverlayPhase.Micro when _cell is { } cell:
+                _phase = GridOverlayPhase.Subgrid;
+                _subcell = null;
+                _typed = Trim(_typed, cell: true);
+                _target = GridMath.Center(cell);
+                Show();
+                break;
+
             case GridOverlayPhase.Subgrid when _column is { } column:
-                _phase = GridOverlayPhase.Level2;
+                _phase = GridOverlayPhase.Primary;
                 _cell = null;
+                _subcell = null;
+                _typed = Trim(_typed, cell: false);
                 _target = GridMath.Center(column);
                 Show();
                 break;
 
-            case GridOverlayPhase.Level2:
-                _phase = GridOverlayPhase.Level1;
-                _column = null;
-                _cell = null;
+            case GridOverlayPhase.Primary when _typed.Length > 0:
+                ResetSelection();
                 _target = _savedPointer;
                 Show();
                 break;
         }
+    }
+
+    /// <summary>Drops the last two letters of a micro code, or the column letter.</summary>
+    private static string Trim(string typed, bool cell)
+    {
+        int keep = cell ? 2 : 1;
+        return typed.Length <= keep ? typed : typed[..keep];
     }
 
     private void MoveToNextMonitor()
@@ -279,30 +347,34 @@ public sealed class GridController : IModeController
 
         _monitor = next;
         _root = next.Bounds;
-        _column = null;
-        _cell = null;
-        _phase = GridOverlayPhase.Level1;
+        ResetSelection();
         _target = GridMath.Center(_root);
         Show();
     }
 
-    private void Cancel()
-    {
-        Close(restore: true);
-    }
+    private void Cancel() => Close(restore: true);
 
     private void Close(bool restore)
     {
         _overlay.Hide();
         _active = false;
-        _column = null;
-        _cell = null;
-        _phase = GridOverlayPhase.Level1;
+        ResetSelection();
 
         if (restore)
         {
             _mouse.MoveTo(_savedPointer.X, _savedPointer.Y);
         }
+    }
+
+    private void ResetSelection()
+    {
+        _phase = GridOverlayPhase.Primary;
+        _columnIndex = -1;
+        _column = null;
+        _cell = null;
+        _subcell = null;
+        _typed = string.Empty;
+        _target = _savedPointer;
     }
 
     private void Show()
@@ -324,12 +396,15 @@ public sealed class GridController : IModeController
             _overlay.Show(new GridOverlayState(
                 _monitor,
                 _root,
+                _phase,
                 _column,
                 _cell,
+                _subcell,
                 _level1Labels,
                 _level2Labels,
                 _subgridLabels,
-                _phase,
+                _microLabels,
+                _typed,
                 _target));
         });
     }
@@ -357,27 +432,17 @@ public sealed class GridController : IModeController
 
     private void ParseSettings()
     {
-        ParseLevel(
-            _settings.Level1Keys,
-            GridSettings.DefaultLevel1Keys(),
-            out _level1Keys,
-            out _level1Labels);
-        ParseLevel(
-            _settings.Level2Keys,
-            GridSettings.DefaultLevel2Keys(),
-            out _level2Keys,
-            out _level2Labels);
-        ParseLevel(
-            _settings.SubgridKeys,
-            GridSettings.DefaultSubgridKeys(),
-            out _subgridKeys,
-            out _subgridLabels);
+        ParseLevel(_settings.Level1Keys, GridSettings.DefaultLevel1Keys(), out _level1Keys, out _level1Labels);
+        ParseLevel(_settings.Level2Keys, GridSettings.DefaultLevel2Keys(), out _level2Keys, out _level2Labels);
+        ParseLevel(_settings.SubgridKeys, GridSettings.DefaultSubgridKeys(), out _subgridKeys, out _subgridLabels);
+        ParseLevel(_settings.MicroKeys, GridSettings.DefaultMicroKeys(), out _microKeys, out _microLabels);
 
-        _actionLevel = _settings.ActionLevel?.Trim().ToLowerInvariant() switch
+        _actionLevel = GridSettings.NormalizeActionLevel(_settings.ActionLevel) switch
         {
             "1" => 1,
             "2" => 2,
-            _ => 3
+            "subgrid" => 3,
+            _ => 4
         };
     }
 

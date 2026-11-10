@@ -61,7 +61,7 @@ public class SettingsTests
         Assert.Equal(100, settings.Speed.Normal.Max);
         Assert.Equal(0, settings.Speed.Normal.Accel);
         Assert.Equal(0, settings.Speed.Normal.TapStep);
-        Assert.Equal("subgrid", settings.Grid.ActionLevel);
+        Assert.Equal("micro", settings.Grid.ActionLevel);
         Assert.Equal(10, settings.Grid.Level1Keys.Length);
         Assert.Equal(30, settings.Grid.Level2Keys.Length);
         Assert.Equal(30, settings.Grid.SubgridKeys.Length);
