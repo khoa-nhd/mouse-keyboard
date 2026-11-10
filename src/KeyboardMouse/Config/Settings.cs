@@ -65,8 +65,6 @@ public sealed class Settings
         Speed.Precision = NormalizeSpeed(Speed.Precision, SpeedConfig.Precision);
         Speed.Turbo = NormalizeSpeed(Speed.Turbo, SpeedConfig.Turbo);
 
-        Grid.ActionLevel = GridSettings.NormalizeActionLevel(Grid.ActionLevel);
-
         Hint.Alphabet = KeyNames.NormalizeHintAlphabet(Hint.Alphabet);
         Hint.MaxElements = Math.Clamp(Hint.MaxElements, 1, 2000);
         // A settings file written before scopes existed has no scope key at all.
@@ -180,46 +178,32 @@ public sealed class AutoClickSettings
 }
 
 /// <summary>
-/// Mouseless "position based columns" grid: ten columns by thirty rows drawn as
-/// one lattice with complete two-key codes, a ten by three subgrid inside the
-/// chosen cell, and a three by three micro grid inside the chosen sub-cell.
+/// Mouseless-style grid: one grid of small cells laid over the screen.
+///
+/// Every cell is printed with the four keys that reach it from the moment the
+/// overlay opens, so the target is picked by reading its code rather than by
+/// stepping through levels. The code addresses the cell as
+/// <c>[column band][column][row band][row]</c>, which means typing narrows one
+/// band at a time: ten columns, then one column, then ten rows, then the cell.
 /// </summary>
 public sealed class GridSettings
 {
-    public string[] Level1Keys { get; set; } = DefaultLevel1Keys();
+    /// <summary>Ten keys, one per character of a cell code.</summary>
+    public string[] Keys { get; set; } = DefaultKeys();
 
-    public string[] Level2Keys { get; set; } = DefaultLevel2Keys();
+    public int Columns { get; set; } = DefaultColumns;
 
-    public string[] SubgridKeys { get; set; } = DefaultSubgridKeys();
+    public int Rows { get; set; } = DefaultRows;
 
-    /// <summary>Nine keys for the final three by three micro grid.</summary>
-    public string[] MicroKeys { get; set; } = DefaultMicroKeys();
+    public const int DefaultColumns = 24;
+    public const int DefaultRows = 16;
+    public const int MinColumns = 2;
+    public const int MaxColumns = 40;
+    public const int MinRows = 2;
+    public const int MaxRows = 30;
 
-    /// <summary>"micro" (default), "subgrid", "2" or "1".</summary>
-    public string ActionLevel { get; set; } = "micro";
-
-    public static string[] DefaultLevel1Keys() =>
+    public static string[] DefaultKeys() =>
         ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"];
-
-    public static string[] DefaultLevel2Keys() =>
-    [
-        "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
-        "A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon",
-        "Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"
-    ];
-
-    public static string[] DefaultSubgridKeys() => DefaultLevel2Keys();
-
-    public static string[] DefaultMicroKeys() => ["Q", "W", "E", "A", "S", "D", "Z", "X", "C"];
-
-    public static string NormalizeActionLevel(string? value) =>
-        value?.Trim().ToLowerInvariant() switch
-        {
-            "1" => "1",
-            "2" => "2",
-            "3" or "subgrid" => "subgrid",
-            _ => "micro"
-        };
 }
 
 public sealed class HintSettings

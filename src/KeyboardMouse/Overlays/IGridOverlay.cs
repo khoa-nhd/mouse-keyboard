@@ -4,38 +4,20 @@ using KeyboardMouse.Core;
 namespace KeyboardMouse.Overlays;
 
 /// <summary>
-/// Which stage of the grid the overlay should draw: the full primary lattice
-/// with every cell's complete code, the zoomed ten by three subgrid of the
-/// chosen cell, or the zoomed three by three micro grid of the chosen sub-cell.
-/// </summary>
-public enum GridOverlayPhase
-{
-    Primary,
-    Subgrid,
-    Micro
-}
-
-/// <summary>
 /// Everything the grid overlay needs for one frame.
 ///
-/// <see cref="Typed"/> is the key sequence typed so far, and every label the
-/// overlay draws is the complete sequence that reaches that cell (`AG`, `AGW`,
-/// `AGWD`), so a cell can be identified before its parent is chosen.
-/// <see cref="Target"/> is the virtual cursor position (the point a click would
-/// land on).
+/// <see cref="Labels"/> holds one four-character code per cell, row-major;
+/// <see cref="Typed"/> is what the user has typed so far, so cells that no
+/// longer match can fade and the current match can be highlighted.
 /// </summary>
 public sealed record GridOverlayState(
     MonitorInfo Monitor,
     Rectangle Root,
-    GridOverlayPhase Phase,
-    Rectangle? Column,
-    Rectangle? Cell,
-    Rectangle? Subcell,
-    IReadOnlyList<string> Level1Labels,
-    IReadOnlyList<string> Level2Labels,
-    IReadOnlyList<string> SubgridLabels,
-    IReadOnlyList<string> MicroLabels,
+    int Columns,
+    int Rows,
+    IReadOnlyList<string> Labels,
     string Typed,
+    int Highlight,
     Point Target);
 
 /// <summary>Abstraction so GridController can be tested without real windows.</summary>

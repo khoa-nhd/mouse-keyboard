@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using KeyboardMouse.Core;
 
 namespace KeyboardMouse.Overlays;
@@ -7,14 +6,11 @@ namespace KeyboardMouse.Overlays;
 /// <summary>
 /// One monitor-sized layered window for grid mode, styled after Mouseless.
 ///
-/// Primary phase: the whole ten by thirty lattice is drawn at once and every
-/// cell carries the complete code that reaches it (`AG`, `SW`, ...), so the
-/// target is identifiable before anything is typed. Cells that stop matching the
-/// typed prefix fade instead of disappearing.
-///
-/// Subgrid phase: the chosen cell fills the screen as a ten by three grid, and
-/// each sub-cell shows its full three-key code. Micro phase: the chosen
-/// sub-cell fills the screen as a three by three grid with four-key codes.
+/// There is a single grid and a single frame: every cell shows its complete
+/// four-character code from the moment it opens, so the user reads the code in
+/// the cell they want and types it. Cells that stop matching the typed prefix
+/// fade instead of disappearing, and the cell the code currently points at is
+/// highlighted.
 /// </summary>
 public sealed class GridOverlay : IGridOverlay
 {
@@ -41,19 +37,14 @@ public sealed class GridOverlay : IGridOverlay
             Color.FromArgb(48, 100, 141)
         ];
 
-        private static readonly Color[] RowTints =
-        [
-            Color.FromArgb(52, 88, 138),
-            Color.FromArgb(45, 116, 118),
-            Color.FromArgb(86, 76, 128)
-        ];
+        private static readonly Color Accent = Color.FromArgb(255, 214, 102);
 
         public void DrawGrid(GridOverlayState state)
         {
             var bounds = state.Monitor.Bounds;
             int width = bounds.Width;
             int height = bounds.Height;
-            if (width <= 0 || height <= 0)
+            if (width <= 0 || height <= 0 || state.Columns < 1 || state.Rows < 1)
             {
                 return;
             }
@@ -64,237 +55,119 @@ public sealed class GridOverlay : IGridOverlay
                 Math.Clamp(state.Target.X - bounds.Left, 0, width - 1),
                 Math.Clamp(state.Target.Y - bounds.Top, 0, height - 1));
 
-            // The subgrid and micro grids are full-screen zooms of the chosen
-            // box, so the virtual cursor is drawn at its position inside that
-            // box rather than at its absolute spot on the monitor.
-            if (state.Phase == GridOverlayPhase.Subgrid && state.Cell is { } cell)
-            {
-                target = MapIntoSpan(target, Local(cell, bounds), width, height);
-            }
-            else if (state.Phase == GridOverlayPhase.Micro && state.Subcell is { } subcell)
-            {
-                target = MapIntoSpan(target, Local(subcell, bounds), width, height);
-            }
-
             RenderSurface(width, height, bounds.Left, bounds.Top, g =>
             {
-                int backdropAlpha = state.Phase == GridOverlayPhase.Primary ? 118 : 196;
-                using (var backdrop = new SolidBrush(Color.FromArgb(backdropAlpha, 7, 10, 18)))
+                using (var backdrop = new SolidBrush(Color.FromArgb(118, 7, 10, 18)))
                 {
                     g.FillRectangle(backdrop, 0, 0, width, height);
                 }
 
-                switch (state.Phase)
-                {
-                    case GridOverlayPhase.Primary:
-                        DrawPrimary(g, root, state, scale);
-                        break;
-
-                    case GridOverlayPhase.Subgrid:
-                        DrawCodes(
-                            g,
-                            root,
-                            GridMath.SubgridColumns,
-                            GridMath.SubgridRows,
-                            state.SubgridLabels,
-                            state.Typed,
-                            scale,
-                            15f,
-                            64f);
-                        break;
-
-                    case GridOverlayPhase.Micro:
-                        DrawCodes(
-                            g,
-                            root,
-                            GridMath.MicroColumns,
-                            GridMath.MicroRows,
-                            state.MicroLabels,
-                            state.Typed,
-                            scale,
-                            20f,
-                            96f);
-                        break;
-                }
-
+                DrawColumnTints(g, root, state);
+                DrawHighlight(g, root, state);
+                DrawGridLines(g, root, state.Columns, state.Rows, scale);
+                DrawLabels(g, root, state, scale);
                 DrawFrame(g, root, scale);
                 DrawTarget(g, target, scale);
             });
         }
 
         /// <summary>
-        /// The full lattice: colour blocked columns, thin row rules, and the
-        /// complete two-key code in every cell.
+        /// One tint per ten-column band, so the bands the first code character
+        /// selects are visible before anything is typed.
         /// </summary>
-        private static void DrawPrimary(
+        private static void DrawColumnTints(Graphics g, Rectangle root, GridOverlayState state)
+        {
+            for (int band = 0; band * ColumnBand < state.Columns; band++)
+            {
+                int start = band * ColumnBand;
+                int end = Math.Min(state.Columns, start + ColumnBand);
+                int left = root.Left + (int)((long)root.Width * start / state.Columns);
+                int right = root.Left + (int)((long)root.Width * end / state.Columns);
+                var strip = new Rectangle(left, root.Top, right - left, root.Height);
+                Color tint = ColumnTints[band % ColumnTints.Length];
+
+                using var fill = new SolidBrush(WithAlpha(tint, band % 2 == 0 ? 38 : 24));
+                g.FillRectangle(fill, strip);
+            }
+        }
+
+        private static void DrawHighlight(Graphics g, Rectangle root, GridOverlayState state)
+        {
+            if (state.Highlight < 0 || state.Highlight >= state.Columns * state.Rows)
+            {
+                return;
+            }
+
+            var cell = GridMath.SubRect(root, state.Highlight, state.Columns, state.Rows);
+
+            using var glow = new SolidBrush(WithAlpha(Accent, 34));
+            g.FillRectangle(glow, cell);
+
+            using var border = new Pen(WithAlpha(Accent, 210), 2f);
+            g.DrawRectangle(border, cell);
+        }
+
+        /// <summary>
+        /// Every cell carries its four characters. Cells still reachable from the
+        /// typed prefix stay bright; the rest fade so the remaining choice reads
+        /// at a glance.
+        /// </summary>
+        private static void DrawLabels(
             Graphics g,
             Rectangle root,
             GridOverlayState state,
             float scale)
         {
-            int selected = ColumnIndexOf(root, state.Column);
-
-            for (int i = 0; i < GridMath.PrimaryColumns; i++)
-            {
-                var strip = GridMath.Cell(root, i, 0, GridMath.PrimaryColumns, 1);
-                Color tint = ColumnTints[(i / 2) % ColumnTints.Length];
-
-                if (i == selected)
-                {
-                    using var fill = new LinearGradientBrush(
-                        strip,
-                        WithAlpha(tint, 96),
-                        WithAlpha(tint, 148),
-                        LinearGradientMode.Vertical);
-                    g.FillRectangle(fill, strip);
-                }
-                else
-                {
-                    using var fill = new SolidBrush(WithAlpha(tint, 34));
-                    g.FillRectangle(fill, strip);
-                }
-            }
-
-            DrawGridLines(g, root, GridMath.PrimaryColumns, GridMath.PrimaryRows, scale, rowAlpha: 92);
-
-            float cellWidth = root.Width / (float)GridMath.PrimaryColumns;
-            float cellHeight = root.Height / (float)GridMath.PrimaryRows;
+            var sample = GridMath.Cell(root, 0, 0, state.Columns, state.Rows);
             float fontSize = Math.Clamp(
-                Math.Min(cellWidth * 0.40f, cellHeight * 0.66f),
-                9f,
+                Math.Min(sample.Width * 0.24f, sample.Height * 0.40f),
+                7f,
                 26f);
+
             using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
             using var format = CenteredFormat();
-            using var bright = new SolidBrush(Color.FromArgb(238, 255, 255, 255));
-            using var dim = new SolidBrush(Color.FromArgb(58, 255, 255, 255));
+            using var bright = new SolidBrush(Color.FromArgb(242, 255, 255, 255));
+            using var dim = new SolidBrush(Color.FromArgb(46, 255, 255, 255));
             float offset = Math.Max(1f, 1.4f * scale);
             string typed = state.Typed;
 
-            for (int row = 0; row < GridMath.PrimaryRows; row++)
+            for (int i = 0; i < state.Columns * state.Rows && i < state.Labels.Count; i++)
             {
-                if (row >= state.Level2Labels.Count)
-                {
-                    break;
-                }
-
-                for (int column = 0; column < GridMath.PrimaryColumns; column++)
-                {
-                    if (column >= state.Level1Labels.Count)
-                    {
-                        break;
-                    }
-
-                    string code = state.Level1Labels[column] + state.Level2Labels[row];
-                    if (code.Length < 2)
-                    {
-                        continue;
-                    }
-
-                    bool matches = typed.Length == 0 ||
-                        code.StartsWith(typed, StringComparison.OrdinalIgnoreCase);
-
-                    var cell = GridMath.Cell(root, column, row, GridMath.PrimaryColumns, GridMath.PrimaryRows);
-                    DrawShadowedString(
-                        g,
-                        code,
-                        font,
-                        matches ? bright : dim,
-                        cell.Left + (cell.Width / 2f),
-                        cell.Top + (cell.Height / 2f),
-                        offset,
-                        format,
-                        shadowAlpha: matches ? 175 : 60);
-                }
-            }
-        }
-
-        /// <summary>
-        /// One zoomed level: every cell of the chosen box fills the screen and
-        /// carries its complete code, so the next key is obvious.
-        /// </summary>
-        private static void DrawCodes(
-            Graphics g,
-            Rectangle root,
-            int columns,
-            int rows,
-            IReadOnlyList<string> labels,
-            string prefix,
-            float scale,
-            float minFont,
-            float maxFont)
-        {
-            for (int row = 0; row < rows; row++)
-            {
-                Color tint = RowTints[row % RowTints.Length];
-                for (int column = 0; column < columns; column++)
-                {
-                    var cell = GridMath.Cell(root, column, row, columns, rows);
-                    using var fill = new SolidBrush(WithAlpha(tint, 96));
-                    g.FillRectangle(fill, cell);
-                }
-            }
-
-            DrawGridLines(g, root, columns, rows, scale, rowAlpha: 214);
-
-            if (labels.Count < columns * rows)
-            {
-                return;
-            }
-
-            var sample = GridMath.Cell(root, 0, 0, columns, rows);
-            float fontSize = Math.Clamp(
-                Math.Min(sample.Width * 0.34f, sample.Height * 0.40f),
-                minFont,
-                maxFont);
-            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var format = CenteredFormat();
-            using var brush = new SolidBrush(Color.FromArgb(248, 255, 255, 255));
-            float offset = Math.Max(2f, 2.4f * scale);
-
-            for (int i = 0; i < columns * rows; i++)
-            {
-                if (string.IsNullOrEmpty(labels[i]))
+                string code = state.Labels[i];
+                if (string.IsNullOrEmpty(code))
                 {
                     continue;
                 }
 
-                var cell = GridMath.SubRect(root, i, columns, rows);
+                bool matches = GridCodes.Matches(code, typed);
+                var cell = GridMath.SubRect(root, i, state.Columns, state.Rows);
+
                 DrawShadowedString(
                     g,
-                    prefix + labels[i],
+                    code,
                     font,
-                    brush,
+                    matches ? bright : dim,
                     cell.Left + (cell.Width / 2f),
                     cell.Top + (cell.Height / 2f),
                     offset,
-                    format);
+                    format,
+                    shadowAlpha: matches ? 170 : 45);
             }
         }
 
-        private static int ColumnIndexOf(Rectangle root, Rectangle? column)
-        {
-            if (column is not { } value || root.Width <= 0)
-            {
-                return -1;
-            }
-
-            return Math.Clamp(
-                (int)((long)(value.Left - root.Left) * GridMath.PrimaryColumns / root.Width),
-                0,
-                GridMath.PrimaryColumns - 1);
-        }
+        /// <summary>Columns share one tint per ten-column band of the code.</summary>
+        private const int ColumnBand = 10;
 
         private static void DrawGridLines(
             Graphics g,
             Rectangle rect,
             int columns,
             int rows,
-            float scale,
-            int rowAlpha = 214)
+            float scale)
         {
             using var shadow = new Pen(Color.FromArgb(120, 0, 0, 0), Math.Max(3f, 2.6f * scale));
-            using var vertical = new Pen(Color.FromArgb(200, 255, 255, 255), Math.Max(1f, 1.15f * scale));
-            using var horizontal = new Pen(Color.FromArgb(rowAlpha, 255, 255, 255), Math.Max(1f, scale));
+            using var vertical = new Pen(Color.FromArgb(150, 255, 255, 255), Math.Max(1f, scale));
+            using var horizontal = new Pen(Color.FromArgb(96, 255, 255, 255), Math.Max(1f, scale));
 
             for (int i = 1; i < columns; i++)
             {
@@ -366,20 +239,6 @@ public sealed class GridOverlay : IGridOverlay
 
         private static Color WithAlpha(Color color, int alpha) =>
             Color.FromArgb(alpha, color.R, color.G, color.B);
-
-        private static Point MapIntoSpan(Point point, Rectangle span, int width, int height)
-        {
-            float x = span.Width > 0
-                ? (point.X - span.Left) / (float)span.Width
-                : 0.5f;
-            float y = span.Height > 0
-                ? (point.Y - span.Top) / (float)span.Height
-                : 0.5f;
-
-            return new Point(
-                Math.Clamp((int)Math.Round(x * width), 0, Math.Max(0, width - 1)),
-                Math.Clamp((int)Math.Round(y * height), 0, Math.Max(0, height - 1)));
-        }
 
         private static Rectangle Local(Rectangle rect, Rectangle bounds) => new(
             rect.Left - bounds.Left,

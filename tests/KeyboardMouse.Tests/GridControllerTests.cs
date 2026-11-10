@@ -4,8 +4,26 @@ using KeyboardMouse.Overlays;
 
 namespace KeyboardMouse.Tests;
 
+/// <summary>
+/// Grid mode is one flat grid whose cells each show a four-character code from
+/// the moment it opens; typing the four characters clicks that cell.
+/// </summary>
 public class GridControllerTests
 {
+    private static readonly PhysicalKey[] GridKeys =
+    [
+        PhysicalKey.A,
+        PhysicalKey.S,
+        PhysicalKey.D,
+        PhysicalKey.F,
+        PhysicalKey.G,
+        PhysicalKey.H,
+        PhysicalKey.J,
+        PhysicalKey.K,
+        PhysicalKey.L,
+        PhysicalKey.Semicolon
+    ];
+
     private static RouterHarness OpenGrid(FakeMonitorService? monitors = null)
     {
         var h = new RouterHarness(monitors: monitors);
@@ -21,298 +39,217 @@ public class GridControllerTests
         Assert.True(h.Up(key));
     }
 
-    /// <summary>Opens the grid and types the two keys of the first cell.</summary>
-    private static RouterHarness OpenFirstCell()
+    private static void Type(RouterHarness h, string code)
     {
-        var h = OpenGrid();
-        Press(h, PhysicalKey.A);
-        Press(h, PhysicalKey.Q);
-        return h;
+        foreach (char character in code)
+        {
+            int index = Array.IndexOf(
+                new[] { "A", "S", "D", "F", "G", "H", "J", "K", "L", ";" },
+                character.ToString());
+            Assert.InRange(index, 0, GridKeys.Length - 1);
+            Press(h, GridKeys[index]);
+        }
     }
 
     [Fact]
-    public void G_OpensTheWholePrimaryLattice()
+    public void G_OpensTheWholeGridWithAFourCharacterCodeInEveryCell()
     {
         var h = OpenGrid();
 
         Assert.True(h.Grid.Visible);
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(GridOverlayPhase.Primary, state.Phase);
-        Assert.Equal(
-            new[] { "A", "S", "D", "F", "G", "H", "J", "K", "L", ";" },
-            state.Level1Labels);
-        Assert.Equal(30, state.Level2Labels.Count);
-        Assert.Equal(9, state.MicroLabels.Count);
+        Assert.Equal(24, state.Columns);
+        Assert.Equal(16, state.Rows);
+        Assert.Equal(24 * 16, state.Labels.Count);
+        Assert.All(state.Labels, label => Assert.Equal(4, label.Length));
+
+        // Every code is readable before typing: column band, column, row band, row.
+        Assert.Equal("AAAA", state.Labels[0]);
+        Assert.Equal("ASAA", state.Labels[1]);
+        Assert.Equal("AGAA", state.Labels[4]);
+        Assert.Equal("AAAS", state.Labels[24]);
+        Assert.Equal("AGAS", state.Labels[(1 * 24) + 4]);
+
         Assert.Equal(string.Empty, state.Typed);
-        Assert.Null(state.Column);
-        Assert.Null(state.Cell);
-        Assert.Null(state.Subcell);
+        Assert.Equal(-1, state.Highlight);
         Assert.Equal(h.Pointer, state.Target);
+        Assert.Empty(h.Mouse.Calls);
     }
 
     [Fact]
-    public void ColumnKey_HighlightsTheColumnWithoutClicking()
+    public void EachCharacterNarrowsOneBandWithoutClicking()
     {
         var h = OpenGrid();
 
         Press(h, PhysicalKey.A);
 
-        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(GridOverlayPhase.Primary, state.Phase);
-        Assert.Equal(new Rectangle(0, 0, 192, 1080), state.Column);
-        Assert.Null(state.Cell);
-        Assert.Equal("A", state.Typed);
-        Assert.Equal(new Point(96, 540), state.Target);
-        Assert.Equal(0, h.Mouse.Count("left-click"));
+        var afterBand = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal("A", afterBand.Typed);
+        Assert.Equal(0, afterBand.Highlight);
+        Assert.Equal(new Point(40, 33), afterBand.Target);
+
+        Press(h, PhysicalKey.S);
+
+        var afterColumn = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal("AS", afterColumn.Typed);
+        Assert.Equal(1, afterColumn.Highlight);
+        Assert.Equal(new Point(120, 33), afterColumn.Target);
+
+        Press(h, PhysicalKey.A);
+
+        var afterRowBand = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal("ASA", afterRowBand.Typed);
+        Assert.Equal(new Point(120, 33), afterRowBand.Target);
+
+        Assert.Empty(h.Mouse.Calls);
     }
 
     [Fact]
-    public void ColumnThenRow_ZoomsIntoTheCell()
+    public void TypingAllFourCharactersClicksTheCellCentre()
     {
         var h = OpenGrid();
 
-        Press(h, PhysicalKey.A);
-        Press(h, PhysicalKey.Q);
+        Type(h, "SFAK");
 
-        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(GridOverlayPhase.Subgrid, state.Phase);
-        Assert.Equal(new Rectangle(0, 0, 192, 36), state.Cell);
-        Assert.Equal("AQ", state.Typed);
-        Assert.Equal(new Point(96, 18), state.Target);
-        Assert.Equal(0, h.Mouse.Count("left-click"));
-    }
-
-    [Fact]
-    public void SubgridKey_ZoomsIntoTheMicroGrid()
-    {
-        var h = OpenFirstCell();
-
-        Press(h, PhysicalKey.Q);
-
-        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(GridOverlayPhase.Micro, state.Phase);
-        Assert.Equal(new Rectangle(0, 0, 19, 12), state.Subcell);
-        Assert.Equal("AQQ", state.Typed);
-        Assert.Equal(new Point(9, 6), state.Target);
-        Assert.Equal(0, h.Mouse.Count("left-click"));
-    }
-
-    [Fact]
-    public void MicroKey_ClicksAtTheMicrocellCenter()
-    {
-        var h = OpenFirstCell();
-        Press(h, PhysicalKey.Q);
-
-        Press(h, PhysicalKey.Q);
-
-        Assert.Equal(1, h.Mouse.Count("left-click"));
-        Assert.Equal(new Point(3, 2), h.Pointer);
         Assert.False(h.Grid.Visible);
+        Assert.Equal(["move:1080,506", "left-click"], h.Mouse.Calls);
     }
 
     [Fact]
-    public void SpaceClicksAtTheVirtualCursor_InEveryStage()
+    public void EveryCell_ClickIsReachableFromItsOwnCode()
     {
-        var primary = OpenGrid();
-        Press(primary, PhysicalKey.Space);
-        Assert.Equal(1, primary.Mouse.Count("left-click"));
-        Assert.Equal(new Point(100, 100), primary.Pointer);
+        foreach (var (code, expected) in new[]
+        {
+            ("AAAA", new Point(40, 33)),
+            ("ASAA", new Point(120, 33)),
+            ("SFAK", new Point(1080, 506)),
+            ("DFSH", new Point(1880, 1046))
+        })
+        {
+            var h = OpenGrid();
+            Type(h, code);
 
-        var column = OpenGrid();
-        Press(column, PhysicalKey.A);
-        Press(column, PhysicalKey.Space);
-        Assert.Equal(1, column.Mouse.Count("left-click"));
-        Assert.Equal(new Point(96, 540), column.Pointer);
-
-        var subgrid = OpenFirstCell();
-        Press(subgrid, PhysicalKey.Space);
-        Assert.Equal(1, subgrid.Mouse.Count("left-click"));
-        Assert.Equal(new Point(96, 18), subgrid.Pointer);
-
-        var micro = OpenFirstCell();
-        Press(micro, PhysicalKey.Q);
-        Press(micro, PhysicalKey.Space);
-        Assert.Equal(1, micro.Mouse.Count("left-click"));
-        Assert.Equal(new Point(9, 6), micro.Pointer);
+            Assert.False(h.Grid.Visible);
+            Assert.Equal($"move:{expected.X},{expected.Y}", h.Mouse.Calls[^2]);
+            Assert.Equal("left-click", h.Mouse.Calls[^1]);
+        }
     }
 
     [Fact]
-    public void EnterAndShiftClickWithTheRightButton()
+    public void UnknownKey_IsIgnored()
     {
-        var enter = OpenGrid();
-        Press(enter, PhysicalKey.Enter);
-        Assert.Equal(1, enter.Mouse.Count("right-click"));
-        Assert.Equal(new Point(100, 100), enter.Pointer);
+        var h = OpenGrid();
+        int shows = h.Grid.ShowCount;
 
-        var shiftSpace = OpenGrid();
-        Assert.False(shiftSpace.Down(PhysicalKey.LeftShift));
-        Press(shiftSpace, PhysicalKey.Space);
-        Assert.Equal(1, shiftSpace.Mouse.Count("right-click"));
-        Assert.Equal(0, shiftSpace.Mouse.Count("left-click"));
-        shiftSpace.Up(PhysicalKey.LeftShift);
-
-        var micro = OpenFirstCell();
-        Press(micro, PhysicalKey.Q);
-        micro.Down(PhysicalKey.LeftShift);
-        Press(micro, PhysicalKey.Q);
-        micro.Up(PhysicalKey.LeftShift);
-
-        Assert.Equal(1, micro.Mouse.Count("right-click"));
-        Assert.Equal(0, micro.Mouse.Count("left-click"));
-        Assert.Equal(new Point(3, 2), micro.Pointer);
-    }
-
-    [Fact]
-    public void Backspace_StepsBackOneStage()
-    {
-        var h = OpenFirstCell();
         Press(h, PhysicalKey.Q);
 
-        Assert.True(h.Down(PhysicalKey.Backspace));
-        var subgrid = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(GridOverlayPhase.Subgrid, subgrid.Phase);
-        Assert.Null(subgrid.Subcell);
-        Assert.Equal("AQ", subgrid.Typed);
-        Assert.Equal(new Point(96, 18), subgrid.Target);
+        Assert.Equal(shows, h.Grid.ShowCount);
+        Assert.Equal(string.Empty, h.Grid.State!.Typed);
+    }
 
-        Assert.True(h.Down(PhysicalKey.Backspace));
-        var primary = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(GridOverlayPhase.Primary, primary.Phase);
-        Assert.Null(primary.Cell);
-        Assert.Equal("A", primary.Typed);
-        Assert.Equal(new Point(96, 540), primary.Target);
+    [Fact]
+    public void CharacterNoRemainingCellAccepts_IsIgnored()
+    {
+        var h = OpenGrid();
+        Type(h, "AS");
+        int shows = h.Grid.ShowCount;
 
-        Assert.True(h.Down(PhysicalKey.Backspace));
+        // After "AS" only the two row bands A and S are still possible.
+        Press(h, PhysicalKey.D);
+
+        Assert.Equal(shows, h.Grid.ShowCount);
+        Assert.Equal("AS", h.Grid.State!.Typed);
+    }
+
+    [Fact]
+    public void BackspaceTakesACharacterBack()
+    {
+        var h = OpenGrid();
+        Type(h, "ASA");
+
+        Press(h, PhysicalKey.Backspace);
+
+        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal("AS", state.Typed);
+        Assert.Equal(1, state.Highlight);
+        Assert.Equal(new Point(120, 33), state.Target);
+
+        Press(h, PhysicalKey.Backspace);
+        Press(h, PhysicalKey.Backspace);
+
         var cleared = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.Equal(string.Empty, cleared.Typed);
-        Assert.Null(cleared.Column);
-        Assert.Equal(new Point(100, 100), cleared.Target);
-
-        int shows = h.Grid.ShowCount;
-        Assert.True(h.Down(PhysicalKey.Backspace));
-        Assert.Equal(shows, h.Grid.ShowCount);
+        Assert.Equal(-1, cleared.Highlight);
+        Assert.Equal(h.Pointer, cleared.Target);
     }
 
     [Fact]
-    public void ActionLevelSubgrid_ClicksOnTheSubcell()
+    public void SpaceClicksTheHighlightedCell()
     {
-        var h = new RouterHarness();
-        h.GridSettings.ActionLevel = "subgrid";
-        h.Router.UpdateGrid(h.GridSettings);
-        h.TapCaps();
-        Press(h, PhysicalKey.G);
+        var h = OpenGrid();
+        Type(h, "AS");
 
-        Press(h, PhysicalKey.A);
-        Press(h, PhysicalKey.Q);
-        Press(h, PhysicalKey.Q);
+        Assert.True(h.Down(PhysicalKey.Space));
 
-        Assert.Equal(1, h.Mouse.Count("left-click"));
-        Assert.Equal(new Point(9, 6), h.Pointer);
         Assert.False(h.Grid.Visible);
+        Assert.Equal(["move:120,33", "left-click"], h.Mouse.Calls);
     }
 
     [Fact]
-    public void ActionLevelTwo_ClicksAsSoonAsTheRowIsChosen()
-    {
-        var h = new RouterHarness();
-        h.GridSettings.ActionLevel = "2";
-        h.Router.UpdateGrid(h.GridSettings);
-        h.TapCaps();
-        Press(h, PhysicalKey.G);
-
-        Press(h, PhysicalKey.A);
-        Assert.Equal(0, h.Mouse.Count("left-click"));
-        Assert.True(h.Grid.Visible);
-
-        Press(h, PhysicalKey.Q);
-
-        Assert.Equal(1, h.Mouse.Count("left-click"));
-        Assert.Equal(new Point(96, 18), h.Pointer);
-        Assert.False(h.Grid.Visible);
-    }
-
-    [Fact]
-    public void ActionLevelOne_ClicksAsSoonAsTheColumnIsChosen()
-    {
-        var h = new RouterHarness();
-        h.GridSettings.ActionLevel = "1";
-        h.Router.UpdateGrid(h.GridSettings);
-        h.TapCaps();
-        Press(h, PhysicalKey.G);
-
-        Press(h, PhysicalKey.A);
-
-        Assert.Equal(1, h.Mouse.Count("left-click"));
-        Assert.Equal(new Point(96, 540), h.Pointer);
-        Assert.False(h.Grid.Visible);
-    }
-
-    [Fact]
-    public void Tab_MovesToTheNextMonitor_AndResetsSelection()
-    {
-        var h = OpenGrid(FakeMonitorService.Dual());
-        Press(h, PhysicalKey.A);
-
-        Press(h, PhysicalKey.Tab);
-
-        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(new Rectangle(1920, 0, 1280, 1024), state.Monitor.Bounds);
-        Assert.Equal(GridOverlayPhase.Primary, state.Phase);
-        Assert.Null(state.Column);
-        Assert.Equal(string.Empty, state.Typed);
-
-        Press(h, PhysicalKey.A);
-        Press(h, PhysicalKey.Q);
-        Press(h, PhysicalKey.Q);
-        Press(h, PhysicalKey.Q);
-
-        Assert.True(h.Pointer.X >= 1920 && h.Pointer.X < 3200);
-        Assert.True(h.Pointer.Y >= 0 && h.Pointer.Y < 1024);
-    }
-
-    [Fact]
-    public void RepeatedColumnKey_DoesNotAdvanceTwice()
+    public void SpaceWithShift_RightClicks()
     {
         var h = OpenGrid();
 
-        Assert.True(h.Down(PhysicalKey.A));
-        Assert.True(h.Down(PhysicalKey.A, repeat: true));
+        Assert.False(h.Down(PhysicalKey.LeftShift));
+        Assert.True(h.Down(PhysicalKey.Space));
 
-        Assert.Equal(2, h.Grid.ShowCount);
-        Assert.Equal(GridOverlayPhase.Primary, h.Grid.State!.Phase);
-        Assert.Equal("A", h.Grid.State!.Typed);
+        Assert.False(h.Grid.Visible);
+        Assert.Contains("right-click", h.Mouse.Calls);
     }
 
     [Fact]
-    public void ModeOff_ClosesGridWithoutRestoringPointer()
+    public void HybridCodeFinishedWithShift_RightClicks()
     {
         var h = OpenGrid();
-        Press(h, PhysicalKey.A);
-        int moves = h.Mouse.Calls.Count(c => c.StartsWith("move:", StringComparison.Ordinal));
+        Type(h, "SFA");
+        Assert.False(h.Down(PhysicalKey.LeftShift));
 
-        h.Router.SetMode(false);
+        Press(h, PhysicalKey.K);
 
         Assert.False(h.Grid.Visible);
-        Assert.Equal(moves, h.Mouse.Calls.Count(c => c.StartsWith("move:", StringComparison.Ordinal)));
+        Assert.Equal(["move:1080,506", "right-click"], h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void Enter_RightClicksTheTarget()
+    {
+        var h = OpenGrid();
+
+        Assert.True(h.Down(PhysicalKey.Enter));
+
+        Assert.False(h.Grid.Visible);
+        Assert.Contains("right-click", h.Mouse.Calls);
     }
 
     [Fact]
     public void Escape_CancelsAndRestoresThePointer()
     {
-        var h = OpenFirstCell();
+        var h = OpenGrid();
+        Type(h, "SF");
 
         Assert.True(h.Down(PhysicalKey.Escape));
 
         Assert.False(h.Grid.Visible);
         Assert.Equal("move:100,100", h.Mouse.Calls[^1]);
         Assert.Equal(new Point(100, 100), h.Pointer);
+        Assert.DoesNotContain("left-click", h.Mouse.Calls);
     }
 
     [Fact]
     public void CtrlGridKey_ClosesKeepingThePosition()
     {
         var h = OpenGrid();
-        Press(h, PhysicalKey.A);
+        Type(h, "SF");
 
         Assert.False(h.Down(PhysicalKey.LeftCtrl));
         Assert.True(h.Down(PhysicalKey.G));
@@ -325,10 +262,47 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void UnboundColumnKey_IsUnselectable()
+    public void TabMovesToTheNextMonitorAndClearsTheTypedCode()
+    {
+        var h = OpenGrid(FakeMonitorService.Dual());
+        Type(h, "SF");
+
+        Assert.True(h.Down(PhysicalKey.Tab));
+        Assert.True(h.Up(PhysicalKey.Tab));
+
+        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal(new Rectangle(1920, 0, 1280, 1024), state.Monitor.Bounds);
+        Assert.Equal(string.Empty, state.Typed);
+        Assert.Equal(-1, state.Highlight);
+    }
+
+    [Fact]
+    public void ConfiguredSize_ChangesTheGridAndItsCodes()
     {
         var h = new RouterHarness();
-        h.GridSettings.Level1Keys[0] = "";
+        h.GridSettings.Columns = 10;
+        h.GridSettings.Rows = 10;
+        h.Router.UpdateGrid(h.GridSettings);
+        h.TapCaps();
+        Press(h, PhysicalKey.G);
+
+        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal(10, state.Columns);
+        Assert.Equal(10, state.Rows);
+        Assert.Equal(100, state.Labels.Count);
+        Assert.Equal("AAAS", state.Labels[10]);
+
+        Type(h, "AAAS");
+
+        Assert.False(h.Grid.Visible);
+        Assert.Equal(["move:96,162", "left-click"], h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void UnboundKeyMakesItsCellsUnreachable()
+    {
+        var h = new RouterHarness();
+        h.GridSettings.Keys[0] = "";
         h.Router.UpdateGrid(h.GridSettings);
         h.TapCaps();
         Press(h, PhysicalKey.G);
@@ -342,15 +316,13 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void RowKey_DoesNothingBeforeAColumnIsChosen()
+    public void HeldKeyRepeat_DoesNotTypeTwice()
     {
         var h = OpenGrid();
-        int shows = h.Grid.ShowCount;
 
-        Press(h, PhysicalKey.Q);
+        Assert.True(h.Down(PhysicalKey.A, repeat: true));
+        Assert.True(h.Down(PhysicalKey.S, repeat: true));
 
-        Assert.Equal(shows, h.Grid.ShowCount);
-        Assert.Equal(GridOverlayPhase.Primary, h.Grid.State!.Phase);
         Assert.Equal(string.Empty, h.Grid.State!.Typed);
     }
 }

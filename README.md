@@ -241,27 +241,26 @@ or `Middle`. To use a different key, set `keys.autoClick`.
 ### Grid mode (G)
 
 ```
-Primary   10 x 30 lattice, every cell shows its full code   AG  SW  DQ  ...
-Subgrid   10 x 3 inside the chosen cell                     AGQ AGW AGE ...
-Micro     3 x 3 inside the chosen sub-cell                  AGQQ AGQW ...
+One grid   24 x 16 small cells, each with its full four-key code
+           AAAA  AGAS  SFAK  ...
 ```
 
-The overlay opens on the whole ten by thirty lattice at once and writes the
-complete key sequence in every cell, so you can read a target's code before
-typing anything instead of discovering it one column at a time. Type those
-letters: the first highlights the column, the second selects the cell and zooms
-into it as a ten by three subgrid whose cells carry their full three-letter
-code, and the third zooms into a three by three micro grid, where the fourth
-letter clicks. Cells that stop matching what you typed fade out. The real
+The overlay draws a single grid of small cells and writes every cell's complete
+four-key code in it from the start, so a target is readable before typing and
+nothing appears a level at a time. A code is column band, column, row band, row
+over the ten `grid.keys`, so typing narrows in steps: the first key lights a
+band of columns, the second a single column, the third a band of rows, the
+fourth the cell itself, which clicks at its centre (`SFAK` is column 13, row 7).
+Cells that stop matching fade out and there is never a second grid. The real
 pointer moves only on the click, so it never drifts while you choose.
 
-Space = click · Enter or Shift = right click · Backspace = up one level ·
+Space = click · Enter or Shift = right-click · Backspace = erase one letter ·
 Tab = next monitor · Ctrl + G = close without moving · Esc = cancel and restore
-the pointer. `grid.actionLevel` can stop earlier: `"subgrid"` clicks on the
-third key, `"2"` on the second and `"1"` on the first; the default `"micro"`
-uses all four. All four key sets are editable in `settings.json`
-(`grid.level1Keys`, `grid.level2Keys`, `grid.subgridKeys`, `grid.microKeys`,
-default `Q W E A S D Z X C`).
+the pointer.
+
+`grid.columns` (default 24) and `grid.rows` (default 16) size the grid, and
+`grid.keys` (default `A S D F G H J K L Semicolon`) is the ten keys every code
+is made of; clearing one makes the cells that need it unreachable.
 
 ### Hint mode (H)
 
@@ -347,14 +346,8 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "alphabet": "asdfjkl;", "maxElements": 400, "includeTaskbar": true
   },
   "grid": {
-    "actionLevel": "subgrid",
-    "level1Keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
-    "level2Keys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
-                   "A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon",
-                   "Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"],
-    "subgridKeys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
-                    "A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon",
-                    "Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"]
+    "keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
+    "columns": 24, "rows": 16
   },
   ...
 }

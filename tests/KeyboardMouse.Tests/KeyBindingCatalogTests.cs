@@ -23,7 +23,7 @@ public class KeyBindingCatalogTests
             Keys = new KeysSettings { Up = "" },
             Grid = new GridSettings
             {
-                Level1Keys = ["", "S", "D", "F", "G", "H", "J", "K", "L", ";"]
+                Keys = ["", "S", "D", "F", "G", "H", "J", "K", "L", ";"]
             }
         };
 
@@ -31,7 +31,7 @@ public class KeyBindingCatalogTests
 
         Assert.Equal("", settings.Activation.ToggleKey);
         Assert.Equal("", settings.Keys.Up);
-        Assert.Equal("", settings.Grid.Level1Keys[0]);
+        Assert.Equal("", settings.Grid.Keys[0]);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class KeyBindingCatalogTests
             Keys = new KeysSettings { Up = "LeftCtrl", Down = "NoSuchKey" },
             Grid = new GridSettings
             {
-                Level1Keys = ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"]
+                Keys = ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"]
             }
         };
 
@@ -52,47 +52,44 @@ public class KeyBindingCatalogTests
         Assert.Equal("CapsLock", settings.Activation.ToggleKey);
         Assert.Equal("I", settings.Keys.Up);
         Assert.Equal("K", settings.Keys.Down);
-        Assert.Equal("A", settings.Grid.Level1Keys[0]);
-        Assert.Equal("Semicolon", settings.Grid.Level1Keys[9]);
+        Assert.Equal("A", settings.Grid.Keys[0]);
+        Assert.Equal("Semicolon", settings.Grid.Keys[9]);
     }
 
     [Fact]
-    public void Normalize_RepairsGridArraysAndActionLevel()
+    public void Normalize_RepairsTheGridKeysAndSize()
     {
         var settings = new Settings
         {
             Grid = new GridSettings
             {
-                Level1Keys = [],
-                Level2Keys = [],
-                SubgridKeys = null!,
-                ActionLevel = "everything"
+                Keys = null!,
+                Columns = -3,
+                Rows = 500
             }
         };
 
         settings.Normalize();
 
-        Assert.Equal(10, settings.Grid.Level1Keys.Length);
-        Assert.Equal(30, settings.Grid.Level2Keys.Length);
-        Assert.Equal(30, settings.Grid.SubgridKeys.Length);
-        Assert.Equal("micro", settings.Grid.ActionLevel);
-        Assert.Equal("Q", settings.Grid.Level2Keys[0]);
-        Assert.Equal("Slash", settings.Grid.SubgridKeys[29]);
+        Assert.Equal(10, settings.Grid.Keys.Length);
+        Assert.Equal("A", settings.Grid.Keys[0]);
+        Assert.Equal(GridSettings.MinColumns, settings.Grid.Columns);
+        Assert.Equal(GridSettings.MaxRows, settings.Grid.Rows);
     }
 
     [Fact]
-    public void Normalize_RepairsDuplicateLevel2Keys()
+    public void Normalize_RepairsDuplicateGridKeys()
     {
         var settings = new Settings();
-        settings.Grid.Level2Keys[1] = "Q";
+        settings.Grid.Keys[1] = "A";
 
         settings.Normalize();
 
-        Assert.Equal("Q", settings.Grid.Level2Keys[0]);
-        Assert.Equal("W", settings.Grid.Level2Keys[1]);
+        Assert.Equal("A", settings.Grid.Keys[0]);
+        Assert.Equal("S", settings.Grid.Keys[1]);
         Assert.Equal(
-            settings.Grid.Level2Keys.Length,
-            settings.Grid.Level2Keys.Distinct().Count());
+            settings.Grid.Keys.Length,
+            settings.Grid.Keys.Distinct().Count());
     }
 
     [Fact]
@@ -129,7 +126,7 @@ public class KeyBindingCatalogTests
         settings.Normalize();
 
         Assert.True(KeyBindingCatalog.TryAssign(settings, "grid0", "I", out var swapped));
-        Assert.Equal("I", settings.Grid.Level1Keys[0]);
+        Assert.Equal("I", settings.Grid.Keys[0]);
         Assert.Equal("I", settings.Keys.Up);
         Assert.Null(swapped);
     }
@@ -141,8 +138,8 @@ public class KeyBindingCatalogTests
         settings.Normalize();
 
         Assert.True(KeyBindingCatalog.TryAssign(settings, "grid0", "S", out var swapped));
-        Assert.Equal("S", settings.Grid.Level1Keys[0]);
-        Assert.Equal("A", settings.Grid.Level1Keys[1]);
+        Assert.Equal("S", settings.Grid.Keys[0]);
+        Assert.Equal("A", settings.Grid.Keys[1]);
         Assert.Equal("grid1", swapped);
     }
 
@@ -181,18 +178,12 @@ public class KeyBindingCatalogTests
         var settings = new Settings();
         settings.Normalize();
         settings.Keys.Up = "Q";
-        settings.Grid.Level1Keys[0] = "Q";
-        settings.Grid.Level2Keys[0] = "Y";
-        settings.Grid.SubgridKeys[0] = "Y";
-        settings.Grid.ActionLevel = "2";
+        settings.Grid.Keys[0] = "Q";
 
         KeyBindingCatalog.ResetAll(settings);
 
         Assert.Equal("I", settings.Keys.Up);
-        Assert.Equal("A", settings.Grid.Level1Keys[0]);
-        Assert.Equal("Q", settings.Grid.Level2Keys[0]);
-        Assert.Equal("Q", settings.Grid.SubgridKeys[0]);
-        Assert.Equal("micro", settings.Grid.ActionLevel);
+        Assert.Equal("A", settings.Grid.Keys[0]);
     }
 
     [Fact]

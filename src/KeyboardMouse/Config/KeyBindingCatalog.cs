@@ -17,9 +17,8 @@ public sealed record KeyBindingDefinition(
 
 /// <summary>
 /// The single source of truth for every editable binding: the activation
-/// toggle, the normal-layer actions, and the ten level-1 grid columns.
-/// Level-2 and subgrid keys are file-only settings handled by
-/// <see cref="Normalize"/>.
+/// toggle, the normal-layer actions, and the ten keys the grid prints in its
+/// cells (one key per character of a cell code).
 ///
 /// The normal pool (toggle + <see cref="KeysSettings"/>) and the grid pool are
 /// independent, so a grid cell can reuse a normal-layer key. Inside a pool a
@@ -205,7 +204,7 @@ public static class KeyBindingCatalog
         return true;
     }
 
-    /// <summary>Restores every editable binding, including all grid levels, to defaults.</summary>
+    /// <summary>Restores every editable binding to its default key.</summary>
     public static void ResetAll(Settings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -215,11 +214,6 @@ public static class KeyBindingCatalog
         {
             Set(settings, definition, definition.DefaultKey);
         }
-
-        settings.Grid.Level2Keys = GridSettings.DefaultLevel2Keys();
-        settings.Grid.SubgridKeys = GridSettings.DefaultSubgridKeys();
-        settings.Grid.MicroKeys = GridSettings.DefaultMicroKeys();
-        settings.Grid.ActionLevel = "micro";
     }
 
     /// <summary>
@@ -238,7 +232,6 @@ public static class KeyBindingCatalog
         settings.Grid ??= new GridSettings();
 
         EnsureGridKeys(settings);
-        settings.Grid.ActionLevel = GridSettings.NormalizeActionLevel(settings.Grid.ActionLevel);
 
         foreach (var definition in NormalPool)
         {
@@ -247,10 +240,8 @@ public static class KeyBindingCatalog
 
         ResolveDuplicates(settings, NormalPool);
 
-        NormalizeGridLevel(settings.Grid.Level1Keys, GridSettings.DefaultLevel1Keys());
-        NormalizeGridLevel(settings.Grid.Level2Keys, GridSettings.DefaultLevel2Keys());
-        NormalizeGridLevel(settings.Grid.SubgridKeys, GridSettings.DefaultSubgridKeys());
-        NormalizeGridLevel(settings.Grid.MicroKeys ??= GridSettings.DefaultMicroKeys(), GridSettings.DefaultMicroKeys());
+        NormalizeGridLevel(settings.Grid.Keys, GridSettings.DefaultKeys());
+        ClampGridSize(settings.Grid);
     }
 
     public static bool TryParseBindingKey(string? name, out PhysicalKey key)
@@ -271,8 +262,8 @@ public static class KeyBindingCatalog
 
     private static string GetGrid(Settings settings, int index)
     {
-        settings.Grid.Level1Keys ??= GridSettings.DefaultLevel1Keys();
-        string[] keys = settings.Grid.Level1Keys;
+        settings.Grid.Keys ??= GridSettings.DefaultKeys();
+        string[] keys = settings.Grid.Keys;
         return index >= 0 && index < keys.Length ? keys[index] : string.Empty;
     }
 
@@ -310,7 +301,7 @@ public static class KeyBindingCatalog
             case "redo": settings.Keys.Redo = value; break;
             default:
                 if (definition.GridIndex >= 0 &&
-                    settings.Grid.Level1Keys is { } gridKeys &&
+                    settings.Grid.Keys is { } gridKeys &&
                     definition.GridIndex < gridKeys.Length)
                 {
                     gridKeys[definition.GridIndex] = value;
@@ -370,24 +361,27 @@ public static class KeyBindingCatalog
 
     private static void EnsureGridKeys(Settings settings)
     {
-        var defaults = new GridSettings();
-        if (settings.Grid.Level1Keys is null ||
-            settings.Grid.Level1Keys.Length != defaults.Level1Keys.Length)
+        if (settings.Grid.Keys is null ||
+            settings.Grid.Keys.Length != GridSettings.DefaultKeys().Length)
         {
-            settings.Grid.Level1Keys = GridSettings.DefaultLevel1Keys();
+            settings.Grid.Keys = GridSettings.DefaultKeys();
         }
+    }
 
-        if (settings.Grid.Level2Keys is null ||
-            settings.Grid.Level2Keys.Length != defaults.Level2Keys.Length)
-        {
-            settings.Grid.Level2Keys = GridSettings.DefaultLevel2Keys();
-        }
-
-        if (settings.Grid.SubgridKeys is null ||
-            settings.Grid.SubgridKeys.Length != defaults.SubgridKeys.Length)
-        {
-            settings.Grid.SubgridKeys = GridSettings.DefaultSubgridKeys();
-        }
+    /// <summary>
+    /// A code needs two characters per axis, so the grid can never ask for more
+    /// columns or rows than the ten keys can address (ten bands of ten).
+    /// </summary>
+    private static void ClampGridSize(GridSettings grid)
+    {
+        grid.Columns = Math.Clamp(
+            grid.Columns,
+            GridSettings.MinColumns,
+            GridSettings.MaxColumns);
+        grid.Rows = Math.Clamp(
+            grid.Rows,
+            GridSettings.MinRows,
+            GridSettings.MaxRows);
     }
 
     private static void NormalizeGridLevel(string[] keys, string[] defaults)

@@ -75,7 +75,7 @@ public class KeymapRuntimeTests
         h.Down(PhysicalKey.N);
         h.Up(PhysicalKey.N);
 
-        // N is a level-2 key now, not a monitor switch.
+        // Inside grid mode only Tab switches monitors; other keys type a code.
         Assert.Equal(new Rectangle(0, 0, 1920, 1080), h.Grid.State!.Monitor.Bounds);
 
         h.Down(PhysicalKey.Tab);
@@ -110,7 +110,7 @@ public class KeymapRuntimeTests
     public void EmptyGridCell_IsUnselectable()
     {
         var h = new RouterHarness();
-        h.GridSettings.Level1Keys[0] = "";
+        h.GridSettings.Keys[0] = "";
         h.Router.UpdateGrid(h.GridSettings);
         h.TapCaps();
 

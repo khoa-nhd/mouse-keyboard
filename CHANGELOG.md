@@ -3,6 +3,25 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.5.1] - 2026-11-10
+
+### Changed
+- **Grid mode is one grid with a four-key code printed in every cell, replacing
+the level-by-level model from 1.5.0:**
+  - The overlay is a single 24 by 16 grid of small cells, and every cell already
+    carries the four keys that reach it, so a target is read from the screen
+    instead of being discovered one level at a time.
+  - A code is `[column band][column][row band][row]` over the ten grid keys, so
+    typing narrows band → column → band of rows → cell and the fourth key clicks
+    the cell centre. Cells that stop matching fade out; no second grid appears.
+  - `grid.actionLevel`, `level2Keys`, `subgridKeys` and `microKeys` are gone.
+    `grid.columns` and `grid.rows` size the grid and `grid.keys` holds the ten
+    keys every code uses. An older `settings.json` still loads: the removed
+    fields are ignored and the new defaults apply.
+  - Space clicks, Enter or Shift right-clicks, Backspace erases one letter, Tab
+    switches monitor, Ctrl + the Grid key closes in place, Esc restores the
+    pointer. The guide, keymap editor and README document the new flow.
+
 ## [1.5.0] - 2026-11-10
 
 ### Added & Enhanced
