@@ -93,14 +93,14 @@ public sealed class ClickableScanner : IClickableScanner
     public void BeginScan(
         IntPtr window,
         HintScanOptions options,
-        Action<IReadOnlyList<ClickableTarget>> completed,
+        Action<HintScanResult> reported,
         Action timedOut)
     {
         // A foreground handle is only required by the foreground scope; monitor
         // scopes still work when the desktop has no active window.
         if (window == IntPtr.Zero && options.Scope == HintScanScope.ForegroundWindow)
         {
-            completed([]);
+            reported(new HintScanResult([], true));
             return;
         }
 
@@ -142,7 +142,22 @@ public sealed class ClickableScanner : IClickableScanner
 
             try
             {
-                targets = Scan(window, options, soft);
+                // The full budget stays with the scan: the user already has the
+                // targets from the fast windows, so a late window costs nothing
+                // but its own time and is still included when it answers.
+                targets = Scan(
+                    window,
+                    options,
+                    soft,
+                    result =>
+                    {
+                        // An early batch that arrives after the scan already
+                        // gave up must not reopen hints.
+                        if (Volatile.Read(ref finished) == 0)
+                        {
+                            reported(result);
+                        }
+                    });
             }
             catch (Exception ex)
             {
@@ -153,7 +168,7 @@ public sealed class ClickableScanner : IClickableScanner
             if (Interlocked.Exchange(ref finished, 1) == 0)
             {
                 timer?.Dispose();
-                completed(targets);
+                reported(new HintScanResult(targets, true));
             }
         })
         {
@@ -166,7 +181,11 @@ public sealed class ClickableScanner : IClickableScanner
         thread.Start();
     }
 
-    private IReadOnlyList<ClickableTarget> Scan(IntPtr foreground, HintScanOptions options, int budgetMs)
+    private IReadOnlyList<ClickableTarget> Scan(
+        IntPtr foreground,
+        HintScanOptions options,
+        int budgetMs,
+        Action<HintScanResult> reported)
     {
         var stopwatch = Stopwatch.StartNew();
         var monitors = _monitors?.All ?? [];
@@ -195,8 +214,36 @@ public sealed class ClickableScanner : IClickableScanner
         // One worker per window: a single Electron window can block its own
         // accessibility call for 1.6 s, and reading windows one after another
         // made that the whole scan. In parallel the slowest window sets the
-        // cost, and a window that never answers is simply left out.
-        var collected = CollectWindows(handles, rawCap, stopwatch, budgetMs);
+        // cost, so the windows that answered early are handed over first and
+        // the slow ones fill in when they are done.
+        int shown = 0;
+
+        var collected = CollectWindows(
+            handles,
+            rawCap,
+            stopwatch,
+            budgetMs,
+            early =>
+            {
+                var partial = HintTargetFilter.Apply(early, monitors, limit);
+
+                if (visual is { IsCompleted: true })
+                {
+                    partial = AddVisual(partial, visual.Result, captures, limit);
+                }
+
+                if (partial.Count <= shown)
+                {
+                    return;
+                }
+
+                Log.Info(
+                    $"Hint scan showed {partial.Count} target(s) after " +
+                    $"{stopwatch.ElapsedMilliseconds} ms while the slow windows finish.");
+
+                shown = partial.Count;
+                reported(new HintScanResult(partial, false));
+            });
         var raw = collected.Raw;
 
         // No region clip here: the foreground scope owns its popups, and a
@@ -217,6 +264,19 @@ public sealed class ClickableScanner : IClickableScanner
             $"{handles.Count} window(s), {targets.Count} accessible element(s) in " +
             $"{stopwatch.ElapsedMilliseconds} ms ({collected.SlowestMs} ms was the slowest window).");
 
+        // The accessibility answer is complete but the pixel pass is still
+        // looking: show what the elements give now instead of making the user
+        // wait for the extras.
+        if (visual is { IsCompleted: false } && targets.Count > shown)
+        {
+            Log.Info(
+                $"Hint scan showed {targets.Count} target(s) after " +
+                $"{stopwatch.ElapsedMilliseconds} ms while the pixel pass finishes.");
+
+            shown = targets.Count;
+            reported(new HintScanResult(targets, false));
+        }
+
         if (visual is null)
         {
             return targets;
@@ -234,16 +294,25 @@ public sealed class ClickableScanner : IClickableScanner
             return targets;
         }
 
-        var results = visual.Result;
-
-        for (int i = 0; i < captures.Count && i < results.Length; i++)
-        {
-            targets = VisualHintSupplement.Add(results[i], captures[i].Region, targets, limit);
-        }
+        targets = AddVisual(targets, visual.Result, captures, limit);
 
         Log.Info(
             $"Hint scan ({ScanScopeNames.ToId(options.Scope)}) returned {targets.Count} target(s) " +
             $"in {stopwatch.ElapsedMilliseconds} ms from {captures.Count} capture(s).");
+
+        return targets;
+    }
+
+    private static IReadOnlyList<ClickableTarget> AddVisual(
+        IReadOnlyList<ClickableTarget> targets,
+        VisualDetectionResult[] results,
+        IReadOnlyList<VisualCapture> captures,
+        int limit)
+    {
+        for (int i = 0; i < captures.Count && i < results.Length; i++)
+        {
+            targets = VisualHintSupplement.Add(results[i], captures[i].Region, targets, limit);
+        }
 
         return targets;
     }
@@ -418,7 +487,8 @@ public sealed class ClickableScanner : IClickableScanner
         IReadOnlyList<IntPtr> handles,
         int rawCap,
         Stopwatch stopwatch,
-        int budgetMs)
+        int budgetMs,
+        Action<List<RawClickableTarget>>? onEarly = null)
     {
         var raw = new List<RawClickableTarget>(256);
 
@@ -427,68 +497,188 @@ public sealed class ClickableScanner : IClickableScanner
             return new CollectedWindows(raw, 0, 0);
         }
 
-        var tasks = new Task<(List<RawClickableTarget> Items, int Elapsed)>[handles.Count];
+        var items = new List<RawClickableTarget>?[handles.Count];
+        var elapsed = new int[handles.Count];
+
+        // One reader per window: reading them one after another made the
+        // slowest window the whole scan, and splitting a window over several
+        // threads only queued them all at the same automation broker.
+        var tasks = new Task[handles.Count];
 
         for (int i = 0; i < handles.Count; i++)
         {
-            var handle = handles[i];
-            tasks[i] = Task.Run(() => ReadWindow(handle, rawCap));
+            int index = i;
+
+            tasks[index] = Task.Run(() =>
+            {
+                using var automation = new UIA3Automation();
+                var read = ReadWindow(automation, handles[index], rawCap);
+                items[index] = read.Items;
+                elapsed[index] = read.Elapsed;
+            });
         }
 
         int wait = Math.Max(150, budgetMs - (int)stopwatch.ElapsedMilliseconds);
 
         try
         {
-            Task.WaitAll(tasks, wait);
+            if (onEarly is not null)
+            {
+                // Hand each window's targets over as soon as it answers: the
+                // hints grow while the slower windows are still reading, instead
+                // of every hint waiting for the slowest one. The reports are
+                // cumulative, and kept a little apart so the overlay is not
+                // redrawn for every single window.
+                var waiting = Stopwatch.StartNew();
+                var sinceReport = Stopwatch.StartNew();
+                int reported = 0;
+
+                while (items.Any(item => item is null) && waiting.ElapsedMilliseconds < wait)
+                {
+                    if (sinceReport.ElapsedMilliseconds >= ReportGapMs)
+                    {
+                        if (ReportReady(items, ref reported, onEarly))
+                        {
+                            sinceReport.Restart();
+                        }
+                    }
+
+                    Thread.Sleep(ReadPollMs);
+                }
+            }
+
+            Task.WaitAll(tasks, Math.Max(0, budgetMs - (int)stopwatch.ElapsedMilliseconds));
         }
         catch (Exception ex)
         {
             Log.Error("Hint scan could not wait for window scans", ex);
         }
 
+        return Snapshot(items, elapsed);
+    }
+
+    /// <summary>How often the reader looks for windows that have just answered.</summary>
+    private const int ReadPollMs = 40;
+
+    /// <summary>Smallest gap between two reports to the overlay while reading.</summary>
+    private const int ReportGapMs = 150;
+
+    /// <summary>
+    /// Hands over the targets of every window that has answered so far, unless
+    /// nothing new has arrived since the last report or nothing has been found
+    /// yet. The list is cumulative, so the caller can merge it as it grows.
+    /// </summary>
+    internal static bool ReportReady(
+        List<RawClickableTarget>?[] items,
+        ref int reported,
+        Action<List<RawClickableTarget>> report)
+    {
+        int ready = 0;
+        var raw = new List<RawClickableTarget>(256);
+
+        foreach (var item in items)
+        {
+            if (item is null)
+            {
+                continue;
+            }
+
+            ready++;
+            raw.AddRange(item);
+        }
+
+        if (ready <= reported || raw.Count == 0)
+        {
+            return false;
+        }
+
+        reported = ready;
+        report(raw);
+        return true;
+    }
+
+    /// <summary>
+    /// Targets from the windows that have answered, in window order, so a list
+    /// built from a snapshot is ordered like the final one and the early batch
+    /// stays a prefix of it.
+    /// </summary>
+    private static CollectedWindows Snapshot(List<RawClickableTarget>?[] items, int[] elapsed)
+    {
+        var raw = CollectReady(items);
         int read = 0;
         int slowest = 0;
 
-        foreach (var task in tasks)
+        for (int i = 0; i < items.Length; i++)
         {
-            if (!task.IsCompletedSuccessfully)
+            if (items[i] is null)
             {
                 continue;
             }
 
             read++;
-            slowest = Math.Max(slowest, task.Result.Elapsed);
-            raw.AddRange(task.Result.Items);
+            slowest = Math.Max(slowest, elapsed[i]);
         }
 
         return new CollectedWindows(raw, read, slowest);
     }
 
-    private static (List<RawClickableTarget> Items, int Elapsed) ReadWindow(IntPtr handle, int cap)
+    /// <summary>Targets of the windows that have answered, in window order.</summary>
+    private static List<RawClickableTarget> CollectReady(List<RawClickableTarget>?[] items)
+    {
+        var raw = new List<RawClickableTarget>(256);
+
+        foreach (var item in items)
+        {
+            if (item is not null)
+            {
+                raw.AddRange(item);
+            }
+        }
+
+        return raw;
+    }
+
+    private static (List<RawClickableTarget> Items, int Elapsed) ReadWindow(
+        UIA3Automation automation,
+        IntPtr handle,
+        int cap)
     {
         var items = new List<RawClickableTarget>(64);
         var stopwatch = Stopwatch.StartNew();
-        UIA3Automation? automation = null;
 
         try
         {
-            // UIA3 is COM-based; this runs on a thread-pool (MTA) thread.
-            automation = new UIA3Automation();
+            // UIA3 is COM-based; the automation object and every call it makes
+            // stay on this reader's thread.
             Collect(automation.FromHandle(handle), items, cap);
         }
         catch (Exception ex)
         {
             Log.Error("Could not read a window for UIA", ex);
         }
-        finally
-        {
-            automation?.Dispose();
-        }
 
         stopwatch.Stop();
-        return (items, (int)stopwatch.ElapsedMilliseconds);
+        int elapsed = (int)stopwatch.ElapsedMilliseconds;
+
+        if (elapsed >= SlowWindowMs)
+        {
+            Log.Info(
+                $"Hint scan read {items.Count} element(s) from {ProcessNameOf(handle)} " +
+                $"in {elapsed} ms.");
+        }
+
+        return (items, elapsed);
     }
 
+    /// <summary>A window this slow is worth naming in the log.</summary>
+    private const int SlowWindowMs = 400;
+
+    /// <summary>
+    /// Reads one window: walk its descendants, then ask each element for the
+    /// properties the filter needs. This is the plain UI Automation path, and
+    /// the walk stays on one thread because a shared automation object is not
+    /// safe across threads.
+    /// </summary>
     private static void Collect(AutomationElement root, List<RawClickableTarget> raw, int cap)
     {
         AutomationElement[] elements;
@@ -513,12 +703,11 @@ public sealed class ClickableScanner : IClickableScanner
 
             try
             {
-                if (element.IsOffscreen || !element.IsEnabled)
-                {
-                    continue;
-                }
-
+                // The control type rules out most of a big tree before anything
+                // else is asked for, and an element with no box cannot be
+                // clicked.
                 bool wanted = WantedTypes.Contains(element.ControlType);
+
                 if (!wanted)
                 {
                     try
@@ -542,12 +731,31 @@ public sealed class ClickableScanner : IClickableScanner
                     continue;
                 }
 
+                if (element.IsOffscreen || !element.IsEnabled)
+                {
+                    continue;
+                }
+
                 raw.Add(new RawClickableTarget(bounds, false, true, SafeName(element)));
             }
             catch
             {
                 // A broken element must not abort the rest of the scan.
             }
+        }
+    }
+
+    private static string ProcessNameOf(IntPtr handle)
+    {
+        try
+        {
+            User32.GetWindowThreadProcessId(handle, out uint processId);
+            using var process = System.Diagnostics.Process.GetProcessById((int)processId);
+            return process.ProcessName;
+        }
+        catch
+        {
+            return "a window";
         }
     }
 

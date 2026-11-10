@@ -58,17 +58,17 @@ public class GridControllerTests
 
         Assert.True(h.Grid.Visible);
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal(24, state.Columns);
-        Assert.Equal(16, state.Rows);
-        Assert.Equal(24 * 16, state.Labels.Count);
+        Assert.Equal(28, state.Columns);
+        Assert.Equal(18, state.Rows);
+        Assert.Equal(28 * 18, state.Labels.Count);
         Assert.All(state.Labels, label => Assert.Equal(4, label.Length));
 
         // Every code is readable before typing: column band, column, row band, row.
         Assert.Equal("AAAA", state.Labels[0]);
         Assert.Equal("ASAA", state.Labels[1]);
         Assert.Equal("AGAA", state.Labels[4]);
-        Assert.Equal("AAAS", state.Labels[24]);
-        Assert.Equal("AGAS", state.Labels[(1 * 24) + 4]);
+        Assert.Equal("AAAS", state.Labels[28]);
+        Assert.Equal("AGAS", state.Labels[(1 * 28) + 4]);
 
         Assert.Equal(string.Empty, state.Typed);
         Assert.Equal(-1, state.Highlight);
@@ -86,20 +86,20 @@ public class GridControllerTests
         var afterBand = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.Equal("A", afterBand.Typed);
         Assert.Equal(0, afterBand.Highlight);
-        Assert.Equal(new Point(40, 33), afterBand.Target);
+        Assert.Equal(new Point(34, 30), afterBand.Target);
 
         Press(h, PhysicalKey.S);
 
         var afterColumn = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.Equal("AS", afterColumn.Typed);
         Assert.Equal(1, afterColumn.Highlight);
-        Assert.Equal(new Point(120, 33), afterColumn.Target);
+        Assert.Equal(new Point(102, 30), afterColumn.Target);
 
         Press(h, PhysicalKey.A);
 
         var afterRowBand = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.Equal("ASA", afterRowBand.Typed);
-        Assert.Equal(new Point(120, 33), afterRowBand.Target);
+        Assert.Equal(new Point(102, 30), afterRowBand.Target);
 
         Assert.Empty(h.Mouse.Calls);
     }
@@ -112,7 +112,7 @@ public class GridControllerTests
         Type(h, "SFAK");
 
         Assert.False(h.Grid.Visible);
-        Assert.Equal(["move:1080,506", "left-click"], h.Mouse.Calls);
+        Assert.Equal(["move:925,450", "left-click"], h.Mouse.Calls);
     }
 
     [Fact]
@@ -120,10 +120,10 @@ public class GridControllerTests
     {
         foreach (var (code, expected) in new[]
         {
-            ("AAAA", new Point(40, 33)),
-            ("ASAA", new Point(120, 33)),
-            ("SFAK", new Point(1080, 506)),
-            ("DFSH", new Point(1880, 1046))
+            ("AAAA", new Point(34, 30)),
+            ("ASAA", new Point(102, 30)),
+            ("SFAK", new Point(925, 450)),
+            ("DFSH", new Point(1611, 930))
         })
         {
             var h = OpenGrid();
@@ -172,7 +172,7 @@ public class GridControllerTests
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.Equal("AS", state.Typed);
         Assert.Equal(1, state.Highlight);
-        Assert.Equal(new Point(120, 33), state.Target);
+        Assert.Equal(new Point(102, 30), state.Target);
 
         Press(h, PhysicalKey.Backspace);
         Press(h, PhysicalKey.Backspace);
@@ -192,7 +192,19 @@ public class GridControllerTests
         Assert.True(h.Down(PhysicalKey.Space));
 
         Assert.False(h.Grid.Visible);
-        Assert.Equal(["move:120,33", "left-click"], h.Mouse.Calls);
+        Assert.Equal(["move:102,30", "left-click"], h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void TabWhileTyping_MovesWithoutClicking()
+    {
+        var h = OpenGrid();
+        Type(h, "SFA");
+
+        Press(h, PhysicalKey.Tab);
+
+        Assert.False(h.Grid.Visible);
+        Assert.Equal(["move:925,30"], h.Mouse.Calls);
     }
 
     [Fact]
@@ -217,7 +229,7 @@ public class GridControllerTests
         Press(h, PhysicalKey.K);
 
         Assert.False(h.Grid.Visible);
-        Assert.Equal(["move:1080,506", "right-click"], h.Mouse.Calls);
+        Assert.Equal(["move:925,450", "right-click"], h.Mouse.Calls);
     }
 
     [Fact]
@@ -262,10 +274,9 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void TabMovesToTheNextMonitorAndClearsTheTypedCode()
+    public void TabBeforeTypingMovesToTheNextMonitor()
     {
         var h = OpenGrid(FakeMonitorService.Dual());
-        Type(h, "SF");
 
         Assert.True(h.Down(PhysicalKey.Tab));
         Assert.True(h.Up(PhysicalKey.Tab));

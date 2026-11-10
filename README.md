@@ -241,7 +241,7 @@ or `Middle`. To use a different key, set `keys.autoClick`.
 ### Grid mode (G)
 
 ```
-One grid   24 x 16 small cells, each with its full four-key code
+One grid   28 x 18 small cells, each with its full four-key code
            AAAA  AGAS  SFAK  ...
 ```
 
@@ -255,10 +255,11 @@ Cells that stop matching fade out and there is never a second grid. The real
 pointer moves only on the click, so it never drifts while you choose.
 
 Space = click · Enter or Shift = right-click · Backspace = erase one letter ·
-Tab = next monitor · Ctrl + G = close without moving · Esc = cancel and restore
-the pointer.
+Tab = move there without clicking (before anything is typed it goes to the next
+monitor) · Ctrl + G = close without moving · Esc = cancel and restore the
+pointer. Shift held on the last key of a code right-clicks that cell.
 
-`grid.columns` (default 24) and `grid.rows` (default 16) size the grid, and
+`grid.columns` (default 28) and `grid.rows` (default 18) size the grid, and
 `grid.keys` (default `A S D F G H J K L Semicolon`) is the ten keys every code
 is made of; clearing one makes the cells that need it unreachable.
 
@@ -347,7 +348,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
   },
   "grid": {
     "keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
-    "columns": 24, "rows": 16
+    "columns": 28, "rows": 18
   },
   ...
 }

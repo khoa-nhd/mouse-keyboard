@@ -108,24 +108,30 @@ internal sealed class FakeHintScanner : IClickableScanner
 
     public HintScanOptions? Options { get; private set; }
 
-    public Action<IReadOnlyList<ClickableTarget>>? Completed { get; private set; }
+    public Action<HintScanResult>? Reported { get; private set; }
 
     public Action? TimedOut { get; private set; }
 
     public void BeginScan(
         IntPtr window,
         HintScanOptions options,
-        Action<IReadOnlyList<ClickableTarget>> completed,
+        Action<HintScanResult> reported,
         Action timedOut)
     {
         ScanCount++;
         Window = window;
         Options = options;
-        Completed = completed;
+        Reported = reported;
         TimedOut = timedOut;
     }
 
-    public void Complete(params ClickableTarget[] targets) => Completed?.Invoke(targets);
+    /// <summary>A finished scan result.</summary>
+    public void Complete(params ClickableTarget[] targets) =>
+        Reported?.Invoke(new HintScanResult(targets, true));
+
+    /// <summary>An early batch: more targets may still arrive.</summary>
+    public void Partial(params ClickableTarget[] targets) =>
+        Reported?.Invoke(new HintScanResult(targets, false));
 
     public void Timeout() => TimedOut?.Invoke();
 }

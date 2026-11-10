@@ -28,7 +28,9 @@ public sealed class HintController : IModeController
     private bool _active;
     private bool _scanning;
     private int _scanVersion;
-    private IReadOnlyList<ClickableTarget> _targets = [];
+    private readonly List<ClickableTarget> _targets = [];
+    private readonly List<ClickableTarget> _deferred = [];
+    private readonly HashSet<Rectangle> _known = [];
     private IReadOnlyList<string> _labels = [];
     private string _typed = "";
     private bool _rightClickHeld;
@@ -56,6 +58,11 @@ public sealed class HintController : IModeController
         _dispatch = dispatch;
     }
 
+    /// <summary>
+    /// Label room an incomplete scan starts with: eight symbols give sixty-four
+    /// two-letter labels, which covers a typical screen without making a short
+    /// list type three letters per hint.
+    /// </summary>
     public bool IsActive => _active;
 
     public void UpdateSettings(HintSettings settings)
@@ -86,7 +93,9 @@ public sealed class HintController : IModeController
         _active = true;
         _scanning = true;
         _typed = string.Empty;
-        _targets = [];
+        _targets.Clear();
+        _deferred.Clear();
+        _known.Clear();
         _labels = [];
         _rightClickHeld = false;
 
@@ -131,7 +140,7 @@ public sealed class HintController : IModeController
             _scanner.BeginScan(
                 window,
                 options,
-                result => _dispatch(() => FinishScan(version, result)),
+                result => _dispatch(() => ApplyScanResult(version, result)),
                 () => _dispatch(() => FailScan(version)));
         }
         catch (Exception ex)
@@ -202,25 +211,118 @@ public sealed class HintController : IModeController
 
     public void Reset() => Close();
 
-    private void FinishScan(int version, IReadOnlyList<ClickableTarget> targets)
+    /// <summary>
+    /// Takes one delivery from the scan. A scan reports early with the windows
+    /// that answered first and completes later with the rest, so typing can
+    /// start while the slow windows are still reading; late targets are appended
+    /// and keep their own new labels, and every label already on screen stays on
+    /// its target.
+    /// </summary>
+    private void ApplyScanResult(int version, HintScanResult result)
     {
-        if (!_active || !_scanning || version != _scanVersion)
+        if (!_active || version != _scanVersion)
         {
             return;
+        }
+
+        if (result.Targets.Count == 0)
+        {
+            // An early batch with nothing in it is not a reason to give up; a
+            // finished scan with nothing found is.
+            if (result.Complete && _targets.Count == 0)
+            {
+                Close();
+            }
+
+            return;
+        }
+
+        bool first = _targets.Count == 0;
+
+        if (first)
+        {
+            // Labels are positional. A scan that still has a window reading sizes
+            // its labels for the room the next batches usually need, so the new
+            // ones continue the sequence instead of renumbering the hints that
+            // are already on screen. A finished scan sizes them exactly.
+            int pool = result.Complete
+                ? result.Targets.Count
+                : Math.Max(result.Targets.Count, PartialLabelReserve);
+
+            _labels = HintLabels.Generate(pool, _settings.Alphabet);
+            _scanning = false;
+        }
+
+        int added = Merge(result.Targets);
+
+        // A batch that needs longer labels than the ones on screen can only be
+        // applied while nothing has been typed; until then it is parked, not
+        // dropped, and lands as soon as the typed prefix is empty again.
+        if (_deferred.Count > 0 && _typed.Length == 0)
+        {
+            _labels = HintLabels.Generate(_targets.Count + _deferred.Count, _settings.Alphabet);
+            added += DrainDeferred();
         }
 
         _scanning = false;
 
-        if (targets.Count == 0)
+        if (added > 0 || first)
         {
-            Close();
-            return;
+            Show();
+        }
+    }
+
+    /// <summary>Labels kept free for the windows that answer after the first.</summary>
+    private const int PartialLabelReserve = 64;
+
+    private int Capacity() => Math.Clamp(_settings.MaxElements, 1, 2000);
+
+    /// <summary>
+    /// Appends targets not shown yet, up to the configured cap and the room the
+    /// current labels leave. Targets without a free label wait in
+    /// <see cref="_deferred"/> so no hint already on screen changes its label.
+    /// </summary>
+    private int Merge(IReadOnlyList<ClickableTarget> targets)
+    {
+        int capacity = Capacity();
+        int added = 0;
+
+        foreach (var target in targets)
+        {
+            if (!_known.Add(target.Bounds))
+            {
+                continue;
+            }
+
+            if (_targets.Count >= capacity || _targets.Count >= _labels.Count)
+            {
+                if (_targets.Count < capacity)
+                {
+                    _deferred.Add(target);
+                }
+
+                continue;
+            }
+
+            _targets.Add(target);
+            added++;
         }
 
-        _targets = targets;
-        _labels = HintLabels.Generate(targets.Count, _settings.Alphabet);
-        _typed = string.Empty;
-        Show();
+        return added;
+    }
+
+    private int DrainDeferred()
+    {
+        int added = 0;
+
+        while (_deferred.Count > 0 && _targets.Count < _labels.Count)
+        {
+            _targets.Add(_deferred[0]);
+            _deferred.RemoveAt(0);
+            added++;
+        }
+
+        return added;
     }
 
     private void FailScan(int version)
@@ -243,9 +345,9 @@ public sealed class HintController : IModeController
         string candidate = _typed + letter;
         bool anyMatch = false;
 
-        foreach (string label in _labels)
+        for (int i = 0; i < _targets.Count; i++)
         {
-            if (label.StartsWith(candidate, StringComparison.Ordinal))
+            if (_labels[i].StartsWith(candidate, StringComparison.Ordinal))
             {
                 anyMatch = true;
                 break;
@@ -267,7 +369,7 @@ public sealed class HintController : IModeController
         }
 
         int index = -1;
-        for (int i = 0; i < _labels.Count; i++)
+        for (int i = 0; i < _targets.Count; i++)
         {
             if (_labels[i] == _typed)
             {
@@ -328,6 +430,13 @@ public sealed class HintController : IModeController
         }
 
         _typed = _typed[..^1];
+
+        if (_typed.Length == 0 && _deferred.Count > 0)
+        {
+            _labels = HintLabels.Generate(_targets.Count + _deferred.Count, _settings.Alphabet);
+            DrainDeferred();
+        }
+
         Show();
     }
 
@@ -339,7 +448,8 @@ public sealed class HintController : IModeController
             return;
         }
 
-        _overlay.Show(_monitors.All, _targets, _labels, _typed);
+        int shown = Math.Min(_targets.Count, _labels.Count);
+        _overlay.Show(_monitors.All, _targets.Take(shown).ToArray(), _labels.Take(shown).ToArray(), _typed);
     }
 
     private void Close()
@@ -348,7 +458,9 @@ public sealed class HintController : IModeController
         _active = false;
         _scanning = false;
         _typed = string.Empty;
-        _targets = [];
+        _targets.Clear();
+        _deferred.Clear();
+        _known.Clear();
         _labels = [];
         _rightClickHeld = false;
         _overlay.Hide();

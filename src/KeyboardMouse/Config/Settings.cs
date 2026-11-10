@@ -195,8 +195,8 @@ public sealed class GridSettings
 
     public int Rows { get; set; } = DefaultRows;
 
-    public const int DefaultColumns = 24;
-    public const int DefaultRows = 16;
+    public const int DefaultColumns = 28;
+    public const int DefaultRows = 18;
     public const int MinColumns = 2;
     public const int MaxColumns = 40;
     public const int MinRows = 2;

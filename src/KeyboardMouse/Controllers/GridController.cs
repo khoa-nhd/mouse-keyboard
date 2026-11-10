@@ -17,13 +17,23 @@ namespace KeyboardMouse.Controllers;
 /// band of rows, and the fourth the cell itself, which clicks at its centre.
 /// There is no second grid and no extra level to step into.
 ///
-/// Space clicks the virtual cursor at any point, Enter or Shift clicks it with
-/// the right button, Backspace takes a character back, Tab moves to the next
-/// monitor, Ctrl + the grid key closes keeping the position, and Esc cancels and
+/// Space clicks the virtual cursor at any point and Enter clicks it with the
+/// right button. Held while typing, Shift turns the click into a right click,
+/// and Tab moves the pointer to the cell without clicking at all (Tab before
+/// anything is typed switches to the next monitor). Backspace takes a character
+/// back, Ctrl + the grid key closes keeping the position, and Esc cancels and
 /// restores the original pointer.
 /// </summary>
 public sealed class GridController : IModeController
 {
+    /// <summary>What finishing a code does with the pointer.</summary>
+    private enum GridAction
+    {
+        None,
+        Left,
+        Right
+    }
+
     private readonly IMouseOutput _mouse;
     private readonly Func<Point> _cursor;
     private readonly IGridOverlay _overlay;
@@ -136,7 +146,18 @@ public sealed class GridController : IModeController
 
         if (keyEvent.Key == PhysicalKey.Tab)
         {
-            MoveToNextMonitor();
+            // Partway through a code, Tab parks the pointer on the highlighted
+            // cell without clicking. Before anything is typed there is no cell
+            // to park on, so it keeps its old job of switching monitor.
+            if (_typed.Length > 0 && _highlight >= 0)
+            {
+                ExecuteAction(GridAction.None);
+            }
+            else
+            {
+                MoveToNextMonitor();
+            }
+
             return HandleResult.Swallow;
         }
 
@@ -149,13 +170,13 @@ public sealed class GridController : IModeController
 
         if (keyEvent.Key == PhysicalKey.Space)
         {
-            ExecuteAction(right: modifiers.Shift);
+            ExecuteAction(ActionFor(modifiers));
             return HandleResult.Swallow;
         }
 
         if (keyEvent.Key == PhysicalKey.Enter)
         {
-            ExecuteAction(right: true);
+            ExecuteAction(GridAction.Right);
             return HandleResult.Swallow;
         }
 
@@ -163,17 +184,21 @@ public sealed class GridController : IModeController
 
         if (index >= 0)
         {
-            TypeCharacter(_keyLabels[index], modifiers.Shift);
+            TypeCharacter(_keyLabels[index], ActionFor(modifiers));
         }
 
         return HandleResult.Swallow;
     }
 
+    /// <summary>Shift turns the click into a right click; without it, a left click.</summary>
+    private static GridAction ActionFor(ModifierState modifiers) =>
+        modifiers.Shift ? GridAction.Right : GridAction.Left;
+
     /// <summary>
     /// Adds one character of a cell code. A character that no remaining cell can
     /// accept is ignored, so a stray key never moves the selection.
     /// </summary>
-    private void TypeCharacter(string character, bool right)
+    private void TypeCharacter(string character, GridAction action)
     {
         if (character.Length == 0 || _typed.Length >= GridCodes.Length)
         {
@@ -194,7 +219,7 @@ public sealed class GridController : IModeController
 
         if (_typed.Length == GridCodes.Length)
         {
-            ExecuteAction(right);
+            ExecuteAction(action);
             return;
         }
 
@@ -240,17 +265,19 @@ public sealed class GridController : IModeController
     private Point CenterOf(int index) =>
         GridMath.Center(GridMath.SubRect(_root, index, _columns, _rows));
 
-    private void ExecuteAction(bool right)
+    private void ExecuteAction(GridAction action)
     {
         _mouse.MoveTo(_target.X, _target.Y);
 
-        if (right)
+        switch (action)
         {
-            _mouse.RightClick();
-        }
-        else
-        {
-            _mouse.LeftClick();
+            case GridAction.Right:
+                _mouse.RightClick();
+                break;
+
+            case GridAction.Left:
+                _mouse.LeftClick();
+                break;
         }
 
         Close(restore: false);

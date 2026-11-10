@@ -3,6 +3,22 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.5.2] - 2026-11-10
+
+### Changed
+- **Hints appear while the scan is still reading:** every window reports as soon
+  as it answers, so the overlay grows instead of waiting for the slowest window.
+  The first hints now land around 0.3–0.7 s and the complete set about 20% sooner,
+  while the target set is unchanged (verified against the previous build on the
+  same desktop). Labels already on screen keep their letters, and the pixel pass
+  no longer holds the accessible targets back.
+- Grid mode defaults to a 28 by 18 lattice (was 24 by 16), so cells are smaller.
+- **Grid clicks follow the modifier you hold while typing:** Shift turns the
+  fourth key into a right click, and Tab moves the pointer to the cell without
+  clicking at all. Tab with nothing typed still switches monitor. The guide and
+  keymap editor describe the new behaviour, and the guide's grid demo matches the
+  new lattice.
+
 ## [1.5.1] - 2026-11-10
 
 ### Changed

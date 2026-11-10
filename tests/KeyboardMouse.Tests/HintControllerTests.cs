@@ -296,6 +296,105 @@ public class HintControllerTests
         Assert.Equal(new IntPtr(2), h.HintOverlay.ScanMonitor!.Handle);
     }
 
+    [Fact]
+    public void EarlyBatch_ShowsHintsBeforeTheScanFinishes()
+    {
+        var h = new RouterHarness();
+        OpenHint(h);
+
+        h.HintScanner.Partial(Target(100, 100), Target(300, 100));
+
+        Assert.True(h.HintOverlay.Visible);
+        Assert.False(h.HintOverlay.Scanning);
+        Assert.Equal(2, h.HintOverlay.Targets.Count);
+        Assert.All(h.HintOverlay.Labels, label => Assert.Equal(2, label.Length));
+
+        foreach (char letter in h.HintOverlay.Labels[1])
+        {
+            h.Down(KeyOf(letter));
+            h.Up(KeyOf(letter));
+        }
+
+        Assert.Equal("move:350,120", h.Mouse.Calls[^2]);
+        Assert.Equal("left-click", h.Mouse.Calls[^1]);
+    }
+
+    [Fact]
+    public void LateBatch_AppendsTargetsWithoutMovingTheLabelsOnScreen()
+    {
+        var h = new RouterHarness();
+        OpenHint(h);
+
+        h.HintScanner.Partial(Target(100, 100), Target(300, 100));
+        var shown = h.HintOverlay.Labels.ToArray();
+
+        h.HintScanner.Complete(Target(100, 100), Target(300, 100), Target(500, 100));
+
+        Assert.Equal(3, h.HintOverlay.Targets.Count);
+        Assert.Equal(shown, h.HintOverlay.Labels.Take(2).ToArray());
+        Assert.Equal(2, h.HintOverlay.Labels[2].Length);
+    }
+
+    [Fact]
+    public void LateBatchThatNeedsLongerLabels_RelabelsWhenNothingIsTyped()
+    {
+        var h = new RouterHarness();
+        h.HintSettings.MaxElements = 200;
+        OpenHint(h);
+
+        h.HintScanner.Partial(ManyTargets(8));
+        Assert.Equal(2, h.HintOverlay.Labels[0].Length);
+
+        h.HintScanner.Complete(ManyTargets(70));
+
+        Assert.Equal(70, h.HintOverlay.Targets.Count);
+        Assert.Equal(70, h.HintOverlay.Labels.Count);
+        Assert.Equal(3, h.HintOverlay.Labels[0].Length);
+        Assert.Equal(70, h.HintOverlay.Labels.Distinct().Count());
+    }
+
+    [Fact]
+    public void LateBatchWhileTyping_IsParkedUntilTheTypedLabelIsEmpty()
+    {
+        var h = new RouterHarness();
+        h.HintSettings.MaxElements = 200;
+        OpenHint(h);
+
+        h.HintScanner.Partial(ManyTargets(8));
+
+        h.Down(PhysicalKey.A);
+        h.Up(PhysicalKey.A);
+        Assert.Equal("a", h.HintOverlay.Typed);
+
+        h.HintScanner.Complete(ManyTargets(70));
+
+        // Sixty-four labels are already reserved; the rest waits so no hint
+        // changes the label the user is typing.
+        Assert.Equal(64, h.HintOverlay.Targets.Count);
+        Assert.Equal(2, h.HintOverlay.Labels[0].Length);
+
+        h.Down(PhysicalKey.Backspace);
+        h.Up(PhysicalKey.Backspace);
+
+        Assert.Equal(70, h.HintOverlay.Targets.Count);
+        Assert.Equal(3, h.HintOverlay.Labels[0].Length);
+    }
+
+    private static PhysicalKey KeyOf(char letter) => letter switch
+    {
+        'a' => PhysicalKey.A,
+        's' => PhysicalKey.S,
+        'd' => PhysicalKey.D,
+        'f' => PhysicalKey.F,
+        'j' => PhysicalKey.J,
+        'k' => PhysicalKey.K,
+        'l' => PhysicalKey.L,
+        _ => PhysicalKey.Semicolon
+    };
+
+    private static ClickableTarget[] ManyTargets(int count) =>
+        [.. Enumerable.Range(0, count).Select(i => Target(20 + ((i % 20) * 90), 40 + ((i / 20) * 60)))];
+
     private static void OpenHint(RouterHarness h)
     {
         h.TapCaps();
