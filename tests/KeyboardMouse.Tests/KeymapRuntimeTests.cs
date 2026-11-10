@@ -61,7 +61,7 @@ public class KeymapRuntimeTests
     }
 
     [Fact]
-    public void GridMonitorSwitchIsFixedToTab()
+    public void GridSwitchesMonitorOnlyWithTheNextMonitorKey()
     {
         var h = new RouterHarness(monitors: FakeMonitorService.Dual());
         h.KeySettings.NextMonitor = "N";
@@ -72,15 +72,13 @@ public class KeymapRuntimeTests
         h.Up(PhysicalKey.G);
         Assert.Equal(new Rectangle(0, 0, 1920, 1080), h.Grid.State!.Monitor.Bounds);
 
-        h.Down(PhysicalKey.N);
-        h.Up(PhysicalKey.N);
-
-        // Inside grid mode only Tab switches monitors; other keys type a code.
-        Assert.Equal(new Rectangle(0, 0, 1920, 1080), h.Grid.State!.Monitor.Bounds);
-
+        // Tab is the no-click move now, so it must not change monitor.
         h.Down(PhysicalKey.Tab);
         h.Up(PhysicalKey.Tab);
+        Assert.Equal(new Rectangle(0, 0, 1920, 1080), h.Grid.State!.Monitor.Bounds);
 
+        h.Down(PhysicalKey.N);
+        h.Up(PhysicalKey.N);
         Assert.Equal(new Rectangle(1920, 0, 1280, 1024), h.Grid.State!.Monitor.Bounds);
     }
 

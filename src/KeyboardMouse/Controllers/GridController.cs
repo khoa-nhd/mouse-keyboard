@@ -19,10 +19,10 @@ namespace KeyboardMouse.Controllers;
 ///
 /// Space clicks the virtual cursor at any point and Enter clicks it with the
 /// right button. Held while typing, Shift turns the click into a right click,
-/// and Tab moves the pointer to the cell without clicking at all (Tab before
-/// anything is typed switches to the next monitor). Backspace takes a character
-/// back, Ctrl + the grid key closes keeping the position, and Esc cancels and
-/// restores the original pointer.
+/// and Tab moves the pointer to the cell without clicking at all. The next
+/// monitor key (keys.nextMonitor, N by default) switches monitors. Backspace
+/// takes a character back, Ctrl + the grid key closes keeping the position, and
+/// Esc cancels and restores the original pointer.
 /// </summary>
 public sealed class GridController : IModeController
 {
@@ -43,6 +43,7 @@ public sealed class GridController : IModeController
     private GridSettings _settings;
     private KeysSettings _keys;
     private PhysicalKey _gridKey = PhysicalKey.G;
+    private PhysicalKey _monitorKey = PhysicalKey.N;
     private PhysicalKey[] _keyChars = [];
     private string[] _keyLabels = [];
     private string[] _labels = [];
@@ -146,18 +147,20 @@ public sealed class GridController : IModeController
 
         if (keyEvent.Key == PhysicalKey.Tab)
         {
-            // Partway through a code, Tab parks the pointer on the highlighted
-            // cell without clicking. Before anything is typed there is no cell
-            // to park on, so it keeps its old job of switching monitor.
+            // Tab parks the pointer on the highlighted cell without clicking.
+            // Before anything is typed there is no cell to park on, so Tab only
+            // keeps the grid open: switching monitor is the monitor key's job.
             if (_typed.Length > 0 && _highlight >= 0)
             {
                 ExecuteAction(GridAction.None);
             }
-            else
-            {
-                MoveToNextMonitor();
-            }
 
+            return HandleResult.Swallow;
+        }
+
+        if (_monitorKey != PhysicalKey.None && keyEvent.Key == _monitorKey)
+        {
+            MoveToNextMonitor();
             return HandleResult.Swallow;
         }
 
@@ -419,6 +422,13 @@ public sealed class GridController : IModeController
     private void ParseControlKeys()
     {
         _gridKey = ResolveControl(_keys.Grid, PhysicalKey.G);
+
+        // The monitor key must not be one the grid types with: a cell character
+        // that also switched monitors would make those cells unreachable.
+        var monitor = ResolveControl(_keys.NextMonitor, PhysicalKey.N);
+        _monitorKey = Array.IndexOf(_keyChars, monitor) < 0 && !IsReservedKey(monitor)
+            ? monitor
+            : PhysicalKey.None;
     }
 
     private static PhysicalKey ResolveControl(string? name, PhysicalKey fallback)

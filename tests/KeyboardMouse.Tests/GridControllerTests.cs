@@ -274,17 +274,50 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void TabBeforeTypingMovesToTheNextMonitor()
+    public void TabBeforeTypingLeavesTheGridOpenAndDoesNotSwitchMonitor()
     {
         var h = OpenGrid(FakeMonitorService.Dual());
 
-        Assert.True(h.Down(PhysicalKey.Tab));
-        Assert.True(h.Up(PhysicalKey.Tab));
+        Press(h, PhysicalKey.Tab);
 
+        Assert.True(h.Grid.Visible);
+        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal(new Rectangle(0, 0, 1920, 1080), state.Monitor.Bounds);
+        Assert.Equal(string.Empty, state.Typed);
+        Assert.Equal(-1, state.Highlight);
+        Assert.Empty(h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void MonitorKeyMovesToTheNextMonitor()
+    {
+        var h = OpenGrid(FakeMonitorService.Dual());
+
+        Press(h, PhysicalKey.N);
+
+        Assert.True(h.Grid.Visible);
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.Equal(new Rectangle(1920, 0, 1280, 1024), state.Monitor.Bounds);
         Assert.Equal(string.Empty, state.Typed);
         Assert.Equal(-1, state.Highlight);
+        Assert.Empty(h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void MonitorKeyIsIgnoredWhileItIsAlsoAGridCharacter()
+    {
+        var h = new RouterHarness(monitors: FakeMonitorService.Dual());
+        h.KeySettings.NextMonitor = "S"; // one of the ten cell keys
+        h.Router.UpdateKeys(h.KeySettings);
+        h.TapCaps();
+        Press(h, PhysicalKey.G);
+
+        Press(h, PhysicalKey.S); // the configured monitor key types the cell instead
+        Press(h, PhysicalKey.N); // no monitor key left, and N is not a cell key
+
+        var state = Assert.IsType<GridOverlayState>(h.Grid.State);
+        Assert.Equal(new Rectangle(0, 0, 1920, 1080), state.Monitor.Bounds);
+        Assert.Equal("S", state.Typed);
     }
 
     [Fact]

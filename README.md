@@ -255,9 +255,9 @@ Cells that stop matching fade out and there is never a second grid. The real
 pointer moves only on the click, so it never drifts while you choose.
 
 Space = click · Enter or Shift = right-click · Backspace = erase one letter ·
-Tab = move there without clicking (before anything is typed it goes to the next
-monitor) · Ctrl + G = close without moving · Esc = cancel and restore the
-pointer. Shift held on the last key of a code right-clicks that cell.
+Tab = move there without clicking · N (the Next monitor key) = next monitor ·
+Ctrl + G = close without moving · Esc = cancel and restore the pointer. Shift
+held on the last key of a code right-clicks that cell.
 
 `grid.columns` (default 28) and `grid.rows` (default 18) size the grid, and
 `grid.keys` (default `A S D F G H J K L Semicolon`) is the ten keys every code

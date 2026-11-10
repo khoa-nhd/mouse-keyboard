@@ -3,6 +3,16 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.5.3] - 2026-11-10
+
+### Fixed
+- **Tab in grid mode is now only the no-click move.** It used to double as the
+  monitor switch before anything was typed, so on a single monitor it looked
+  dead. Tab now always moves the pointer to the highlighted cell and never
+  clicks; with nothing typed it leaves the grid open. Switching monitor is the
+  Next monitor key (`keys.nextMonitor`, `N` by default), which the grid ignores
+  when it is also one of the ten cell keys. The guide and README say so.
+
 ## [1.5.2] - 2026-11-10
 
 ### Changed
