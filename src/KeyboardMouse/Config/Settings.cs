@@ -69,7 +69,11 @@ public sealed class Settings
 
         Hint.Alphabet = KeyNames.NormalizeHintAlphabet(Hint.Alphabet);
         Hint.MaxElements = Math.Clamp(Hint.MaxElements, 1, 2000);
-        Hint.ScanScope = ScanScopeNames.ToId(ScanScopeNames.Parse(Hint.ScanScope));
+        // A settings file written before scopes existed has no scope key at all.
+        // That means "use the default", not "stay on the foreground window".
+        Hint.ScanScope = string.IsNullOrWhiteSpace(Hint.ScanScope)
+            ? ScanScopeNames.ActiveMonitor
+            : ScanScopeNames.ToId(ScanScopeNames.Parse(Hint.ScanScope));
 
         Scroll.Base = Math.Max(0, Scroll.Base);
         Scroll.Max = Math.Max(Scroll.Base, Scroll.Max);

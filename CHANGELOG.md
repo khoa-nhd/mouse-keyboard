@@ -3,6 +3,12 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.4.1] - 2026-11-10
+
+### Fixed
+- Hint scans no longer time out on a slow first accessibility pass. The pixel pass now has its own 700 ms budget on top of the automation budget, so `visualDetection` actually runs instead of being skipped whenever automation used the whole window.
+- A `settings.json` written before scan scopes existed no longer pins hints to the foreground window: a missing scope now means `activeMonitor`, the new default.
+
 ## [1.4.0] - 2026-11-10
 
 ### Added & Enhanced
@@ -22,6 +28,8 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.0.9] - 2026-11-03
 
+## [1.4.0] - 2026-11-10
+
 ### Added & Enhanced
 - **Comet Trail: One Connected Tail Again:**
   - The tail is now capped by real path length (280 px normal, 330 px Turbo) instead of several seconds of history. After a fast U-turn the old pass can no longer re-enter the window as a second, disconnected trail.
@@ -32,6 +40,8 @@ All notable changes to KeyboardMouse are listed here. Format based on
 - **README:** Copy / paste / undo / redo are documented as normal, remappable main keys.
 
 ## [1.0.8] - 2026-11-03
+
+## [1.4.0] - 2026-11-10
 
 ### Added & Enhanced
 - **Comet Trail Glitch & Stutter Fix:**
@@ -46,17 +56,23 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.0.6] - 2026-11-03
 
+## [1.4.0] - 2026-11-10
+
 ### Added & Enhanced
 - **Comet Head and Trail Position Alignment (v1.0.6):**
   - Restored precise relative positioning between the comet head and trail samples relative to the mouse pointer (`_lastX`, `_lastY` / `cx`, `cy`), ensuring the comet head and tail align perfectly with the original design specs while retaining zero-flicker fixed sliding window rendering and Catmull-Rom smoothing.
 
 ## [1.0.5] - 2026-11-03
 
+## [1.4.0] - 2026-11-10
+
 ### Added & Enhanced
 - **Comet Trail Origin Shift:**
   - Adjusted comet trail history tracking and sliding window anchoring to track directly from the **comet head position** rather than the mouse pointer coordinates, ensuring the trail flows naturally and correctly out from behind the comet head itself across all speeds.
 
 ## [1.0.4] - 2026-11-03
+
+## [1.4.0] - 2026-11-10
 
 ### Added & Enhanced
 - **Comet Trail Architectural Overhaul for Normal & Turbo Modes:**
@@ -65,6 +81,8 @@ All notable changes to KeyboardMouse are listed here. Format based on
   - **High-Frequency Sampling & Spacing:** Upgraded indicator polling to 125 Hz (8ms) matching `MovementEngine`, with smart distance-based sample filtering (`MinTrailSpacing`) and 10-step Catmull-Rom interpolation for silky-smooth curves in slow, normal, and fast/Turbo modes.
 
 ## [1.0.3] - 2026-11-03
+
+## [1.4.0] - 2026-11-10
 
 ### Added & Enhanced
 - **High-speed Comet trail architecture overhaul (bug-free normal & fast/Turbo mode):**

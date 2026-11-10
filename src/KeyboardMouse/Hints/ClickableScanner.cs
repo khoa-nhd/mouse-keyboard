@@ -34,14 +34,14 @@ namespace KeyboardMouse.Hints;
 /// </summary>
 public sealed class ClickableScanner : IClickableScanner
 {
-    /// <summary>Budget for the historical foreground-window scan.</summary>
+    /// <summary>UI Automation budget for the foreground-window scan.</summary>
     public const int ForegroundScanTimeoutMs = 400;
 
-    /// <summary>Budget for monitor-wide scans: more windows, plus pixel work.</summary>
-    public const int WideScanTimeoutMs = 1400;
+    /// <summary>UI Automation budget for monitor-wide scans: more windows.</summary>
+    public const int WideScanTimeoutMs = 900;
 
-    /// <summary>Reserve kept free so the pipeline can finish inside the budget.</summary>
-    private const int VisualReserveMs = 120;
+    /// <summary>Extra time the pixel pass gets on top of the automation budget.</summary>
+    public const int VisualBudgetMs = 700;
 
     private static readonly HashSet<ControlType> WantedTypes =
     [
@@ -66,9 +66,17 @@ public sealed class ClickableScanner : IClickableScanner
         _monitors = monitors;
     }
 
-    /// <summary>Budget for one scan of this scope.</summary>
+    /// <summary>UI Automation budget for one scan of this scope.</summary>
     public static int TimeoutFor(HintScanScope scope) =>
         scope == HintScanScope.ForegroundWindow ? ForegroundScanTimeoutMs : WideScanTimeoutMs;
+
+    /// <summary>
+    /// Whole-scan budget: automation plus the pixel pass. The pixel pass is
+    /// what finds custom drawn controls, so it gets its own time instead of
+    /// whatever automation happened to leave over (which was usually nothing).
+    /// </summary>
+    public static int TotalTimeoutFor(HintScanScope scope, bool visualDetection) =>
+        TimeoutFor(scope) + (visualDetection ? VisualBudgetMs : 0);
 
     public void BeginScan(
         IntPtr window,
@@ -84,7 +92,7 @@ public sealed class ClickableScanner : IClickableScanner
             return;
         }
 
-        int timeout = TimeoutFor(options.Scope);
+        int timeout = TotalTimeoutFor(options.Scope, options.VisualDetection);
         int finished = 0;
         System.Threading.Timer? timer = null;
 
@@ -296,17 +304,18 @@ public sealed class ClickableScanner : IClickableScanner
         }
 
         var result = targets;
+        int remaining = timeout - (int)stopwatch.ElapsedMilliseconds;
 
         foreach (var capture in regions)
         {
-            int remaining = timeout - (int)stopwatch.ElapsedMilliseconds - VisualReserveMs;
             if (remaining < 60 || result.Count >= options.MaxElements)
             {
                 break;
             }
 
-            int slice = Math.Max(60, remaining / regions.Count);
+            int slice = Math.Max(60, remaining / Math.Max(1, regions.Count));
             result = VisualHintSupplement.Add(capture, result, options.MaxElements, slice);
+            remaining = timeout - (int)stopwatch.ElapsedMilliseconds;
         }
 
         Log.Info(
