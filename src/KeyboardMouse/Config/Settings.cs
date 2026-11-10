@@ -69,6 +69,7 @@ public sealed class Settings
 
         Hint.Alphabet = KeyNames.NormalizeHintAlphabet(Hint.Alphabet);
         Hint.MaxElements = Math.Clamp(Hint.MaxElements, 1, 2000);
+        Hint.ScanScope = ScanScopeNames.ToId(ScanScopeNames.Parse(Hint.ScanScope));
 
         Scroll.Base = Math.Max(0, Scroll.Base);
         Scroll.Max = Math.Max(Scroll.Base, Scroll.Max);
@@ -217,6 +218,19 @@ public sealed class HintSettings
     public int MaxElements { get; set; } = 400;
 
     public bool IncludeTaskbar { get; set; } = true;
+
+    /// <summary>
+    /// How much of the desktop a scan covers: "foreground" (the window and its
+    /// menus/dialogs), "activeMonitor" (everything on the pointer's monitor,
+    /// the default), "allMonitors" or "virtualDesktop".
+    /// </summary>
+    public string ScanScope { get; set; } = ScanScopeNames.ActiveMonitor;
+
+    /// <summary>
+    /// Adds pixel detection on top of UI Automation, catching custom drawn
+    /// controls the accessibility tree does not expose.
+    /// </summary>
+    public bool VisualDetection { get; set; } = true;
 }
 
 public sealed class SpeedSettings

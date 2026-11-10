@@ -5,9 +5,19 @@ namespace KeyboardMouse.Core;
 /// <summary>One clickable screen element, in physical pixels.</summary>
 public sealed record ClickableTarget(Rectangle Bounds, string Name = "")
 {
+    /// <summary>
+    /// Where the click should land when the box centre is not the safe spot.
+    /// Set by the geometry pass for rounded, glyph shaped or irregularly drawn
+    /// controls; null means the box centre.
+    /// </summary>
+    public Point? ClickPoint { get; init; }
+
     public Point Center => new(
         Bounds.Left + (Bounds.Width / 2),
         Bounds.Top + (Bounds.Height / 2));
+
+    /// <summary>The point a click should actually use.</summary>
+    public Point HitPoint => ClickPoint ?? Center;
 }
 
 /// <summary>Raw UIA data before filtering. Kept separate so filtering is testable.</summary>
@@ -25,10 +35,15 @@ public static class HintTargetFilter
 {
     private const int DuplicateCenterPixels = 4;
 
+    /// <param name="region">
+    /// Rectangle the scan covered. Targets outside it belong to a window the
+    /// scope excluded, so they are dropped instead of hinted.
+    /// </param>
     public static IReadOnlyList<ClickableTarget> Apply(
         IEnumerable<RawClickableTarget> raw,
         IReadOnlyList<MonitorInfo> monitors,
-        int maxElements)
+        int maxElements,
+        Rectangle? region = null)
     {
         int cap = Math.Clamp(maxElements, 1, 2000);
         var targets = new List<ClickableTarget>(Math.Min(cap, 128));
@@ -63,6 +78,17 @@ public static class HintTargetFilter
             }
 
             var bounds = visible.Value;
+
+            if (region is { Width: > 0, Height: > 0 } scope)
+            {
+                var clipped = Rectangle.Intersect(bounds, scope);
+                if (clipped.Width <= 0 || clipped.Height <= 0)
+                {
+                    continue;
+                }
+
+                bounds = clipped;
+            }
             var center = new Point(
                 bounds.Left + (bounds.Width / 2),
                 bounds.Top + (bounds.Height / 2));

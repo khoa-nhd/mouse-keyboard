@@ -1597,10 +1597,10 @@ function gridDemo() {
     host.appendChild(el);
     return el;
   }
-  // Level 1 repeats its letter at three heights, like the real overlay.
+  // Level 1 repeats its letter down the whole column, like the real overlay.
   function addColumn(r, text, cls, size) {
     const el = add(r, cls, "", size);
-    [17, 50, 83].forEach(top => {
+    [5, 15, 25, 35, 45, 55, 65, 75, 85, 95].forEach(top => {
       const span = document.createElement("span");
       span.className = "glbl";
       span.style.top = top + "%";

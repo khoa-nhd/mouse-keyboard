@@ -258,9 +258,25 @@ row or column is picked, without the subgrid step.
 
 ### Hint mode (H)
 
-Labels appear on every clickable element of the foreground window (and the
-taskbar). Type a label's letters (`a s d f j k l ;`) to click that element.
+Labels appear on every clickable element the scan covers, then you type a
+label's letters (`a s d f j k l ;`) to click that element.
 Shift + label hovers, F + label right-clicks, Backspace deletes a letter, Esc cancels.
+
+`hint.scanScope` decides what a scan covers:
+
+| `scanScope` | Labelled elements |
+|---|---|
+| `activeMonitor` (default) | every window, dialog and the taskbar on the monitor under the pointer |
+| `foreground` | only the active window, plus the menus, dropdowns and dialogs it owns |
+| `allMonitors` | everything on every monitor |
+| `virtualDesktop` | the whole virtual desktop, including the gaps between monitors |
+
+The scan runs in two passes. UI Automation reads the accessibility tree of every
+window in scope; then `hint.visualDetection` (on by default) captures the same
+area as pixels and adds custom drawn controls that tree never exposes (canvas
+toolbars, Electron surfaces without accessibility, remote desktops). Pixel boxes
+are deduplicated against the accessible ones, trimmed onto their real edges, and
+given a safe click point instead of a blind centre.
 
 Chromium-based apps (Chrome, Edge, VS Code) build their accessibility tree
 lazily, so the first scan can be empty. Press H again, or start the browser
@@ -308,6 +324,10 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "autoClick": "B"
   },
   "autoClick": { "intervalMs": 100, "button": "Left" },
+  "hint": {
+    "scanScope": "activeMonitor", "visualDetection": true,
+    "alphabet": "asdfjkl;", "maxElements": 400, "includeTaskbar": true
+  },
   "grid": {
     "actionLevel": "subgrid",
     "level1Keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
@@ -323,6 +343,9 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
 ```
 
 - Every key can be remapped. A key can't be bound twice; the first binding wins.
+- Hint coverage is `hint.scanScope` (`activeMonitor`, `foreground`, `allMonitors`
+  or `virtualDesktop`), and `hint.visualDetection` turns the pixel pass off if
+  you want hints to come from accessibility alone.
 - The same file holds speeds, scroll feel, the pointer indicator
   (`feedback.cursorStyle` = `dot`, `halo`, `spotlight`, `reticle`, `arrow`,
   `comet`, `orbit` or `brackets`, and `feedback.dotSize`), the tap timeout,

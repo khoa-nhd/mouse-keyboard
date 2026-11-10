@@ -109,8 +109,11 @@ public sealed class HintController : IModeController
             _overlay.ShowScanning(_monitors.GetAtPoint(_cursor()), "Scanning...");
         }
 
+        // Monitor-wide scopes do not need an active window; only the historical
+        // foreground scope has nothing to scan without one.
+        var scope = ScanScopeNames.Parse(_settings.ScanScope);
         IntPtr window = _foreground();
-        if (window == IntPtr.Zero)
+        if (window == IntPtr.Zero && scope == HintScanScope.ForegroundWindow)
         {
             Close();
             return;
@@ -118,7 +121,10 @@ public sealed class HintController : IModeController
 
         var options = new HintScanOptions(
             Math.Clamp(_settings.MaxElements, 1, 2000),
-            _settings.IncludeTaskbar);
+            _settings.IncludeTaskbar,
+            scope,
+            _cursor(),
+            _settings.VisualDetection);
 
         try
         {
@@ -282,7 +288,10 @@ public sealed class HintController : IModeController
     private void Activate(int index, ModifierState modifiers, bool keyIsF)
     {
         var target = _targets[index];
-        var center = target.Center;
+
+        // The geometry pass moves the click point off the box centre for round,
+        // glyph shaped or irregular controls, where the centre is empty pixels.
+        var center = target.HitPoint;
 
         if (_monitors is not null)
         {

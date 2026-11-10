@@ -6,8 +6,9 @@ namespace KeyboardMouse.Overlays;
 
 /// <summary>
 /// One monitor-sized layered window for grid mode, styled after Mouseless:
-/// translucent colour-blocked columns, a highlighted column with thirty row
-/// keys, and a full-screen ten by three subgrid for the final click.
+/// translucent colour-blocked columns (each label repeated down its column, as
+/// Mouseless does), a highlighted column with thirty row keys, and a
+/// full-screen ten by three subgrid for the final click.
 /// </summary>
 public sealed class GridOverlay : IGridOverlay
 {
@@ -33,6 +34,10 @@ public sealed class GridOverlay : IGridOverlay
             Color.FromArgb(84, 78, 130),
             Color.FromArgb(48, 100, 141)
         ];
+
+        // Mouseless repeats a level-1 label down its whole column instead of
+        // printing it once, so the column is readable wherever the eye lands.
+        private const int ColumnLabelRepeats = 10;
 
         private static readonly Color[] SubgridTints =
         [
@@ -128,10 +133,11 @@ public sealed class GridOverlay : IGridOverlay
                 return;
             }
 
+            float slotHeight = root.Height / (float)ColumnLabelRepeats;
             float fontSize = Math.Clamp(
-                Math.Min(root.Width / (float)GridMath.Level1Columns * 0.34f, root.Height * 0.075f),
-                16f,
-                76f);
+                Math.Min(root.Width / (float)GridMath.Level1Columns * 0.30f, slotHeight * 0.56f),
+                13f,
+                54f);
             using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
             using var format = CenteredFormat();
             using var brush = new SolidBrush(Color.FromArgb(238, 255, 255, 255));
@@ -146,9 +152,9 @@ public sealed class GridOverlay : IGridOverlay
                 }
 
                 var cell = GridMath.Cell(root, i, 0, GridMath.Level1Columns, 1);
-                for (int repeat = 0; repeat < 3; repeat++)
+                for (int repeat = 0; repeat < ColumnLabelRepeats; repeat++)
                 {
-                    float y = cell.Top + cell.Height * (0.17f + repeat * 0.33f);
+                    float y = cell.Top + (cell.Height * (repeat + 0.5f) / ColumnLabelRepeats);
                     DrawShadowedString(g, text, font, brush, cell.Left + (cell.Width / 2f), y, offset, format);
                 }
             }
@@ -196,7 +202,7 @@ public sealed class GridOverlay : IGridOverlay
             // selected column, like Mouseless does.
             if (level1Labels.Count >= GridMath.Level1Cells)
             {
-                float columnFontSize = Math.Clamp(column.Width * 0.34f, 16f, 76f);
+                float columnFontSize = Math.Clamp(column.Width * 0.30f, 13f, 54f);
                 using var columnFont = new Font("Segoe UI", columnFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
                 using var faintFormat = CenteredFormat();
                 using var faint = new SolidBrush(Color.FromArgb(72, 255, 255, 255));
@@ -210,16 +216,19 @@ public sealed class GridOverlay : IGridOverlay
                     }
 
                     var cell = GridMath.Cell(root, i, 0, GridMath.Level1Columns, 1);
-                    DrawShadowedString(
-                        g,
-                        level1Labels[i],
-                        columnFont,
-                        faint,
-                        cell.Left + (cell.Width / 2f),
-                        cell.Top + (cell.Height * 0.5f),
-                        faintOffset,
-                        faintFormat,
-                        shadowAlpha: 90);
+                    for (int repeat = 0; repeat < ColumnLabelRepeats; repeat++)
+                    {
+                        DrawShadowedString(
+                            g,
+                            level1Labels[i],
+                            columnFont,
+                            faint,
+                            cell.Left + (cell.Width / 2f),
+                            cell.Top + (cell.Height * (repeat + 0.5f) / ColumnLabelRepeats),
+                            faintOffset,
+                            faintFormat,
+                            shadowAlpha: 90);
+                    }
                 }
             }
 

@@ -3,11 +3,18 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
-## [1.1.0] - 2026-11-08
+## [1.4.0] - 2026-11-10
 
-### Changed
+### Added & Enhanced
+- **Hint mode scans the whole screen, and no longer depends on one accessibility tree:**
+  - `hint.scanScope` covers `activeMonitor` (new default: every window, dialog and the taskbar on the pointer's monitor), `foreground` (the old behaviour, now including the menus, dropdowns and dialogs the window owns), `allMonitors` and `virtualDesktop`.
+  - `hint.visualDetection` adds a pixel pass over the same area: multi-scale shape detection finds custom drawn controls UI Automation never reports, maps every box back to screen pixels, merges duplicates across scales, and only contributes boxes that do not overlap an accessible target.
+  - Detected boxes are trimmed onto their real edges, grown to a hittable size, and given a click point that avoids rounded corners, neighbouring controls and glyph interiors, so a hint no longer lands on empty pixels.
+  - Scans are region-aware (targets outside the scope are dropped), de-duplicated by box overlap, and budgeted per scope (400 ms for the foreground window, 1.4 s for monitor-wide scans) so the keyboard hook never waits on a slow app.
+
 - **Grid mode now matches Mouseless's default `position_based_columns` preset:**
   - Ten columns at level 1 (`A S D F G H J K L ;`), thirty rows inside the chosen column (`QWERTYUIOP / ASDFGHJKL; / ZXCVBNM,./`), then a ten-by-three subgrid for the exact click point.
+  - Each column label repeats ten times down its column (the faint level-1 letters beside the chosen column too), matching the label lattice Mouseless draws instead of one letter per cell.
   - A virtual cursor follows the selection while the real pointer stays put; the pointer moves only for the final click or when Esc restores it.
   - Space clicks, Enter or Shift right-clicks, Backspace goes back, Tab switches monitor, Ctrl + the Grid key closes in place, and Esc cancels.
   - `grid.actionLevel` can stop at the subgrid (default), the row (`"2"`) or the column (`"1"`).
@@ -15,7 +22,7 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.0.9] - 2026-11-03
 
-### Fixed & Enhanced
+### Added & Enhanced
 - **Comet Trail: One Connected Tail Again:**
   - The tail is now capped by real path length (280 px normal, 330 px Turbo) instead of several seconds of history. After a fast U-turn the old pass can no longer re-enter the window as a second, disconnected trail.
   - A large pointer jump (center-screen/monitor jump or a stalled frame) starts a fresh tail instead of drawing a long streak across the screen.
@@ -26,7 +33,7 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.0.8] - 2026-11-03
 
-### Fixed & Enhanced
+### Added & Enhanced
 - **Comet Trail Glitch & Stutter Fix:**
   - Replaced overshooting Catmull-Rom spline interpolation with stable trail sampling and linear aging across slow, normal, and fast/Turbo modes, completely eliminating multi-trail artifacts, loops, and stuttering during high-speed pointer movement.
 
@@ -39,19 +46,19 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.0.6] - 2026-11-03
 
-### Fixed & Enhanced
+### Added & Enhanced
 - **Comet Head and Trail Position Alignment (v1.0.6):**
   - Restored precise relative positioning between the comet head and trail samples relative to the mouse pointer (`_lastX`, `_lastY` / `cx`, `cy`), ensuring the comet head and tail align perfectly with the original design specs while retaining zero-flicker fixed sliding window rendering and Catmull-Rom smoothing.
 
 ## [1.0.5] - 2026-11-03
 
-### Fixed & Enhanced
+### Added & Enhanced
 - **Comet Trail Origin Shift:**
   - Adjusted comet trail history tracking and sliding window anchoring to track directly from the **comet head position** rather than the mouse pointer coordinates, ensuring the trail flows naturally and correctly out from behind the comet head itself across all speeds.
 
 ## [1.0.4] - 2026-11-03
 
-### Fixed & Enhanced
+### Added & Enhanced
 - **Comet Trail Architectural Overhaul for Normal & Turbo Modes:**
   - **Zero-Flicker Fixed-Size Window:** Shifted the comet overlay from a dynamic resizing window to a fixed 700x700 window anchored smoothly around the cursor, eliminating all DWM resize/reposition flicker.
   - **Precise Head-Tail Coordinate Alignment:** Synchronized `CometHeadInset` and `PointerGap` across both head drawing and Catmull-Rom interpolated trail samples.
@@ -59,7 +66,7 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.0.3] - 2026-11-03
 
-### Fixed & Enhanced
+### Added & Enhanced
 - **High-speed Comet trail architecture overhaul (bug-free normal & fast/Turbo mode):**
   - **Dynamic Bounding Box Window:** The overlay window now dynamically sizes and positions itself around the entire active trail history rather than clipping to a fixed radius around the cursor.
   - **Catmull-Rom Spline Interpolation:** High-speed motion (such as Turbo mode) automatically interpolates dense intermediate path points between ticks, preventing polygonal jumps or gaps.
