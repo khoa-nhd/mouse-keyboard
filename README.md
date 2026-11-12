@@ -241,8 +241,8 @@ or `Middle`. To use a different key, set `keys.autoClick`.
 ### Grid mode (G)
 
 ```
-One grid   28 x 18 small cells, each with its full four-key code
-           AAAA  AGAS  SFAK  ...
+One grid   small cells that keep their size on any screen, each with its
+           full four-key code: AAAA  AGAS  SFAK  ...
 ```
 
 The overlay draws a single grid of small cells and writes every cell's complete
@@ -261,7 +261,13 @@ monitor key) = next monitor · Ctrl + G = close without moving · Esc = cancel a
 restore the pointer. After the grid closes, Space clicks where the pointer landed
 and F right-clicks.
 
-`grid.columns` (default 28) and `grid.rows` (default 18) size the grid, and
+The lattice adapts to the monitor (`grid.adaptToScreen`, on by default): it holds
+a cell at roughly the size of the 28 x 18 default, so a 1920 x 1200 screen gets
+28 x 18 cells, a 2560 x 1440 screen 37 x 22 and a 4K screen 56 x 32 — a bigger
+monitor is divided into more cells instead of wider ones. Turning it off uses
+`grid.columns` (default 28) and `grid.rows` (default 18) exactly.
+Every axis tops out at 100, because two characters of the code reach 100 cells.
+
 `grid.keys` (default `A S D F G H J K L Semicolon`) is the ten keys every code
 is made of; clearing one makes the cells that need it unreachable.
 
@@ -350,7 +356,7 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
   },
   "grid": {
     "keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
-    "columns": 28, "rows": 18
+    "adaptToScreen": true, "columns": 28, "rows": 18
   },
   ...
 }

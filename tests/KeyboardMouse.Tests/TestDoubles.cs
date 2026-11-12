@@ -347,6 +347,8 @@ internal sealed class RouterHarness
     public RouterHarness(int tapTimeoutMs = 200, FakeMonitorService? monitors = null)
     {
         Monitors = monitors ?? FakeMonitorService.Single();
+        // Geometry tests pin the 28 x 18 lattice instead of a monitor-derived one.
+        GridSettings.AdaptToScreen = false;
         Mouse.OnMove = (x, y) => Pointer = new Point(x, y);
 
         Router = new InputRouter(

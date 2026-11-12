@@ -17,6 +17,9 @@ namespace KeyboardMouse.Controllers;
 /// band of rows, and the fourth moves the pointer to the centre of the cell.
 /// There is no second grid and no extra level to step into.
 ///
+/// The lattice adapts to the monitor: a cell keeps roughly its size, so a bigger
+/// screen is divided into more cells instead of wider ones.
+///
 /// Grid mode never clicks by itself: a finished code parks the pointer on the
 /// cell and closes the grid, so the click is the user's own Space in mouse mode
 /// (Space or Enter inside the grid still click straight away). Tab moves without
@@ -110,6 +113,7 @@ public sealed class GridController : IModeController
         _savedPointer = _cursor();
         _monitor = _monitors.GetAtPoint(_savedPointer);
         _root = _monitor.Bounds;
+        ApplyLattice(_root);
         ResetSelection();
         _active = true;
         Show();
@@ -302,6 +306,7 @@ public sealed class GridController : IModeController
 
         _monitor = next;
         _root = next.Bounds;
+        ApplyLattice(_root);
         _typed = string.Empty;
         _highlight = -1;
         _target = GridMath.Center(_root);
@@ -381,9 +386,27 @@ public sealed class GridController : IModeController
     private void ParseSettings()
     {
         ParseKeys(_settings.Keys, out _keyChars, out _keyLabels);
+        ApplyLattice(_root);
+    }
 
-        _columns = Math.Clamp(_settings.Columns, GridSettings.MinColumns, GridSettings.MaxColumns);
-        _rows = Math.Clamp(_settings.Rows, GridSettings.MinRows, GridSettings.MaxRows);
+    /// <summary>
+    /// Sizes the lattice for the monitor it covers. Adapting keeps a cell about
+    /// the same size on every screen, so a bigger monitor simply gets more of
+    /// them; without it the configured columns and rows are used as they are.
+    /// </summary>
+    private void ApplyLattice(Rectangle bounds)
+    {
+        if (_settings.AdaptToScreen)
+        {
+            _columns = GridSettings.ColumnsFor(bounds.Width);
+            _rows = GridSettings.RowsFor(bounds.Height);
+        }
+        else
+        {
+            _columns = Math.Clamp(_settings.Columns, GridSettings.MinColumns, GridSettings.MaxColumns);
+            _rows = Math.Clamp(_settings.Rows, GridSettings.MinRows, GridSettings.MaxRows);
+        }
+
         _labels = GridCodes.Build(_columns, _rows, _keyLabels);
     }
 

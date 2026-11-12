@@ -3,6 +3,17 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.6.0] - 2026-11-13
+
+### Changed
+- **The grid adapts to the monitor.** Instead of always 28 x 18 cells, the
+  lattice keeps a cell at about the size of the old default, so a bigger screen
+  is divided into more cells: 1920 x 1200 stays 28 x 18, 2560 x 1440 becomes
+  37 x 22, 4K becomes 56 x 32, and a small 1280 x 800 screen 19 x 12. Each axis
+  tops out at 100, the most a four-key code can address. `grid.adaptToScreen`
+  (default on) controls it; with it off, `grid.columns` and `grid.rows` are used
+  exactly. The lattice is recomputed per monitor, so `N` re-sizes it too.
+
 ## [1.5.3] - 2026-11-10
 
 ### Changed

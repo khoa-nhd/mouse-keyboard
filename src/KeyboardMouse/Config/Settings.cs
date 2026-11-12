@@ -191,16 +191,45 @@ public sealed class GridSettings
     /// <summary>Ten keys, one per character of a cell code.</summary>
     public string[] Keys { get; set; } = DefaultKeys();
 
+    /// <summary>
+    /// Divides the monitor into as many cells as it takes to keep a cell about
+    /// the size of the 28 x 18 default, so a bigger screen gets more cells
+    /// instead of bigger ones. Turn it off to use <see cref="Columns"/> and
+    /// <see cref="Rows"/> exactly.
+    /// </summary>
+    public bool AdaptToScreen { get; set; } = true;
+
     public int Columns { get; set; } = DefaultColumns;
 
     public int Rows { get; set; } = DefaultRows;
 
     public const int DefaultColumns = 28;
     public const int DefaultRows = 18;
+
+    /// <summary>The monitor the default lattice was tuned on.</summary>
+    public const int ReferenceWidth = 1920;
+    public const int ReferenceHeight = 1200;
+
+    // Two characters reach 100 columns and 100 rows, so 100 is the ceiling a
+    // four-character code can address with ten keys.
     public const int MinColumns = 2;
-    public const int MaxColumns = 40;
+    public const int MaxColumns = 100;
     public const int MinRows = 2;
-    public const int MaxRows = 30;
+    public const int MaxRows = 100;
+
+    /// <summary>Columns that keep cells about as wide as the default lattice's.</summary>
+    public static int ColumnsFor(int monitorWidth) =>
+        Math.Clamp(
+            (int)Math.Round(monitorWidth / (ReferenceWidth / (double)DefaultColumns)),
+            MinColumns,
+            MaxColumns);
+
+    /// <summary>Rows that keep cells about as tall as the default lattice's.</summary>
+    public static int RowsFor(int monitorHeight) =>
+        Math.Clamp(
+            (int)Math.Round(monitorHeight / (ReferenceHeight / (double)DefaultRows)),
+            MinRows,
+            MaxRows);
 
     public static string[] DefaultKeys() =>
         ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"];

@@ -653,7 +653,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         <div class="card mode">
           <div class="head"><span class="kbd" data-key="grid">G</span><h2 data-t="modes.gridT">Grid jump</h2></div>
           <div class="demo" style="height:280px"><div class="screen" id="grid-demo"></div></div>
-          <p data-t="modes.grid">One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.</p>
+          <p data-t="modes.grid">One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.</p>
           <ul>
             <li data-t="modes.grid1"><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of</li>
             <li data-t="modes.grid2">A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7</li>
@@ -912,7 +912,7 @@ const T = {
     "keys.notMapped": "Not used in mouse mode — this key types as usual.",
     "cat.system": "On / off", "cat.move": "Move", "cat.layer": "Hold layers", "cat.click": "Click", "cat.nav": "Back / forward", "cat.jump": "Jump", "cat.edit": "Edit",
     "modes.title": "Power moves", "modes.lead": "Moving across a big screen with I J K L is fine — but these are much faster.",
-    "modes.gridT": "Grid jump", "modes.grid": "One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.",
+    "modes.gridT": "Grid jump", "modes.grid": "One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.",
     "modes.grid1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of",
     "modes.grid2": "A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7",
     "modes.grid3": "<kbd>Tab</kbd> moves there and closes without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back · then <kbd>Space</kbd> clicks where the pointer landed",
@@ -996,7 +996,7 @@ const T = {
     "keys.notMapped": "Không dùng trong chế độ chuột — phím này vẫn gõ bình thường.",
     "cat.system": "Bật / tắt", "cat.move": "Di chuyển", "cat.layer": "Giữ để đổi", "cat.click": "Click", "cat.nav": "Lùi / tới", "cat.jump": "Nhảy nhanh", "cat.edit": "Chỉnh sửa",
     "modes.title": "Tuyệt chiêu", "modes.lead": "Di chuột qua màn hình lớn bằng I J K L vẫn ổn — nhưng các chiêu này nhanh hơn nhiều.",
-    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Một lưới ô nhỏ phủ kín màn hình, mỗi ô in sẵn đủ bốn chữ cái để tới ô đó ngay từ lần mở đầu. Đọc ô muốn tới rồi gõ đủ bốn chữ: con trỏ nhảy tới đó và lưới tự đóng. Lưới không tự click — bạn tự bấm Space để click. Phần còn lại của lưới mờ dần theo từng phím.",
+    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Một lưới ô nhỏ phủ kín màn hình, mỗi ô in sẵn đủ bốn chữ cái để tới ô đó ngay từ lần mở đầu. Lưới tự co giãn theo màn hình: màn hình càng lớn thì chia ra càng nhiều ô, chứ không phải ô to hơn. Đọc ô muốn tới rồi gõ đủ bốn chữ: con trỏ nhảy tới đó và lưới tự đóng. Lưới không tự click — bạn tự bấm Space để click. Phần còn lại của lưới mờ dần theo từng phím.",
     "modes.grid1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — mười phím ghép nên mọi mã ô",
     "modes.grid2": "Mã đọc là nhóm cột, cột, nhóm hàng, hàng — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> là cột 13, hàng 7",
     "modes.grid3": "<kbd>Tab</kbd> di chuyển tới rồi đóng, không click · <kbd>N</kbd> sang màn hình kế · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại · sau đó bấm <kbd>Space</kbd> để click tại chỗ con trỏ",
