@@ -57,7 +57,9 @@ public sealed class GridOverlay : IGridOverlay
 
             RenderSurface(width, height, bounds.Left, bounds.Top, g =>
             {
-                using (var backdrop = new SolidBrush(Color.FromArgb(118, 7, 10, 18)))
+                // Light enough to read the screen through the grid; the codes
+                // stay legible because each one carries its own shadow.
+                using (var backdrop = new SolidBrush(Color.FromArgb(60, 7, 10, 18)))
                 {
                     g.FillRectangle(backdrop, 0, 0, width, height);
                 }
@@ -86,7 +88,7 @@ public sealed class GridOverlay : IGridOverlay
                 var strip = new Rectangle(left, root.Top, right - left, root.Height);
                 Color tint = ColumnTints[band % ColumnTints.Length];
 
-                using var fill = new SolidBrush(WithAlpha(tint, band % 2 == 0 ? 38 : 24));
+                using var fill = new SolidBrush(WithAlpha(tint, band % 2 == 0 ? 26 : 15));
                 g.FillRectangle(fill, strip);
             }
         }
@@ -151,7 +153,7 @@ public sealed class GridOverlay : IGridOverlay
                     cell.Top + (cell.Height / 2f),
                     offset,
                     format,
-                    shadowAlpha: matches ? 170 : 45);
+                    shadowAlpha: matches ? 190 : 85);
             }
         }
 
@@ -165,9 +167,9 @@ public sealed class GridOverlay : IGridOverlay
             int rows,
             float scale)
         {
-            using var shadow = new Pen(Color.FromArgb(120, 0, 0, 0), Math.Max(3f, 2.6f * scale));
-            using var vertical = new Pen(Color.FromArgb(150, 255, 255, 255), Math.Max(1f, scale));
-            using var horizontal = new Pen(Color.FromArgb(96, 255, 255, 255), Math.Max(1f, scale));
+            using var shadow = new Pen(Color.FromArgb(64, 0, 0, 0), Math.Max(3f, 2.6f * scale));
+            using var vertical = new Pen(Color.FromArgb(78, 255, 255, 255), Math.Max(1f, scale));
+            using var horizontal = new Pen(Color.FromArgb(50, 255, 255, 255), Math.Max(1f, scale));
 
             for (int i = 1; i < columns; i++)
             {
@@ -186,8 +188,8 @@ public sealed class GridOverlay : IGridOverlay
 
         private static void DrawFrame(Graphics g, Rectangle root, float scale)
         {
-            using var shadow = new Pen(Color.FromArgb(160, 0, 0, 0), Math.Max(4f, 3f * scale));
-            using var line = new Pen(Color.FromArgb(230, 255, 255, 255), Math.Max(1.5f, 1.6f * scale));
+            using var shadow = new Pen(Color.FromArgb(90, 0, 0, 0), Math.Max(4f, 3f * scale));
+            using var line = new Pen(Color.FromArgb(185, 255, 255, 255), Math.Max(1.5f, 1.6f * scale));
             g.DrawRectangle(shadow, root);
             g.DrawRectangle(line, root);
         }

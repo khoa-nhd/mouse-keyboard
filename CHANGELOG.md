@@ -3,6 +3,15 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.6.1] - 2026-11-13
+
+### Changed
+- **The grid overlay is much more see-through**, so the screen behind it stays
+  readable while you pick a cell: the backdrop drops from 46% to 24% opacity, the
+  column tints and grid lines fade with it, and the four-letter codes keep their
+  drop shadow (a darker one on the cells that still match) so they stay crisp on
+  light and dark content alike.
+
 ## [1.6.0] - 2026-11-13
 
 ### Changed
