@@ -250,15 +250,16 @@ four-key code in it from the start, so a target is readable before typing and
 nothing appears a level at a time. A code is column band, column, row band, row
 over the ten `grid.keys`, so typing narrows in steps: the first key lights a
 band of columns, the second a single column, the third a band of rows, the
-fourth moves the pointer to the centre of the cell (`SFAK` is column 13, row 7).
-Cells that stop matching fade out and there is never a second grid. Grid mode
-never clicks on its own: a finished code only parks the pointer, so the click is
-your own Space and a mistyped last key cannot fire one.
+fourth moves the pointer to the centre of the cell and closes the grid (`SFAK` is
+column 13, row 7). Cells that stop matching fade out and there is never a second
+grid. Grid mode never clicks on its own: a finished code only parks the pointer,
+so the click is your own Space and a mistyped last key cannot fire one.
 
-Space = click where the pointer stands · Shift + Space or Enter = right-click ·
-Tab = move there without clicking · Backspace = erase one letter · N (the Next
+Tab = move there and close without clicking · Space or Enter pressed while the
+grid is open = click right away · Backspace = erase one letter · N (the Next
 monitor key) = next monitor · Ctrl + G = close without moving · Esc = cancel and
-restore the pointer.
+restore the pointer. After the grid closes, Space clicks where the pointer landed
+and F right-clicks.
 
 `grid.columns` (default 28) and `grid.rows` (default 18) size the grid, and
 `grid.keys` (default `A S D F G H J K L Semicolon`) is the ten keys every code

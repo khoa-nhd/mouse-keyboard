@@ -17,9 +17,10 @@ namespace KeyboardMouse.Controllers;
 /// band of rows, and the fourth moves the pointer to the centre of the cell.
 /// There is no second grid and no extra level to step into.
 ///
-/// Grid mode never clicks by itself: a finished code only parks the pointer, and
-/// Space clicks where the pointer stands (Shift + Space or Enter clicks with the
-/// right button). Tab moves without clicking too, the next monitor key
+/// Grid mode never clicks by itself: a finished code parks the pointer on the
+/// cell and closes the grid, so the click is the user's own Space in mouse mode
+/// (Space or Enter inside the grid still click straight away). Tab moves without
+/// clicking too, the next monitor key
 /// (keys.nextMonitor, N by default) switches monitors, Backspace takes a
 /// character back, Ctrl + the grid key closes keeping the position, and Esc
 /// cancels and restores the original pointer.
@@ -152,6 +153,7 @@ public sealed class GridController : IModeController
             if (_typed.Length > 0 && _highlight >= 0)
             {
                 ParkPointer();
+                Close(restore: false);
             }
 
             return HandleResult.Swallow;
@@ -199,8 +201,8 @@ public sealed class GridController : IModeController
     /// <summary>
     /// Adds one character of a cell code. A character that no remaining cell can
     /// accept is ignored, so a stray key never moves the selection. The code
-    /// that completes a cell only moves the pointer there; clicking is always
-    /// the user's own Space, so a mistyped last character cannot fire a click.
+    /// that completes a cell only moves the pointer there and closes the grid;
+    /// clicking is always the user's own Space.
     /// </summary>
     private void TypeCharacter(string character)
     {
@@ -223,7 +225,12 @@ public sealed class GridController : IModeController
 
         if (_typed.Length == GridCodes.Length)
         {
+            // The completed code only parks the pointer and closes the grid: the
+            // click belongs to the user (Space in mouse mode), so a mistyped last
+            // character can never fire one.
             ParkPointer();
+            Close(restore: false);
+            return;
         }
 
         Show();

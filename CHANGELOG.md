@@ -7,10 +7,10 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ### Changed
 - **Grid mode no longer clicks by itself.** A full four-key code only moves the
-  pointer to the centre of that cell and leaves the grid open; the click is the
-  user's own Space, so a mistyped last key can never fire one. `Shift` + `Space`
-  and `Enter` right-click where the pointer stands, `Tab` still moves without
-  clicking. Guide, keymap notes and README describe the new behaviour.
+  pointer to the centre of that cell and closes the grid; the click is the user's
+  own Space in mouse mode, so a mistyped last key can never fire one. `Tab` still
+  moves and closes without clicking, and `Shift` on the last key no longer changes
+  anything. Guide, keymap notes and README describe the new behaviour.
 
 ### Fixed
 - **Tab in grid mode is now only the no-click move.** It used to double as the
