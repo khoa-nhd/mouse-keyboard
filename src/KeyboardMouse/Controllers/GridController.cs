@@ -14,22 +14,21 @@ namespace KeyboardMouse.Controllers;
 /// The four characters are the complete code that reaches the cell, so they are
 /// readable before anything is typed. Typing narrows the grid: the first
 /// character lights a band of columns, the second a single column, the third a
-/// band of rows, and the fourth the cell itself, which clicks at its centre.
+/// band of rows, and the fourth moves the pointer to the centre of the cell.
 /// There is no second grid and no extra level to step into.
 ///
-/// Space clicks the virtual cursor at any point and Enter clicks it with the
-/// right button. Held while typing, Shift turns the click into a right click,
-/// and Tab moves the pointer to the cell without clicking at all. The next
-/// monitor key (keys.nextMonitor, N by default) switches monitors. Backspace
-/// takes a character back, Ctrl + the grid key closes keeping the position, and
-/// Esc cancels and restores the original pointer.
+/// Grid mode never clicks by itself: a finished code only parks the pointer, and
+/// Space clicks where the pointer stands (Shift + Space or Enter clicks with the
+/// right button). Tab moves without clicking too, the next monitor key
+/// (keys.nextMonitor, N by default) switches monitors, Backspace takes a
+/// character back, Ctrl + the grid key closes keeping the position, and Esc
+/// cancels and restores the original pointer.
 /// </summary>
 public sealed class GridController : IModeController
 {
     /// <summary>What finishing a code does with the pointer.</summary>
     private enum GridAction
     {
-        None,
         Left,
         Right
     }
@@ -152,7 +151,7 @@ public sealed class GridController : IModeController
             // keeps the grid open: switching monitor is the monitor key's job.
             if (_typed.Length > 0 && _highlight >= 0)
             {
-                ExecuteAction(GridAction.None);
+                ParkPointer();
             }
 
             return HandleResult.Swallow;
@@ -187,7 +186,7 @@ public sealed class GridController : IModeController
 
         if (index >= 0)
         {
-            TypeCharacter(_keyLabels[index], ActionFor(modifiers));
+            TypeCharacter(_keyLabels[index]);
         }
 
         return HandleResult.Swallow;
@@ -199,9 +198,11 @@ public sealed class GridController : IModeController
 
     /// <summary>
     /// Adds one character of a cell code. A character that no remaining cell can
-    /// accept is ignored, so a stray key never moves the selection.
+    /// accept is ignored, so a stray key never moves the selection. The code
+    /// that completes a cell only moves the pointer there; clicking is always
+    /// the user's own Space, so a mistyped last character cannot fire a click.
     /// </summary>
-    private void TypeCharacter(string character, GridAction action)
+    private void TypeCharacter(string character)
     {
         if (character.Length == 0 || _typed.Length >= GridCodes.Length)
         {
@@ -222,8 +223,7 @@ public sealed class GridController : IModeController
 
         if (_typed.Length == GridCodes.Length)
         {
-            ExecuteAction(action);
-            return;
+            ParkPointer();
         }
 
         Show();
@@ -267,6 +267,8 @@ public sealed class GridController : IModeController
 
     private Point CenterOf(int index) =>
         GridMath.Center(GridMath.SubRect(_root, index, _columns, _rows));
+
+    private void ParkPointer() => _mouse.MoveTo(_target.X, _target.Y);
 
     private void ExecuteAction(GridAction action)
     {

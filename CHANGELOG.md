@@ -5,6 +5,13 @@ All notable changes to KeyboardMouse are listed here. Format based on
 
 ## [1.5.3] - 2026-11-10
 
+### Changed
+- **Grid mode no longer clicks by itself.** A full four-key code only moves the
+  pointer to the centre of that cell and leaves the grid open; the click is the
+  user's own Space, so a mistyped last key can never fire one. `Shift` + `Space`
+  and `Enter` right-click where the pointer stands, `Tab` still moves without
+  clicking. Guide, keymap notes and README describe the new behaviour.
+
 ### Fixed
 - **Tab in grid mode is now only the no-click move.** It used to double as the
   monitor switch before anything was typed, so on a single monitor it looked

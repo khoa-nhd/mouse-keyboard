@@ -653,11 +653,11 @@ td:first-child { width: 168px; white-space: nowrap; }
         <div class="card mode">
           <div class="head"><span class="kbd" data-key="grid">G</span><h2 data-t="modes.gridT">Grid jump</h2></div>
           <div class="demo" style="height:280px"><div class="screen" id="grid-demo"></div></div>
-          <p data-t="modes.grid">One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. Read the cell you want, type its four letters, and it is clicked — the rest of the grid dims as you type.</p>
+          <p data-t="modes.grid">One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. Read the cell you want, type its four letters and the pointer goes there — grid mode never clicks by itself, so the click is your own Space. The rest of the grid dims as you type.</p>
           <ul>
             <li data-t="modes.grid1"><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of</li>
             <li data-t="modes.grid2">A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7</li>
-            <li data-t="modes.grid3"><kbd>Space</kbd> click · <kbd>Enter</kbd> right-click · hold <kbd>Shift</kbd> while typing for a right click · <kbd>Tab</kbd> moves without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back</li>
+            <li data-t="modes.grid3"><kbd>Space</kbd> click · <kbd>Shift</kbd> + <kbd>Space</kbd> or <kbd>Enter</kbd> right-click · <kbd>Tab</kbd> moves without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back</li>
           </ul>
         </div>
         <div class="card mode">
@@ -762,7 +762,7 @@ td:first-child { width: 168px; white-space: nowrap; }
           <div class="keymap-groups" id="keymap-groups"></div>
           <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.gridT">Grid keys</h3><span data-t="keymap.gridLead">Every cell prints four of these ten keys: column band, column, row band, row.</span></div>
           <div class="grid-pad" id="keymap-grid"></div>
-          <p class="keymap-note" data-t="keymap.gridMode">In grid mode: Space clicks, Enter or Shift right-clicks, Tab moves to the cell without clicking, N switches monitor, Backspace goes back, Ctrl + the Grid key closes, Esc cancels.</p>
+          <p class="keymap-note" data-t="keymap.gridMode">In grid mode: a full code only moves the pointer, Space clicks where it stands (Shift + Space right-clicks), Enter right-clicks, Tab moves without clicking, N switches monitor, Backspace goes back, Ctrl + the Grid key closes, Esc cancels.</p>
           <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.hintT">Hint characters</h3><span data-t="keymap.hintLead">Letters, digits and punctuation the hint labels can use. At least two different characters.</span></div>
           <div class="hint-editor">
             <div class="hint-row">
@@ -912,10 +912,10 @@ const T = {
     "keys.notMapped": "Not used in mouse mode — this key types as usual.",
     "cat.system": "On / off", "cat.move": "Move", "cat.layer": "Hold layers", "cat.click": "Click", "cat.nav": "Back / forward", "cat.jump": "Jump", "cat.edit": "Edit",
     "modes.title": "Power moves", "modes.lead": "Moving across a big screen with I J K L is fine — but these are much faster.",
-    "modes.gridT": "Grid jump", "modes.grid": "One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. Read the cell you want, type its four letters, and it is clicked — the rest of the grid dims as you type.",
+    "modes.gridT": "Grid jump", "modes.grid": "One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. Read the cell you want, type its four letters and the pointer goes there — grid mode never clicks by itself, so the click is your own Space. The rest of the grid dims as you type.",
     "modes.grid1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of",
     "modes.grid2": "A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7",
-    "modes.grid3": "<kbd>Space</kbd> click · <kbd>Enter</kbd> right-click · hold <kbd>Shift</kbd> while typing for a right click · <kbd>Tab</kbd> moves without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back",
+    "modes.grid3": "<kbd>Space</kbd> click · <kbd>Shift</kbd> + <kbd>Space</kbd> or <kbd>Enter</kbd> right-click · <kbd>Tab</kbd> moves without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back",
     "modes.hintT": "Hints", "modes.hint": "Every button and link gets a short label. Type the label and it is clicked — no aiming at all.",
     "modes.hint1": "Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
     "modes.hint2": "<kbd>Shift</kbd> + label = hover · <kbd>F</kbd> + label = right click",
@@ -937,7 +937,7 @@ const T = {
     "practice.hits": "Hits", "practice.time": "Time", "practice.best": "Best", "practice.size": "Target size", "practice.big": "Big", "practice.small": "Small",
     "practice.ready": "Ready?", "practice.how": "Tap Caps Lock, move onto the button with I J K L, then press Space.", "practice.start": "Start",
     "practice.done": "Nice! {time}", "practice.newBest": "New personal best!", "practice.again": "Play again",
-    "practice.tip1t": "Use the grid", "practice.tip1": "Press G and read the four letters printed in the cell you want. Type them and it is clicked; add Shift for a right click or press Tab to only move there.",
+    "practice.tip1t": "Use the grid", "practice.tip1": "Press G and read the four letters printed in the cell you want. Type them and the pointer jumps there, then press Space to click — Shift + Space for a right click.",
     "practice.tip2t": "Try hints", "practice.tip2": "Press H — the target gets a label. Type it to click instantly.",
     "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
     "settings.title": "Settings", "settings.lead": "Adjust a slider, a colour or any key below. Sliders and colours apply on Enter, blur or Apply; keys apply immediately.",
@@ -970,7 +970,7 @@ const T = {
     "toast.bindingReset": "Key reset", "toast.bindingUnbound": "Key unbound", "toast.allReset": "All keys reset", "toast.hintSaved": "Hint characters saved", "toast.hintInvalid": "Use at least two different supported characters",
     "perSec": "{n} / s",
     "keymap.title": "Keymap", "keymap.lead": "Every key that runs in mouse mode can be changed. Click a key, then press the replacement.",
-    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid keys", "keymap.gridLead": "Every cell prints four of these ten keys: column band, column, row band, row.", "keymap.gridMode": "In grid mode: Space clicks, Enter or Shift right-clicks, Tab moves the pointer to the highlighted cell without clicking, the Next monitor key (N) switches monitor, Backspace erases a letter, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid key {n}", "keymap.gridColDesc": "Character {n} of every cell code.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid keys"
+    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid keys", "keymap.gridLead": "Every cell prints four of these ten keys: column band, column, row band, row.", "keymap.gridMode": "In grid mode: a full code only moves the pointer to the cell, Space clicks where it stands (Shift + Space right-clicks), Enter right-clicks, Tab moves without clicking, the Next monitor key (N) switches monitor, Backspace erases a letter, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid key {n}", "keymap.gridColDesc": "Character {n} of every cell code.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid keys"
   },
   vi: {
     "nav.home": "Bắt đầu", "nav.keys": "Phím", "nav.modes": "Tuyệt chiêu", "nav.practice": "Luyện tập", "nav.settings": "Cài đặt", "nav.about": "Giới thiệu",
@@ -996,10 +996,10 @@ const T = {
     "keys.notMapped": "Không dùng trong chế độ chuột — phím này vẫn gõ bình thường.",
     "cat.system": "Bật / tắt", "cat.move": "Di chuyển", "cat.layer": "Giữ để đổi", "cat.click": "Click", "cat.nav": "Lùi / tới", "cat.jump": "Nhảy nhanh", "cat.edit": "Chỉnh sửa",
     "modes.title": "Tuyệt chiêu", "modes.lead": "Di chuột qua màn hình lớn bằng I J K L vẫn ổn — nhưng các chiêu này nhanh hơn nhiều.",
-    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Một lưới ô nhỏ phủ kín màn hình, mỗi ô in sẵn đủ bốn chữ cái để tới ô đó ngay từ lần mở đầu. Đọc ô muốn bấm, gõ đủ bốn chữ là ô đó được click — phần còn lại của lưới mờ dần theo từng phím.",
+    "modes.gridT": "Nhảy bằng lưới", "modes.grid": "Một lưới ô nhỏ phủ kín màn hình, mỗi ô in sẵn đủ bốn chữ cái để tới ô đó ngay từ lần mở đầu. Đọc ô muốn tới, gõ đủ bốn chữ là con trỏ nhảy tới đó — lưới không bao giờ tự click, bạn tự bấm Space để click. Phần còn lại của lưới mờ dần theo từng phím.",
     "modes.grid1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — mười phím ghép nên mọi mã ô",
     "modes.grid2": "Mã đọc là nhóm cột, cột, nhóm hàng, hàng — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> là cột 13, hàng 7",
-    "modes.grid3": "<kbd>Space</kbd> click · <kbd>Enter</kbd> click phải · giữ <kbd>Shift</kbd> khi nhập để click phải · <kbd>Tab</kbd> chỉ di chuyển, không click · <kbd>N</kbd> sang màn hình kế · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại",
+    "modes.grid3": "<kbd>Space</kbd> click · <kbd>Shift</kbd> + <kbd>Space</kbd> hoặc <kbd>Enter</kbd> click phải · <kbd>Tab</kbd> chỉ di chuyển, không click · <kbd>N</kbd> sang màn hình kế · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại",
     "modes.hintT": "Nhãn gợi ý", "modes.hint": "Mỗi nút bấm và link có một nhãn ngắn. Gõ nhãn là click luôn — không cần nhắm.",
     "modes.hint1": "Nhãn chỉ dùng các chữ ở hàng phím chính: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
     "modes.hint2": "<kbd>Shift</kbd> + nhãn = chỉ rê tới · <kbd>F</kbd> + nhãn = click phải",
@@ -1021,7 +1021,7 @@ const T = {
     "practice.hits": "Trúng", "practice.time": "Thời gian", "practice.best": "Kỷ lục", "practice.size": "Cỡ mục tiêu", "practice.big": "To", "practice.small": "Nhỏ",
     "practice.ready": "Sẵn sàng chưa?", "practice.how": "Bấm Caps Lock, di con trỏ lên nút bằng I J K L, rồi bấm Space.", "practice.start": "Bắt đầu",
     "practice.done": "Giỏi lắm! {time}", "practice.newBest": "Kỷ lục mới!", "practice.again": "Chơi lại",
-    "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G rồi đọc bốn chữ in trong ô bạn muốn. Gõ đủ bốn chữ là click; giữ Shift để click phải, hoặc bấm Tab để chỉ di chuyển tới đó.",
+    "practice.tip1t": "Dùng lưới", "practice.tip1": "Bấm G rồi đọc bốn chữ in trong ô bạn muốn. Gõ đủ bốn chữ là con trỏ nhảy tới đó, rồi bấm Space để click — Shift + Space để click phải.",
     "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
     "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
     "settings.title": "Cài đặt", "settings.lead": "Kéo thanh, chọn màu hoặc đổi bất kỳ phím nào bên dưới. Thanh và màu áp dụng khi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng; phím áp dụng ngay.",
@@ -1054,7 +1054,7 @@ const T = {
     "toast.bindingReset": "Đã đặt lại phím", "toast.bindingUnbound": "Đã bỏ gán phím", "toast.allReset": "Đã đặt lại mọi phím", "toast.hintSaved": "Đã lưu ký tự gợi ý", "toast.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau",
     "perSec": "{n} / giây",
     "keymap.title": "Bản đồ phím", "keymap.lead": "Mọi phím chạy trong chế độ chuột đều đổi được. Bấm vào phím, rồi bấm phím thay thế.",
-    "keymap.search": "Tìm phím hoặc chức năng", "keymap.resetAll": "Đặt lại tất cả", "keymap.confirmReset": "Bấm lần nữa để đặt lại", "keymap.change": "Đổi", "keymap.reset": "Đặt lại", "keymap.unbind": "Bỏ gán", "keymap.unbound": "Chưa gán", "keymap.listening": "Bấm một phím cho {action}", "keymap.listeningSub": "Esc hủy. Phím chỉ chứa modifier sẽ bị bỏ qua.", "keymap.cancel": "Hủy", "keymap.swapped": "{action} giờ là {key}. {other} nhận {old}.", "keymap.bound": "{action} giờ là {key}.", "keymap.captureCancelled": "Đã hủy đổi phím", "keymap.fixed": "Cố định", "keymap.fixedLead": "Esc và Backspace luôn cố định; chế độ lưới còn dành riêng Space, Enter và Tab.", "keymap.gridT": "Phím lưới", "keymap.gridLead": "Mỗi ô in bốn trong mười phím này: nhóm cột, cột, nhóm hàng, hàng.", "keymap.gridMode": "Trong chế độ lưới: Space click, Enter hoặc Shift click phải, Tab chỉ di chuyển con trỏ tới ô đang chọn mà không click, phím Sang màn hình kế (N) đổi màn hình, Backspace xóa một chữ, Ctrl + phím Lưới đóng, Esc hủy.", "keymap.gridCol": "Phím lưới {n}", "keymap.gridColDesc": "Ký tự thứ {n} trong mã của mỗi ô.", "keymap.hintT": "Ký tự gợi ý", "keymap.hintLead": "Chữ cái, chữ số và dấu câu nhãn gợi ý có thể dùng. Ít nhất hai ký tự khác nhau.", "keymap.hintSave": "Lưu", "keymap.hintPreview": "Xem trước", "keymap.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau.", "keymap.group.toggle": "Chế độ chuột", "keymap.group.move": "Di chuyển", "keymap.group.layer": "Giữ để đổi", "keymap.group.click": "Click", "keymap.group.nav": "Lùi / tới", "keymap.group.jump": "Nhảy & chế độ", "keymap.group.edit": "Chỉnh sửa", "keymap.group.grid": "Phím lưới"
+    "keymap.search": "Tìm phím hoặc chức năng", "keymap.resetAll": "Đặt lại tất cả", "keymap.confirmReset": "Bấm lần nữa để đặt lại", "keymap.change": "Đổi", "keymap.reset": "Đặt lại", "keymap.unbind": "Bỏ gán", "keymap.unbound": "Chưa gán", "keymap.listening": "Bấm một phím cho {action}", "keymap.listeningSub": "Esc hủy. Phím chỉ chứa modifier sẽ bị bỏ qua.", "keymap.cancel": "Hủy", "keymap.swapped": "{action} giờ là {key}. {other} nhận {old}.", "keymap.bound": "{action} giờ là {key}.", "keymap.captureCancelled": "Đã hủy đổi phím", "keymap.fixed": "Cố định", "keymap.fixedLead": "Esc và Backspace luôn cố định; chế độ lưới còn dành riêng Space, Enter và Tab.", "keymap.gridT": "Phím lưới", "keymap.gridLead": "Mỗi ô in bốn trong mười phím này: nhóm cột, cột, nhóm hàng, hàng.", "keymap.gridMode": "Trong chế độ lưới: gõ đủ mã chỉ di chuyển con trỏ tới ô, Space click tại đó (Shift + Space click phải), Enter click phải, Tab chỉ di chuyển không click, phím Sang màn hình kế (N) đổi màn hình, Backspace xóa một chữ, Ctrl + phím Lưới đóng, Esc hủy.", "keymap.gridCol": "Phím lưới {n}", "keymap.gridColDesc": "Ký tự thứ {n} trong mã của mỗi ô.", "keymap.hintT": "Ký tự gợi ý", "keymap.hintLead": "Chữ cái, chữ số và dấu câu nhãn gợi ý có thể dùng. Ít nhất hai ký tự khác nhau.", "keymap.hintSave": "Lưu", "keymap.hintPreview": "Xem trước", "keymap.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau.", "keymap.group.toggle": "Chế độ chuột", "keymap.group.move": "Di chuyển", "keymap.group.layer": "Giữ để đổi", "keymap.group.click": "Click", "keymap.group.nav": "Lùi / tới", "keymap.group.jump": "Nhảy & chế độ", "keymap.group.edit": "Chỉnh sửa", "keymap.group.grid": "Phím lưới"
   }
 };
 
@@ -1632,7 +1632,8 @@ function gridDemo() {
   function paint(count) {
     draw(code.slice(0, count));
     typed.innerHTML = "<kbd>G</kbd>" +
-      Array.from(code.slice(0, count)).map(ch => "<kbd>" + ch + "</kbd>").join("");
+      Array.from(code.slice(0, count)).map(ch => "<kbd>" + ch + "</kbd>").join("") +
+      (count === 4 ? "<kbd>Space</kbd>" : "");   // the full code only moves; Space clicks
   }
   // Typing narrows the grid one band at a time: band of columns, column, band
   // of rows, cell. Nothing new appears; cells simply fade out.

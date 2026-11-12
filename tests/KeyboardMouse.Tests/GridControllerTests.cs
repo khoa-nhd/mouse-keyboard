@@ -105,18 +105,44 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void TypingAllFourCharactersClicksTheCellCentre()
+    public void TypingAllFourCharactersOnlyMovesThePointer()
     {
         var h = OpenGrid();
 
         Type(h, "SFAK");
 
-        Assert.False(h.Grid.Visible);
-        Assert.Equal(["move:925,450", "left-click"], h.Mouse.Calls);
+        Assert.True(h.Grid.Visible);
+        Assert.Equal(["move:925,450"], h.Mouse.Calls);
     }
 
     [Fact]
-    public void EveryCell_ClickIsReachableFromItsOwnCode()
+    public void SpaceAfterACompleteCodeClicksWhereThePointerStands()
+    {
+        var h = OpenGrid();
+        Type(h, "SFAK");
+
+        Assert.True(h.Down(PhysicalKey.Space));
+
+        Assert.False(h.Grid.Visible);
+        Assert.Equal(["move:925,450", "move:925,450", "left-click"], h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void ShiftSpaceAfterACompleteCodeRightClicks()
+    {
+        var h = OpenGrid();
+        Type(h, "SFAK");
+        Assert.False(h.Down(PhysicalKey.LeftShift));
+
+        Assert.True(h.Down(PhysicalKey.Space));
+
+        Assert.False(h.Grid.Visible);
+        Assert.Equal("right-click", h.Mouse.Calls[^1]);
+        Assert.DoesNotContain("left-click", h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void EveryCell_IsReachedByItsOwnCodeAndClickedWithSpace()
     {
         foreach (var (code, expected) in new[]
         {
@@ -129,8 +155,12 @@ public class GridControllerTests
             var h = OpenGrid();
             Type(h, code);
 
+            Assert.Equal($"move:{expected.X},{expected.Y}", h.Mouse.Calls[^1]);
+            Assert.DoesNotContain("left-click", h.Mouse.Calls);
+
+            Assert.True(h.Down(PhysicalKey.Space));
+
             Assert.False(h.Grid.Visible);
-            Assert.Equal($"move:{expected.X},{expected.Y}", h.Mouse.Calls[^2]);
             Assert.Equal("left-click", h.Mouse.Calls[^1]);
         }
     }
@@ -203,7 +233,7 @@ public class GridControllerTests
 
         Press(h, PhysicalKey.Tab);
 
-        Assert.False(h.Grid.Visible);
+        Assert.True(h.Grid.Visible);
         Assert.Equal(["move:925,30"], h.Mouse.Calls);
     }
 
@@ -220,7 +250,7 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void HybridCodeFinishedWithShift_RightClicks()
+    public void ShiftOnTheLastCharacter_StillOnlyMoves()
     {
         var h = OpenGrid();
         Type(h, "SFA");
@@ -228,8 +258,8 @@ public class GridControllerTests
 
         Press(h, PhysicalKey.K);
 
-        Assert.False(h.Grid.Visible);
-        Assert.Equal(["move:925,450", "right-click"], h.Mouse.Calls);
+        Assert.True(h.Grid.Visible);
+        Assert.Equal(["move:925,450"], h.Mouse.Calls);
     }
 
     [Fact]
@@ -338,8 +368,12 @@ public class GridControllerTests
 
         Type(h, "AAAS");
 
+        Assert.Equal(["move:96,162"], h.Mouse.Calls);
+
+        Assert.True(h.Down(PhysicalKey.Space));
+
         Assert.False(h.Grid.Visible);
-        Assert.Equal(["move:96,162", "left-click"], h.Mouse.Calls);
+        Assert.Equal("left-click", h.Mouse.Calls[^1]);
     }
 
     [Fact]
