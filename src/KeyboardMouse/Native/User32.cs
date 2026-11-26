@@ -83,6 +83,9 @@ internal static class User32
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
 
+    [DllImport("user32.dll")]
+    public static extern uint GetRawInputData(IntPtr hRawInput, uint uiCommand, byte[]? pData, ref uint pcbSize, uint cbSizeHeader);
+
     // Window styles
     public const int WS_EX_TRANSPARENT = 0x00000020;
     public const int WS_EX_TOOLWINDOW = 0x00000080;

@@ -46,7 +46,7 @@ The **KeyboardMouse window** opens with an illustrated guide:
 | Tab | What's in it |
 |---|---|
 | **Start** | Turn mouse mode on, a 30-second quick start, and one-click setup: Start with Windows, Start menu entry, desktop shortcut |
-| **Keys** | An interactive keyboard. Click any key to choose what it does, switch between the right-hand (I J K L) and left-hand (W A S D) layout, and see in a table which actions have a key and which do not; in mouse mode the keys you press light up |
+| **Keys** | An interactive keyboard. Drag an action from key to key, drag it off the keyboard into **No key** to remove it, or click a key to pick its action from a list; switch between the right-hand (I J K L) and left-hand (W A S D) layout; in mouse mode the keys you press light up |
 | **Power moves** | Animated demos of grid jump, hints, scrolling and the auto clicker |
 | **Practice** | A target range to practise clicking without the mouse, with your best time |
 | **Settings** | Grid and hint style, auto-click speed and button, pointer style and colours, screen border |
@@ -352,8 +352,8 @@ On first run, a default `settings.json` is created at
 
 The common options (auto-click speed and button, pointer style and size,
 screen border, copy/paste/undo/redo keys) can be changed in the window's **Settings**
-tab. Keys are changed on the **Keys** tab: click a key on the keyboard and pick
-its action, or use the table below it to assign, reset or unbind an action. The
+tab. Keys are changed on the **Keys** tab: drag an action to another key, drag it
+into **No key** to remove it, or click a key and pick its action from a list. The
 **Left hand** layout moves with W A S D and puts the layers, clicks and jumps on
 the right hand. The pointer style is also in the
 tray menu under **Pointer style**. Everything else is in the file.

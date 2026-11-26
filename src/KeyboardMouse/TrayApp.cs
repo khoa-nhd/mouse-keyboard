@@ -460,6 +460,23 @@ public sealed class TrayApp : ApplicationContext
     /// page can only change the handful of settings listed below.</summary>
     private void OnGuideCommand(GuideCommand command)
     {
+        long started = Environment.TickCount64;
+        try
+        {
+            HandleGuideCommand(command);
+        }
+        finally
+        {
+            long took = Environment.TickCount64 - started;
+            if (took > 150)
+            {
+                Log.Info($"Guide command '{command.Name}' took {took} ms.");
+            }
+        }
+    }
+
+    private void HandleGuideCommand(GuideCommand command)
+    {
         switch (command.Name)
         {
             case "ready":

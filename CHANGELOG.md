@@ -3,6 +3,28 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.9.1] - 2026-11-26
+
+### Fixed
+- **Keys stopped working now and then, and mouse mode would not turn on.**
+  The 1.9.0 hook watchdog mistook ordinary timing for a dead keyboard hook
+  and reinstalled the hook every few seconds while the guide was open. It now
+  needs three real key presses in a row that the hook never saw, ignores
+  fake keys and elevated windows, and reinstalls at most every 30 s.
+- The Start page demo broke once the movement keys were changed.
+- The backslash key showed as two backslashes.
+
+### Changed
+- **Drag and drop keys.** On the Keys page every action is a tile on its key:
+  drag it to another key to move it (two actions swap), drag it off the
+  keyboard or into the new **No key** box to take its key away, and drag a
+  tile from No key onto a key to give it that key. The action table is gone.
+  The keyboard now also shows the number row and `[ ] \`.
+
+### Added
+- The log notes slow key handlers and UI-thread stalls, which are what make
+  Windows drop a keyboard hook.
+
 ## [1.9.0] - 2026-11-26
 
 ### Added

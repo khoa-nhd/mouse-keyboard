@@ -290,19 +290,17 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .pick-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
 .pick-row select { flex: 1 1 240px; max-width: 420px; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; background: var(--panel); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
 .pick-row select:focus { outline: none; border-color: var(--accent); }
-.assign-card { padding: 6px 8px; overflow-x: auto; }
-.assign-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.assign-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 10px 10px 8px; }
-.assign-table td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
-.assign-table td:first-child b { font-weight: 650; }
-.assign-table td:nth-child(2), .assign-table td:nth-child(3) { white-space: nowrap; }
-.assign-table td:first-child small { display: block; color: var(--muted); font-size: 12px; margin-left: 18px; }
-.assign-table .cat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 10px; }
-.assign-table kbd { white-space: nowrap; min-width: 0; height: 22px; padding: 0 7px; font-size: 12px; }
-.assign-table tr.missing td { background: color-mix(in srgb, #f59e0b 7%, transparent); }
-.assign-table tr.capturing td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.assign-table .tools { white-space: nowrap; text-align: right; }
-.assign-table .tools > * + * { margin-left: 6px; }
+.tray { display: flex; flex-wrap: wrap; gap: 8px; min-height: 64px; align-items: center; border: 2px dashed var(--line); background: var(--panel-2); transition: border-color .12s, background .12s; }
+.tray.over { border-color: #ef4444; background: color-mix(in srgb, #ef4444 8%, var(--panel-2)); }
+.tray .empty { color: var(--muted); font-size: 13px; }
+.tile { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--c) 45%, var(--line)); background: color-mix(in srgb, var(--c) 10%, var(--panel)); font-weight: 650; font-size: 13px; cursor: grab; user-select: none; }
+.tile i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.tile:active { cursor: grabbing; }
+.key.mapped:not(.fixed) { cursor: grab; }
+.key.dragging { opacity: .35; }
+.key.drop-ok { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.key.drop-swap { outline: 2px dashed #f59e0b; outline-offset: 2px; }
+.drag-hint { color: var(--muted); font-size: 12.5px; margin: 10px 2px 0; }
 .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
 .pill.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .pill.warn { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #b45309; }
@@ -674,8 +672,9 @@ td:first-child { width: 168px; white-space: nowrap; }
         <div class="row" style="gap:10px"><span class="capture-dot"></span><div><b id="capture-action"></b><span data-t="keymap.listeningSub">Esc cancels. Modifier-only presses are ignored.</span></div></div>
         <button class="btn" id="capture-cancel" type="button" data-t="keymap.cancel">Cancel</button>
       </div>
-      <div class="section-title"><h2 data-t="keys.tableT">Which actions have a key</h2><span class="muted" id="assign-summary"></span></div>
-      <div class="card assign-card"><table class="assign-table" id="assign-table"></table></div>
+      <p class="drag-hint" data-t="keys.dragHint">Drag an action to another key to move it (two actions swap). Drag it off the keyboard to take its key away.</p>
+      <div class="section-title"><h2 data-t="keys.trayT">No key</h2><span class="muted" id="tray-summary"></span></div>
+      <div class="card tray" id="tray"></div>
       <div class="card" style="margin-top:16px">
           <div class="section-title" style="margin-top:0"><h3 style="margin:0" data-t="keymap.gridT">Grid keys</h3><span data-grid-only="recursive" data-t="keymap.rgridLead">One key per cell of the 3 x 3 grid, top row first.</span><span data-grid-only="codes" data-t="keymap.gridLead">Every cell prints four of these ten keys: column band, column, row band, row.</span></div>
           <div class="grid-pad recursive" id="keymap-rgrid" data-grid-only="recursive"></div>
@@ -1031,7 +1030,10 @@ const T = {
     "keys.handT": "Which hand moves the pointer?",
     "keys.hand": "Right hand moves with I J K L and keeps the hold layers under the left hand. Left hand moves with W A S D and mirrors everything else onto the right hand. Switching replaces your keys with that layout.",
     "keys.right": "Right hand · I J K L", "keys.left": "Left hand · W A S D",
-    "keys.tableT": "Which actions have a key", "keys.summary": "{n} of {total} actions have a key",
+    "keys.trayT": "No key", "keys.summary": "{n} of {total} actions have a key",
+    "keys.trayEmpty": "Every action has a key. Drag one here to take its key away.",
+    "keys.dragHint": "Drag an action to another key to move it (two actions swap). Drag it off the keyboard or into No key to take its key away; drag one from No key onto a key to give it that key.",
+    "keys.toggleStays": "The mouse mode key cannot be removed — drag it to another key instead.",
     "keys.colAction": "Action", "keys.colKey": "Key", "keys.colStatus": "Status",
     "keys.assigned": "Assigned", "keys.missing": "No key yet", "keys.fixedStatus": "Fixed", "keys.assign": "Assign",
     "keys.unused": "Types as usual", "keys.doesWhat": "In mouse mode this key:",
@@ -1076,16 +1078,17 @@ const ACTIONS = [
 ];
 const ALIASES = { ";": "Semicolon", "'": "Apostrophe", ",": "Comma", ".": "Period", "/": "Slash", "ESC": "Escape", "CAPS": "CapsLock", "CAPSLOCK": "CapsLock", "SPACE": "Space" };
 const LABELS = { Semicolon: ";", Apostrophe: "'", Comma: ",", Period: ".", Slash: "/", Space: "Space", CapsLock: "Caps Lock", Escape: "Esc", LeftShift: "Shift", Backspace: "⌫", ScrollLock: "Scroll Lock" };
-const KEY_LABELS = { D0: "0", D1: "1", D2: "2", D3: "3", D4: "4", D5: "5", D6: "6", D7: "7", D8: "8", D9: "9", Minus: "-", Equal: "=", LeftBracket: "[", RightBracket: "]", Backtick: "`", Backslash: "\\\\", Numpad0: "Num 0", Numpad1: "Num 1", Numpad2: "Num 2", Numpad3: "Num 3", Numpad4: "Num 4", Numpad5: "Num 5", Numpad6: "Num 6", Numpad7: "Num 7", Numpad8: "Num 8", Numpad9: "Num 9", NumpadDecimal: "Num .", NumpadPlus: "Num +", NumpadMinus: "Num -", NumpadDivide: "Num /", NumpadMultiply: "Num *", NumpadEnter: "Num Enter", PageUp: "PgUp", PageDown: "PgDn", LeftCtrl: "LCtrl", RightCtrl: "RCtrl", RightShift: "RShift", LeftAlt: "LAlt", RightAlt: "RAlt", PrintScreen: "PrtSc", NumLock: "Num Lock", Insert: "Ins", Delete: "Del", Home: "Home", End: "End" };
+const KEY_LABELS = { D0: "0", D1: "1", D2: "2", D3: "3", D4: "4", D5: "5", D6: "6", D7: "7", D8: "8", D9: "9", Minus: "-", Equal: "=", LeftBracket: "[", RightBracket: "]", Backtick: "`", Backslash: "\\", Numpad0: "Num 0", Numpad1: "Num 1", Numpad2: "Num 2", Numpad3: "Num 3", Numpad4: "Num 4", Numpad5: "Num 5", Numpad6: "Num 6", Numpad7: "Num 7", Numpad8: "Num 8", Numpad9: "Num 9", NumpadDecimal: "Num .", NumpadPlus: "Num +", NumpadMinus: "Num -", NumpadDivide: "Num /", NumpadMultiply: "Num *", NumpadEnter: "Num Enter", PageUp: "PgUp", PageDown: "PgDn", LeftCtrl: "LCtrl", RightCtrl: "RCtrl", RightShift: "RShift", LeftAlt: "LAlt", RightAlt: "RAlt", PrintScreen: "PrtSc", NumLock: "Num Lock", Insert: "Ins", Delete: "Del", Home: "Home", End: "End" };
 const LAYOUT = [
   [["Escape", "w15"]],
-  ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"].map(k => [k]),
+  ["Backtick", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D0", "Minus", "Equal"].map(k => [k]),
+  ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "LeftBracket", "RightBracket", "Backslash"].map(k => [k]),
   [["CapsLock", "w15"], ...["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon", "Apostrophe"].map(k => [k])],
   [["LeftShift", "w2"], ...["Z", "X", "C", "V", "B", "N", "M", "Comma", "Period", "Slash"].map(k => [k])],
   [["Space", "space"]]
 ];
 /* Row indents in key units, like a real staggered keyboard. */
-const ROW_OFFSETS = [0, 0.5, 0, 0, 2.5];
+const ROW_OFFSETS = [0, 0, 0.5, 0, 0, 2.5];
 
 /* ---------------- state ---------------- */
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;
@@ -1247,6 +1250,29 @@ function renderKeyboard() {
       k.innerHTML = `<span class="cap">${esc(label(name))}</span><span class="act">${a ? esc(a.en[0]) : ""}</span>`;
       k.addEventListener("mouseenter", () => { if (!pinned) select(name); });
       k.addEventListener("click", () => { pinned = true; select(name); });
+      if (a && !a.fixed) {
+        k.draggable = true;
+        k.addEventListener("dragstart", e => startDrag(e, a.id, k));
+      } else if (a) {
+        k.classList.add("fixed");
+      }
+      if (droppableKey(name)) {
+        k.addEventListener("dragover", e => {
+          if (!drag) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          k.classList.add(map.get(name) && map.get(name).id !== drag.id ? "drop-swap" : "drop-ok");
+        });
+        k.addEventListener("dragleave", () => k.classList.remove("drop-ok", "drop-swap"));
+        k.addEventListener("drop", e => {
+          e.preventDefault();
+          k.classList.remove("drop-ok", "drop-swap");
+          if (!drag) return;
+          const id = drag.id;
+          drag.dropped = true;
+          if (bindingValue(id) !== name) send({ cmd: "assignKey", id, key: name });
+        });
+      }
       r.appendChild(k);
     }
     kb.appendChild(r);
@@ -1289,25 +1315,57 @@ function select(name) {
   $$("#keyboard .key").forEach(k => k.classList.toggle("sel", k.dataset.name === name));
   renderDetail();
 }
-function renderAssignTable() {
-  const table = $("#assign-table");
-  if (!table) return;
+/* ---------------- drag and drop ---------------- */
+let drag = null; // { id, fromKey, dropped }
+function droppableKey(name) { return name !== "Escape" && name !== "LeftShift"; }
+function startDrag(e, id, el) {
+  drag = { id, fromKey: !!el && el.classList.contains("key"), dropped: false };
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", id);
+  if (el) requestAnimationFrame(() => el.classList.add("dragging"));
+}
+document.addEventListener("dragend", e => {
+  const d = drag;
+  drag = null;
+  $$(".dragging, .drop-ok, .drop-swap").forEach(el => el.classList.remove("dragging", "drop-ok", "drop-swap"));
+  $("#tray")?.classList.remove("over");
+  // Dropped anywhere that is not a key: the action loses its key.
+  if (d && d.fromKey && !d.dropped) removeKey(d.id);
+});
+function removeKey(id) {
+  if (id === "toggle") { toast(t("keys.toggleStays")); return; }
+  if (bindingValue(id)) send({ cmd: "unbindBinding", id });
+}
+// The page itself accepts drops, so the browser does not animate a "cancelled" drag.
+document.addEventListener("dragover", e => { if (drag) e.preventDefault(); });
+document.addEventListener("drop", e => {
+  if (!drag) return;
+  e.preventDefault();
+  // Let go over the keyboard (on Esc, Shift or a gap): keep the key as it is.
+  if (e.target.closest && e.target.closest("#keyboard")) drag.dropped = true;
+});
+function renderTray() {
+  const tray = $("#tray");
+  if (!tray) return;
   const editable = ACTIONS.filter(x => !x.fixed);
-  const assigned = editable.filter(x => bindingValue(x.id)).length;
-  $("#assign-summary").textContent = t("keys.summary", { n: assigned, total: editable.length });
-  const rows = Object.keys(CAT_COLORS).flatMap(cat => ACTIONS.filter(x => x.cat === cat).map(x => {
-    const key = x.fixed ? x.def : bindingValue(x.id);
-    const status = x.fixed ? `<span class="pill">${t("keys.fixedStatus")}</span>`
-      : key ? `<span class="pill ok">${t("keys.assigned")}</span>` : `<span class="pill warn">${t("keys.missing")}</span>`;
-    const tools = x.fixed ? "" :
-      `<button class="btn small${key ? "" : " primary"}" type="button" data-capture="${x.id}">${key ? t("keymap.change") : t("keys.assign")}</button>` +
-      `<button class="row-act" type="button" data-reset="${x.id}" title="${esc(t("keymap.reset"))}">↺</button>` +
-      (key ? `<button class="row-act" type="button" data-unbind="${x.id}" title="${esc(t("keymap.unbind"))}">×</button>` : "");
-    const cls = (key ? "" : "missing") + (capture && capture.id === x.id ? " capturing" : "");
-    return `<tr class="${cls}" style="--c:var(${CAT_COLORS[x.cat]})"><td><i class="cat-dot"></i><b>${esc(x.en[0])}</b><small>${actionDesc(x.id)}</small></td>` +
-      `<td class="muted">${t("cat." + x.cat)}</td><td>${key ? `<kbd>${esc(label(key))}</kbd>` : `<span class="muted">—</span>`}</td><td>${status}</td><td class="tools">${tools}</td></tr>`;
-  })).join("");
-  table.innerHTML = `<thead><tr><th>${t("keys.colAction")}</th><th></th><th>${t("keys.colKey")}</th><th>${t("keys.colStatus")}</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  const missing = editable.filter(x => !bindingValue(x.id));
+  $("#tray-summary").textContent = t("keys.summary", { n: editable.length - missing.length, total: editable.length });
+  tray.innerHTML = missing.length
+    ? missing.map(x => `<span class="tile" draggable="true" data-tile="${x.id}" title="${esc(actionDesc(x.id).replace(/<[^>]+>/g, ""))}" style="--c:var(${CAT_COLORS[x.cat]})"><i></i>${esc(x.en[0])}</span>`).join("")
+    : `<span class="empty">${t("keys.trayEmpty")}</span>`;
+}
+{
+  const tray = $("#tray");
+  tray.addEventListener("dragstart", e => { const tile = e.target.closest("[data-tile]"); if (tile) startDrag(e, tile.dataset.tile, tile); });
+  tray.addEventListener("dragover", e => { if (!drag) return; e.preventDefault(); tray.classList.add("over"); });
+  tray.addEventListener("dragleave", e => { if (!tray.contains(e.relatedTarget)) tray.classList.remove("over"); });
+  tray.addEventListener("drop", e => {
+    e.preventDefault(); e.stopPropagation();
+    tray.classList.remove("over");
+    if (!drag) return;
+    drag.dropped = true;
+    removeKey(drag.id);
+  });
 }
 function renderHand() {
   const hand = String(state.settings.hand || "right") === "left" ? "left" : "right";
@@ -1608,7 +1666,7 @@ function renderLooks() {
 
 function renderAll() {
   renderGridStyle(); refreshText();
-  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderAssignTable(); renderHand(); renderDots(); renderSettings(); renderKeymap(); renderStatus(); renderPracticeBest();
+  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderTray(); renderHand(); renderDots(); renderSettings(); renderKeymap(); renderStatus(); renderPracticeBest();
 }
 
 /* ---------------- toast ---------------- */
@@ -1643,8 +1701,9 @@ function heroDemo() {
       ring.style.left = (x + 2) + "px"; ring.style.top = (y + 2) + "px";
       ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
     } else {
-      const k = $(`.hero-art .k[data-hk="${key}"]`);
-      k.classList.add("down"); setTimeout(() => k.classList.remove("down"), 420);
+      const action = { I: "up", J: "left", K: "down", L: "right" }[key];
+      const k = $(`.hero-art .k[data-key="${action}"]`);
+      if (k) { k.classList.add("down"); setTimeout(() => k.classList.remove("down"), 420); }
       ptr.style.left = x + "px"; ptr.style.top = y + "px";
     }
     i++;
@@ -2187,7 +2246,7 @@ document.addEventListener("click", e => {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     capture = { id };
     send({ cmd: "beginCapture", id });
-    renderKeymap(); renderAssignTable();
+    renderKeymap();
     return;
   }
   const reset = e.target.closest("[data-reset]");

@@ -21,8 +21,10 @@ public sealed class KeyboardHook : IDisposable
     private System.Threading.Timer? _watchdog;
     private long _lastCallbackTicks;
     private int _reinstalling;
-    private long _lastRawTicks;      // last WM_INPUT keyboard event (raw input sees every key)
+    private long _lastRawTicks;      // last raw key-down the hook did not see
+    private int _rawMissed;          // raw key-downs since the hook's last callback
     private long _lastReinstallTicks;
+    private int _probePending;
     private RawKeyboardSink? _rawSink;
     private SynchronizationContext? _uiContext; // the installing (message loop) thread
 
@@ -63,6 +65,7 @@ public sealed class KeyboardHook : IDisposable
         _keysDown.Clear();
         Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
         Volatile.Write(ref _lastRawTicks, 0);
+        Interlocked.Exchange(ref _rawMissed, 0);
 
         // Windows silently removes slow low-level hooks. Raw input reports
         // every key without us injecting anything, so a key that raw input
@@ -73,7 +76,7 @@ public sealed class KeyboardHook : IDisposable
         {
             try
             {
-                _rawSink = new RawKeyboardSink(() => Volatile.Write(ref _lastRawTicks, Environment.TickCount64));
+                _rawSink = new RawKeyboardSink(OnRawKeyDown);
             }
             catch (Exception ex)
             {
@@ -110,9 +113,10 @@ public sealed class KeyboardHook : IDisposable
             return User32.CallNextHookEx(_hook, nCode, wParam, lParam);
         }
 
-        // Heartbeat: updated before any filtering, so even injected heart
-        // beats prove the hook is alive.
+        // Heartbeat: updated before any filtering, so every event the hook
+        // sees proves it is alive.
         Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
+        Interlocked.Exchange(ref _rawMissed, 0);
 
         try
         {
@@ -151,7 +155,14 @@ public sealed class KeyboardHook : IDisposable
 
             var keyEvent = new KeyEvent(key, isDown, isRepeat, Environment.TickCount64);
             var handler = _handler;
+            long started = Environment.TickCount64;
             bool swallow = handler is not null && handler(keyEvent);
+            long took = Environment.TickCount64 - started;
+            if (took > 250)
+            {
+                // Windows drops a hook that is this slow; say which key did it.
+                Log.Info($"Slow key handler: {key} {(isDown ? "down" : "up")} took {took} ms.");
+            }
             return swallow
                 ? new IntPtr(1)
                 : User32.CallNextHookEx(_hook, nCode, wParam, lParam);
@@ -187,17 +198,42 @@ public sealed class KeyboardHook : IDisposable
         }
 
         long now = Environment.TickCount64;
+
+        // Probe the UI thread: the hook runs there, so a stall over the
+        // low-level hook timeout is what makes Windows drop the hook.
+        if (Interlocked.CompareExchange(ref _probePending, 1, 0) == 0)
+        {
+            long posted = now;
+            _uiContext?.Post(_ =>
+            {
+                long delay = Environment.TickCount64 - posted;
+                Interlocked.Exchange(ref _probePending, 0);
+                if (delay > 500)
+                {
+                    Log.Info($"UI thread was busy for {delay} ms.");
+                }
+            }, null);
+        }
+
         if (!HookLooksDead(
+                Volatile.Read(ref _rawMissed),
                 Volatile.Read(ref _lastRawTicks),
-                Volatile.Read(ref _lastCallbackTicks),
                 now))
         {
             return;
         }
 
-        // At most one reinstall per 10 s, in case some foreground window
-        // (an elevated one, say) keeps raw input and the hook out of step.
-        if (now - Interlocked.Read(ref _lastReinstallTicks) < 10_000)
+        Interlocked.Exchange(ref _rawMissed, 0);
+
+        // A non-elevated hook never sees keys typed into an elevated window,
+        // while raw input may: that is not a dead hook.
+        if (ForegroundIsOutOfReach())
+        {
+            return;
+        }
+
+        // At most one reinstall per 30 s.
+        if (now - Interlocked.Read(ref _lastReinstallTicks) < 30_000)
         {
             return;
         }
@@ -214,18 +250,42 @@ public sealed class KeyboardHook : IDisposable
     }
 
     /// <summary>
-    /// True when raw input reported a key more than a second after the hook's
-    /// last callback, and that key is old enough (300 ms) that a live hook
-    /// would have seen it by now.
+    /// Raw input delivered a key-down. The hook's callback for the same key
+    /// runs first and clears the counter, so a live hook keeps it at 0 or 1.
     /// </summary>
-    internal static bool HookLooksDead(long lastRawTicks, long lastCallbackTicks, long nowTicks)
+    private void OnRawKeyDown()
     {
-        if (lastRawTicks <= 0)
+        Interlocked.Increment(ref _rawMissed);
+        Volatile.Write(ref _lastRawTicks, Environment.TickCount64);
+    }
+
+    /// <summary>
+    /// True when at least three real key presses reached raw input without a
+    /// single hook callback in between, and the last one is old enough
+    /// (300 ms) that a live hook would have seen it by now.
+    /// </summary>
+    internal static bool HookLooksDead(int rawMissed, long lastRawTicks, long nowTicks) =>
+        rawMissed >= 3 && lastRawTicks > 0 && nowTicks - lastRawTicks > 300;
+
+    private static bool ForegroundIsOutOfReach()
+    {
+        try
         {
+            IntPtr window = User32.GetForegroundWindow();
+            if (window == IntPtr.Zero)
+            {
+                return true;
+            }
+
+            User32.GetWindowThreadProcessId(window, out uint pid);
+            using var process = System.Diagnostics.Process.GetProcessById((int)pid);
+            _ = process.Handle; // throws for an elevated process we cannot open
             return false;
         }
-
-        return lastRawTicks - lastCallbackTicks > 1000 && nowTicks - lastRawTicks > 300;
+        catch
+        {
+            return true;
+        }
     }
 
     /// <summary>Runs on the UI thread (posted by the watchdog).</summary>
@@ -250,6 +310,7 @@ public sealed class KeyboardHook : IDisposable
             _hook = User32.SetWindowsHookExW(User32.WH_KEYBOARD_LL, _proc, module, 0);
 
             Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
+            Interlocked.Exchange(ref _rawMissed, 0);
 
             if (_hook == IntPtr.Zero)
             {
@@ -303,12 +364,39 @@ internal sealed class RawKeyboardSink : NativeWindow, IDisposable
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == WM_INPUT)
+        if (m.Msg == WM_INPUT && IsRealKeyDown(m.LParam))
         {
             _onKey();
         }
 
         base.WndProc(ref m);
+    }
+
+    /// <summary>
+    /// Key-downs with a real virtual key only. Key-ups, fake keys (VK 0xFF,
+    /// sent by some laptop Fn keys and remappers) and packets are skipped.
+    /// </summary>
+    private static bool IsRealKeyDown(IntPtr rawInput)
+    {
+        const uint RID_INPUT = 0x10000003;
+        const uint RIM_TYPEKEYBOARD = 1;
+        int header = IntPtr.Size == 8 ? 24 : 16;
+        var buffer = new byte[header + 16];
+        uint size = (uint)buffer.Length;
+        if (User32.GetRawInputData(rawInput, RID_INPUT, buffer, ref size, (uint)header) == unchecked((uint)-1))
+        {
+            return false;
+        }
+
+        if (BitConverter.ToUInt32(buffer, 0) != RIM_TYPEKEYBOARD)
+        {
+            return false;
+        }
+
+        ushort flags = BitConverter.ToUInt16(buffer, header + 2);
+        ushort vk = BitConverter.ToUInt16(buffer, header + 6);
+        bool keyUp = (flags & 0x01) != 0;
+        return !keyUp && vk is not (0 or 0xFF or 0xE7);
     }
 
     public void Dispose()
