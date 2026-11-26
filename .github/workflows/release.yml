@@ -54,4 +54,4 @@ jobs:
             ${{ env.zip_name }}.sha256
           generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(env.GITHUB_REF_NAME, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
