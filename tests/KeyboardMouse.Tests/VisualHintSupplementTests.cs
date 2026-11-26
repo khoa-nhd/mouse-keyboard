@@ -57,6 +57,18 @@ public class VisualHintSupplementTests
     }
 
     [Fact]
+    public void RejectsANearMissOfAGlyphSizedType()
+    {
+        // A list bullet or a letter looks exactly like a lone icon to the
+        // pixels; those types must clear the classifier's own threshold.
+        Assert.False(VisualHintSupplement.IsAcceptable(
+            Control(ControlType.IconButton, new Rectangle(0, 0, 16, 16), interaction: 0.62)));
+
+        Assert.False(VisualHintSupplement.IsAcceptable(
+            Control(ControlType.RadioButton, new Rectangle(0, 0, 16, 16), interaction: 0.55)));
+    }
+
+    [Fact]
     public void RejectsANearMissWithWeakGeometry()
     {
         Assert.False(VisualHintSupplement.IsAcceptable(

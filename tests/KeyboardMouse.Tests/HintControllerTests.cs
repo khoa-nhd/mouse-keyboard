@@ -395,6 +395,44 @@ public class HintControllerTests
     private static ClickableTarget[] ManyTargets(int count) =>
         [.. Enumerable.Range(0, count).Select(i => Target(20 + ((i % 20) * 90), 40 + ((i / 20) * 60)))];
 
+    [Fact]
+    public void H_Again_ClosesTheHintsWithoutClicking()
+    {
+        var h = new RouterHarness();
+        OpenHint(h);
+        h.HintScanner.Complete(Target(100, 100), Target(300, 100));
+        Assert.True(h.HintOverlay.Visible);
+
+        Assert.True(h.Down(PhysicalKey.H));
+        Assert.True(h.Up(PhysicalKey.H));
+
+        Assert.False(h.HintOverlay.Visible);
+        Assert.DoesNotContain("left-click", h.Mouse.Calls);
+        Assert.True(h.State.MouseModeOn);
+
+        // And the next H opens a fresh set.
+        Assert.True(h.Down(PhysicalKey.H));
+        Assert.True(h.Up(PhysicalKey.H));
+        Assert.Equal(2, h.HintScanner.ScanCount);
+        Assert.True(h.HintOverlay.Visible);
+    }
+
+    [Fact]
+    public void H_WhileStillScanning_CancelsTheScan()
+    {
+        var h = new RouterHarness();
+        OpenHint(h);
+
+        Assert.True(h.Down(PhysicalKey.H));
+        Assert.True(h.Up(PhysicalKey.H));
+
+        Assert.False(h.HintOverlay.Visible);
+
+        // A late result from the cancelled scan does not reopen the hints.
+        h.HintScanner.Complete(Target(100, 100));
+        Assert.False(h.HintOverlay.Visible);
+    }
+
     private static void OpenHint(RouterHarness h)
     {
         h.TapCaps();

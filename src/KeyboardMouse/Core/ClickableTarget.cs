@@ -25,7 +25,14 @@ public sealed record RawClickableTarget(
     Rectangle Bounds,
     bool IsOffscreen,
     bool IsEnabled,
-    string Name = "");
+    string Name = "")
+{
+    /// <summary>Top-level window the element was read from; zero when unknown.</summary>
+    public IntPtr Window { get; init; }
+
+    /// <summary>The accessibility element itself, for checks made while reading its window.</summary>
+    public object? Source { get; init; }
+}
 
 /// <summary>
 /// Turns a raw UIA element dump into a clean hint list: visible on a monitor,
@@ -35,15 +42,64 @@ public static class HintTargetFilter
 {
     private const int DuplicateCenterPixels = 4;
 
+    /// <summary>Width or height above which an unnamed element is panel-sized.</summary>
+    public const int ContainerWidth = 600;
+
+    public const int ContainerHeight = 200;
+
+    /// <summary>
+    /// Web pages mark whole sections as clickable (a click listener on a
+    /// wrapper), so a page reported its content area, a code block or the
+    /// composer frame as one more "button" with a label in its corner. An
+    /// unnamed, panel-sized element that holds at least two other targets is
+    /// such a wrapper: the controls inside it are the real targets.
+    /// </summary>
+    private static void DropContainers(List<ClickableTarget> targets)
+    {
+        if (targets.Count < 3)
+        {
+            return;
+        }
+
+        targets.RemoveAll(container =>
+        {
+            if (container.Name.Length > 0 ||
+                (container.Bounds.Width <= ContainerWidth && container.Bounds.Height <= ContainerHeight))
+            {
+                return false;
+            }
+
+            int inside = 0;
+
+            foreach (var other in targets)
+            {
+                if (!ReferenceEquals(other, container) &&
+                    container.Bounds.Contains(other.Bounds) &&
+                    other.Bounds != container.Bounds &&
+                    ++inside >= 2)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
     /// <param name="region">
     /// Rectangle the scan covered. Targets outside it belong to a window the
     /// scope excluded, so they are dropped instead of hinted.
+    /// </param>
+    /// <param name="visibility">
+    /// Drops elements another window covers or that are scrolled out of their
+    /// own window, and moves the click onto the visible part of the rest.
     /// </param>
     public static IReadOnlyList<ClickableTarget> Apply(
         IEnumerable<RawClickableTarget> raw,
         IReadOnlyList<MonitorInfo> monitors,
         int maxElements,
-        Rectangle? region = null)
+        Rectangle? region = null,
+        TargetVisibility? visibility = null)
     {
         int cap = Math.Clamp(maxElements, 1, 2000);
         var targets = new List<ClickableTarget>(Math.Min(cap, 128));
@@ -89,7 +145,20 @@ public static class HintTargetFilter
 
                 bounds = clipped;
             }
-            var center = new Point(
+
+            Point? click = null;
+
+            if (visibility is not null)
+            {
+                if (!visibility.TryResolve(candidate.Window, bounds, out var seen, out click))
+                {
+                    continue;
+                }
+
+                bounds = seen;
+            }
+
+            var center = click ?? new Point(
                 bounds.Left + (bounds.Width / 2),
                 bounds.Top + (bounds.Height / 2));
 
@@ -110,8 +179,10 @@ public static class HintTargetFilter
             }
 
             centers.Add(center);
-            targets.Add(new ClickableTarget(bounds, candidate.Name));
+            targets.Add(new ClickableTarget(bounds, candidate.Name) { ClickPoint = click });
         }
+
+        DropContainers(targets);
 
         var ordered = targets
             .OrderBy(t => t.Bounds.Top)

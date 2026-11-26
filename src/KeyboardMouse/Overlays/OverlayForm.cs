@@ -34,6 +34,17 @@ public abstract class OverlayForm : Form
 
     protected override bool ShowWithoutActivation => true;
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+
+        // The hint pixel pass captures the screen. The cursor dot, the screen
+        // border and the labels themselves must not be in that picture, or they
+        // are detected as buttons. Windows 10 2004+ honours this; older systems
+        // return false and the overlay is simply captured as before.
+        User32.SetWindowDisplayAffinity(Handle, User32.WDA_EXCLUDEFROMCAPTURE);
+    }
+
     protected override CreateParams CreateParams
     {
         get

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
 using FlaUI.UIA3;
@@ -204,6 +205,7 @@ public sealed class ClickableScanner : IClickableScanner
             : Task.Run(() => Detect(captures));
 
         var handles = ChooseWindows(foreground, options, region);
+        var visibility = VisibilityFor(handles);
 
         // Reading a property of an accessibility element is a cross-process
         // call, so a huge tree (a browser, an IDE) can spend seconds on elements
@@ -225,7 +227,7 @@ public sealed class ClickableScanner : IClickableScanner
             budgetMs,
             early =>
             {
-                var partial = HintTargetFilter.Apply(early, monitors, limit);
+                var partial = HintTargetFilter.Apply(early, monitors, limit, visibility: visibility);
 
                 if (visual is { IsCompleted: true })
                 {
@@ -248,7 +250,7 @@ public sealed class ClickableScanner : IClickableScanner
 
         // No region clip here: the foreground scope owns its popups, and a
         // context menu can be drawn outside the window's own bounds.
-        var targets = HintTargetFilter.Apply(raw, monitors, limit);
+        var targets = HintTargetFilter.Apply(raw, monitors, limit, visibility: visibility);
 
         // Chromium and Electron apps build their accessibility tree lazily.
         // One quick retry gives the first scan a chance to become useful.
@@ -256,7 +258,7 @@ public sealed class ClickableScanner : IClickableScanner
         {
             Thread.Sleep(150);
             var retry = CollectWindows(handles, rawCap, stopwatch, budgetMs);
-            targets = HintTargetFilter.Apply(retry.Raw, monitors, limit);
+            targets = HintTargetFilter.Apply(retry.Raw, monitors, limit, visibility: visibility);
         }
 
         Log.Info(
@@ -459,6 +461,30 @@ public sealed class ClickableScanner : IClickableScanner
         return handles;
     }
 
+    /// <summary>
+    /// Visibility rules for this scan: the frame of every window being read and
+    /// the system hit test, which answers exactly as a click at that point would.
+    /// Click-through windows (our own overlays among them) are skipped by the
+    /// hit test, so the hint labels never hide the targets they label.
+    /// </summary>
+    private static TargetVisibility VisibilityFor(IReadOnlyList<IntPtr> handles)
+    {
+        var frames = new Dictionary<IntPtr, Rectangle>(handles.Count);
+
+        foreach (var handle in handles)
+        {
+            frames[handle] = BoundsOf(handle);
+        }
+
+        return new TargetVisibility(RootAt, frames);
+    }
+
+    private static IntPtr RootAt(Point point)
+    {
+        var hit = User32.WindowFromPoint(new POINT { X = point.X, Y = point.Y });
+        return hit == IntPtr.Zero ? IntPtr.Zero : User32.GetAncestor(hit, User32.GA_ROOT);
+    }
+
     private static void AddTaskbar(HashSet<IntPtr> seen, List<IntPtr> handles, IntPtr taskbar, Rectangle region)
     {
         if (taskbar == IntPtr.Zero || !seen.Add(taskbar))
@@ -650,7 +676,8 @@ public sealed class ClickableScanner : IClickableScanner
         {
             // UIA3 is COM-based; the automation object and every call it makes
             // stay on this reader's thread.
-            Collect(automation.FromHandle(handle), items, cap);
+            Collect(automation, automation.FromHandle(handle), items, cap, handle);
+            items = ConfirmHits(automation, handle, items);
         }
         catch (Exception ex)
         {
@@ -670,16 +697,196 @@ public sealed class ClickableScanner : IClickableScanner
         return (items, elapsed);
     }
 
+    /// <summary>
+    /// Asks the accessibility hit test what is at each target's centre and
+    /// drops the targets their own window draws something else over. One
+    /// cross-process call per target, cached to the bounds it needs.
+    /// </summary>
+    private static List<RawClickableTarget> ConfirmHits(
+        UIA3Automation automation,
+        IntPtr handle,
+        List<RawClickableTarget> items)
+    {
+        if (items.Count == 0)
+        {
+            return items;
+        }
+
+        var request = new CacheRequest { TreeScope = TreeScope.Element };
+        request.Add(automation.PropertyLibrary.Element.BoundingRectangle);
+
+        using (request.Activate())
+        {
+            var kept = HitConfirmation.Filter(
+                items,
+                point => RootAt(point) == handle,
+                point =>
+                {
+                    var hit = automation.FromPoint(point);
+                    return hit is not null &&
+                           hit.FrameworkAutomationElement.TryGetPropertyValue<Rectangle>(
+                               automation.PropertyLibrary.Element.BoundingRectangle,
+                               out var bounds)
+                        ? bounds
+                        : null;
+                },
+                (target, hit) => HasAncestorAt(automation, target.Source as AutomationElement, hit));
+
+            if (kept.Count < items.Count)
+            {
+                Log.Info(
+                    $"Hint scan dropped {items.Count - kept.Count} element(s) of {ProcessNameOf(handle)} " +
+                    "that the window draws other content over.");
+            }
+
+            return kept;
+        }
+    }
+
+    /// <summary>
+    /// Walks up from the target looking for an ancestor with exactly the hit
+    /// element's bounds. Ancestors only grow, so the walk stops as soon as one
+    /// is larger than the hit: a handful of calls, not the whole chain.
+    /// </summary>
+    private static bool HasAncestorAt(UIA3Automation automation, AutomationElement? target, Rectangle hit)
+    {
+        if (target is null)
+        {
+            return true;
+        }
+
+        var walker = automation.TreeWalkerFactory.GetRawViewWalker();
+        var property = automation.PropertyLibrary.Element.BoundingRectangle;
+        long hitArea = (long)hit.Width * hit.Height;
+        var current = target;
+
+        for (int depth = 0; depth < 24; depth++)
+        {
+            current = walker.GetParent(current);
+
+            if (current is null ||
+                !current.FrameworkAutomationElement.TryGetPropertyValue<Rectangle>(property, out var bounds))
+            {
+                return false;
+            }
+
+            if (bounds == hit)
+            {
+                return true;
+            }
+
+            if ((long)bounds.Width * bounds.Height > hitArea && !bounds.IsEmpty)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>A window this slow is worth naming in the log.</summary>
     private const int SlowWindowMs = 400;
 
     /// <summary>
-    /// Reads one window: walk its descendants, then ask each element for the
-    /// properties the filter needs. This is the plain UI Automation path, and
-    /// the walk stays on one thread because a shared automation object is not
-    /// safe across threads.
+    /// Reads one window. Every property the filter needs is fetched together
+    /// with the walk (a UI Automation cache request), instead of one
+    /// cross-process call per property per element: a 2,500 element Electron
+    /// window took 4.5 s that way, ran past the scan deadline and lost every
+    /// one of its hints. Cached, the same window reads in well under a second.
+    /// A provider that rejects the cache request is read the slow way.
     /// </summary>
-    private static void Collect(AutomationElement root, List<RawClickableTarget> raw, int cap)
+    private static void Collect(UIA3Automation automation, AutomationElement root, List<RawClickableTarget> raw, int cap, IntPtr window)
+    {
+        try
+        {
+            CollectCached(automation, root, raw, cap, window);
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Hint scan read {ProcessNameOf(window)} without a cache: {ex.Message}");
+        }
+
+        raw.Clear();
+        CollectDirect(root, raw, cap, window);
+    }
+
+    private static void CollectCached(UIA3Automation automation, AutomationElement root, List<RawClickableTarget> raw, int cap, IntPtr window)
+    {
+        var element = automation.PropertyLibrary.Element;
+        var patterns = automation.PatternLibrary;
+        var actionable = new[]
+        {
+            patterns.InvokePattern.AvailabilityProperty,
+            patterns.TogglePattern.AvailabilityProperty,
+            patterns.SelectionItemPattern.AvailabilityProperty,
+            patterns.ExpandCollapsePattern.AvailabilityProperty
+        };
+
+        var request = new CacheRequest { TreeScope = TreeScope.Element };
+        request.Add(element.ControlType);
+        request.Add(element.BoundingRectangle);
+        request.Add(element.IsOffscreen);
+        request.Add(element.IsEnabled);
+        request.Add(element.Name);
+
+        foreach (var property in actionable)
+        {
+            request.Add(property);
+        }
+
+        // The root is resolved outside the cache scope: building a cache for
+        // the window element itself fails on several providers.
+        using (request.Activate())
+        {
+            var elements = root.FindAllDescendants();
+
+            foreach (var item in elements)
+            {
+                if (raw.Count >= cap)
+                {
+                    Log.Info($"Hint scan stopped reading a window after {raw.Count} element(s).");
+                    return;
+                }
+
+                var cached = item.FrameworkAutomationElement;
+
+                bool wanted = cached.TryGetPropertyValue<ControlType>(element.ControlType, out var type) &&
+                              WantedTypes.Contains(type);
+
+                if (!wanted)
+                {
+                    foreach (var property in actionable)
+                    {
+                        if (cached.TryGetPropertyValue<bool>(property, out bool available) && available)
+                        {
+                            wanted = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!wanted ||
+                    !cached.TryGetPropertyValue<Rectangle>(element.BoundingRectangle, out var bounds) ||
+                    bounds.Width < 1 || bounds.Height < 1)
+                {
+                    continue;
+                }
+
+                if ((cached.TryGetPropertyValue<bool>(element.IsOffscreen, out bool offscreen) && offscreen) ||
+                    (cached.TryGetPropertyValue<bool>(element.IsEnabled, out bool enabled) && !enabled))
+                {
+                    continue;
+                }
+
+                cached.TryGetPropertyValue<string>(element.Name, out string? name);
+                raw.Add(new RawClickableTarget(bounds, false, true, name ?? string.Empty) { Window = window, Source = item });
+            }
+        }
+    }
+
+    /// <summary>The uncached walk: one cross-process call per property.</summary>
+    private static void CollectDirect(AutomationElement root, List<RawClickableTarget> raw, int cap, IntPtr window)
     {
         AutomationElement[] elements;
 
@@ -703,16 +910,15 @@ public sealed class ClickableScanner : IClickableScanner
 
             try
             {
-                // The control type rules out most of a big tree before anything
-                // else is asked for, and an element with no box cannot be
-                // clicked.
                 bool wanted = WantedTypes.Contains(element.ControlType);
 
                 if (!wanted)
                 {
                     try
                     {
-                        wanted = element.Patterns.Invoke.IsSupported;
+                        var p = element.Patterns;
+                        wanted = p.Invoke.IsSupported || p.Toggle.IsSupported ||
+                                 p.SelectionItem.IsSupported || p.ExpandCollapse.IsSupported;
                     }
                     catch
                     {
@@ -736,7 +942,7 @@ public sealed class ClickableScanner : IClickableScanner
                     continue;
                 }
 
-                raw.Add(new RawClickableTarget(bounds, false, true, SafeName(element)));
+                raw.Add(new RawClickableTarget(bounds, false, true, SafeName(element)) { Window = window, Source = element });
             }
             catch
             {

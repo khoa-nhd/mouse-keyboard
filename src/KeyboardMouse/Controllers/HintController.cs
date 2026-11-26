@@ -25,6 +25,7 @@ public sealed class HintController : IModeController
     private HintSettings _settings;
     private KeysSettings _keys;
     private PhysicalKey _rightClickKey = PhysicalKey.F;
+    private PhysicalKey _hintKey = PhysicalKey.H;
     private bool _active;
     private bool _scanning;
     private int _scanVersion;
@@ -53,6 +54,7 @@ public sealed class HintController : IModeController
         _settings = settings;
         _keys = keys ?? new KeysSettings();
         _rightClickKey = ResolveRightClickKey(_keys.RightClick);
+        _hintKey = ResolveHintKey(_keys.Hint);
         _cursor = cursor;
         _foreground = foreground;
         _dispatch = dispatch;
@@ -79,6 +81,7 @@ public sealed class HintController : IModeController
     {
         _keys = settings;
         _rightClickKey = ResolveRightClickKey(_keys.RightClick);
+        _hintKey = ResolveHintKey(_keys.Hint);
     }
 
     /// <summary>Starts a scan (H from the normal layer) or closes an open hint set.</summary>
@@ -177,6 +180,15 @@ public sealed class HintController : IModeController
 
         if (keyEvent.IsRepeat)
         {
+            return HandleResult.Swallow;
+        }
+
+        // The key that opened the hints closes them again, while scanning or
+        // after. A label alphabet that contains that key keeps it as a label
+        // letter instead, so no label becomes untypeable.
+        if (keyEvent.Key == _hintKey && !IsLabelKey(keyEvent.Key))
+        {
+            Close();
             return HandleResult.Swallow;
         }
 
@@ -465,6 +477,15 @@ public sealed class HintController : IModeController
         _rightClickHeld = false;
         _overlay.Hide();
     }
+
+    private bool IsLabelKey(PhysicalKey key) =>
+        KeyNames.TryGetCharacter(key, out char character) &&
+        KeyNames.NormalizeHintAlphabet(_settings.Alphabet).Contains(character);
+
+    private static PhysicalKey ResolveHintKey(string? name) =>
+        !string.IsNullOrWhiteSpace(name) && KeyNames.TryParse(name, out var key) && !key.IsModifier()
+            ? key
+            : PhysicalKey.None;
 
     private static PhysicalKey ResolveRightClickKey(string? name)
     {

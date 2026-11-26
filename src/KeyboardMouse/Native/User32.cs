@@ -190,4 +190,19 @@ internal static class User32
         uint crKey,
         ref BLENDFUNCTION pblend,
         uint dwFlags);
+
+    public const uint GA_ROOT = 2;
+
+    /// <summary>Hides a window from screen capture (Windows 10 2004+); older systems fail harmlessly.</summary>
+    public const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr WindowFromPoint(POINT point);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
 }

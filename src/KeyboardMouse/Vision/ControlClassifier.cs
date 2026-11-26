@@ -151,6 +151,16 @@ public static class ControlClassifier
                 return Make(candidate, ControlType.DecorativeIcon, 0.25, evidence);
             }
 
+            // A glyph with no fill of its own and ink right beside it is a
+            // letter, a word or a math symbol inside a sentence. Rows of words
+            // looked exactly like toolbar rows to the grouping test. A border
+            // does not save it: a glyph's strokes run along its own box, so
+            // "(2;" reads as an outlined "2".
+            if (!f.HasFlatFill && f.InkBeside)
+            {
+                return Make(candidate, ControlType.StaticLabel, 0.15, evidence);
+            }
+
             if (hasOwnSurface && (inToolbarRow || f.InsideContainer))
             {
                 return Make(candidate, ControlType.IconButton, 0.68 + (f.RowPeers >= 2 ? 0.06 : 0), evidence);
@@ -257,6 +267,7 @@ public static class ControlClassifier
             bool rowGroup = f.RowPeers is >= 1 and <= 4 &&
                             f.RowGap >= 10 &&
                             !f.InTextFlow &&
+                            !f.InkBeside &&
                             box.Height <= 44 &&
                             box.Width <= 260;
 

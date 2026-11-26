@@ -46,6 +46,19 @@ public static class VisualHintSupplement
     ];
 
     /// <summary>
+    /// Types that are, to the pixels, a small drawing: an icon, a ring, a box.
+    /// List bullets, letters and math symbols are small drawings too, so these
+    /// get no near-miss allowance and must clear the classifier's own bar.
+    /// </summary>
+    private static readonly HashSet<ControlType> GlyphTypes =
+    [
+        ControlType.IconButton,
+        ControlType.ToolbarItem,
+        ControlType.Checkbox,
+        ControlType.RadioButton
+    ];
+
+    /// <summary>
     /// Whether a geometrical control is worth a hint: either the classifier is
     /// confident, or the box is clean and the type can only be a control.
     /// </summary>
@@ -67,6 +80,7 @@ public static class VisualHintSupplement
 
         return geometry.Confidence >= FallbackGeometryConfidence &&
                ClickableTypes.Contains(control.Type) &&
+               !GlyphTypes.Contains(control.Type) &&
                control.Bounds.Width >= 12 &&
                control.Bounds.Height >= 10;
     }
