@@ -3,6 +3,19 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.3.2] - 2026-11-26
+
+### Changed
+- **Recursive grid edition.** A re-release of v1.3.1 for anyone who prefers the
+  original recursive grid: three levels of 3 x 3 cells, where each cell key
+  moves the pointer to that cell and makes it the next, smaller grid. Space/F
+  clicks and closes, G keeps the position and closes, Backspace goes up a
+  level, N moves the grid to the next monitor, Esc puts the pointer back. It
+  includes the v1.3.1 sleep fix (the app no longer keeps the system awake).
+  The flat four-key grid lives on in v1.5.0 and later; this build is published
+  as a prerelease, so the in-app updater still offers the latest flat-grid
+  release.
+
 ## [1.0.9] - 2026-11-03
 
 ### Fixed & Enhanced
