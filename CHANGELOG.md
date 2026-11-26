@@ -3,6 +3,36 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.8.0] - 2026-11-26
+
+### Added
+- **Hint label and grid looks.** Settings > General has two new pickers with a
+  live preview of each style. *Hint label look*: Original yellow (default),
+  Blue bubble, Blue outline, White glass, Round badge, Hanging tag, Deep purple
+  and Keycap. *Grid look* for the 3 x 3 grid: Original (default), Frosted glass,
+  Spotlight, Thin lines, Floating cards, Bubbles, Keyboard pattern and Glow
+  border. In settings.json these are `hint.style` and `grid.theme`; an unknown
+  value falls back to the original look. The 4-letter code grid keeps its look.
+- **H toggles hints.** Pressing H again closes the labels, also while the scan
+  is still running. (If your hint alphabet contains the letter, it stays a label
+  letter.)
+
+### Fixed
+- **No more hints on things you cannot see.** Elements of windows that are
+  covered by another window, scrolled out of their own window, or drawn over by
+  their own window (such as Chrome's collapsed vertical tab strip) no longer get
+  labels. A partly covered control is clicked on its visible part.
+- **Every visible control gets a hint.** Large apps (Electron, Chrome, VS Code)
+  are read several times faster, so they no longer run past the scan deadline and
+  lose all their labels; controls that only toggle, select or expand are labelled
+  too.
+- **The pixel detector stops labelling text.** Words, letters, math symbols and
+  list bullets were taken for buttons; on a document page the false labels drop
+  from about 67 to a handful. Big unnamed page sections that report themselves as
+  clickable are no longer labelled either.
+- The pointer dot, the screen border and the hint labels are left out of the
+  screenshot the pixel detector reads (Windows 10 2004 and later).
+
 ## [1.7.0] - 2026-11-26
 
 ### Added

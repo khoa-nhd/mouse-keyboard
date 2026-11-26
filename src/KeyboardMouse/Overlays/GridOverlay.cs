@@ -16,9 +16,12 @@ public sealed class GridOverlay : IGridOverlay
 {
     private readonly GridOverlayForm _form = new();
 
+    /// <summary>How the 3 x 3 grid looks; applied from settings, used on the next draw.</summary>
+    public GridTheme Theme { get; set; } = GridTheme.Classic;
+
     public void Show(GridOverlayState state)
     {
-        _form.DrawGrid(state);
+        _form.DrawGrid(state, Theme);
         _form.ShowOverlay();
     }
 
@@ -39,7 +42,7 @@ public sealed class GridOverlay : IGridOverlay
 
         private static readonly Color Accent = Color.FromArgb(255, 214, 102);
 
-        public void DrawGrid(GridOverlayState state)
+        public void DrawGrid(GridOverlayState state, GridTheme theme)
         {
             var bounds = state.Monitor.Bounds;
             int width = bounds.Width;
@@ -59,7 +62,17 @@ public sealed class GridOverlay : IGridOverlay
             {
                 RenderSurface(width, height, bounds.Left, bounds.Top, g =>
                 {
-                    DrawRecursive(g, new Rectangle(0, 0, width, height), root, state, scale);
+                    var screen = new Rectangle(0, 0, width, height);
+
+                    if (theme == GridTheme.Classic)
+                    {
+                        DrawRecursive(g, screen, root, state, scale);
+                    }
+                    else
+                    {
+                        RecursiveGridPainter.Draw(g, screen, root, target, state, scale, theme);
+                    }
+
                     DrawTarget(g, target, scale);
                 });
                 return;

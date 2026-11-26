@@ -72,6 +72,8 @@ public sealed class Settings
         Hint.ScanScope = string.IsNullOrWhiteSpace(Hint.ScanScope)
             ? ScanScopeNames.ActiveMonitor
             : ScanScopeNames.ToId(ScanScopeNames.Parse(Hint.ScanScope));
+        Hint.Style = OverlayThemeNames.NormalizeHint(Hint.Style);
+        Grid.Theme = OverlayThemeNames.NormalizeGrid(Grid.Theme);
 
         Scroll.Base = Math.Max(0, Scroll.Base);
         Scroll.Max = Math.Max(Scroll.Base, Scroll.Max);
@@ -200,6 +202,12 @@ public sealed class GridSettings
     /// </summary>
     public string Style { get; set; } = RecursiveStyle;
 
+    /// <summary>
+    /// How the 3 x 3 grid is drawn ("classic", "frosted", "spotlight", "thin",
+    /// "cards", "bubble", "keyboard", "glow"). The codes grid keeps its look.
+    /// </summary>
+    public string Theme { get; set; } = OverlayThemeNames.Classic;
+
     /// <summary>Nine keys of the recursive grid, row-major over its 3 x 3 cells.</summary>
     public string[] RecursiveKeys { get; set; } = DefaultRecursiveKeys();
 
@@ -272,6 +280,12 @@ public sealed class GridSettings
 public sealed class HintSettings
 {
     public string Alphabet { get; set; } = "asdfjkl;";
+
+    /// <summary>
+    /// How hint labels are drawn ("classic", "bubble", "blueOutline", "glass",
+    /// "badge", "tag", "purple", "keycap").
+    /// </summary>
+    public string Style { get; set; } = OverlayThemeNames.Classic;
 
     public int MaxElements { get; set; } = 400;
 

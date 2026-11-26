@@ -447,6 +447,8 @@ public sealed class TrayApp : ApplicationContext
                 gridStyle = GridSettings.NormalizeStyle(_settings.Grid.Style),
                 recursiveGridKeys = _settings.Grid.RecursiveKeys,
                 gridMaxDepth = _settings.Grid.MaxDepth,
+                gridTheme = OverlayThemeNames.NormalizeGrid(_settings.Grid.Theme),
+                hintStyle = OverlayThemeNames.NormalizeHint(_settings.Hint.Style),
                 hintAlphabet = _settings.Hint.Alphabet
             }
         });
@@ -655,6 +657,12 @@ public sealed class TrayApp : ApplicationContext
                 break;
             case "grid.style" when v.ValueKind == System.Text.Json.JsonValueKind.String:
                 _settings.Grid.Style = GridSettings.NormalizeStyle(v.GetString());
+                break;
+            case "grid.theme" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Grid.Theme = OverlayThemeNames.NormalizeGrid(v.GetString());
+                break;
+            case "hint.style" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Hint.Style = OverlayThemeNames.NormalizeHint(v.GetString());
                 break;
             case "grid.maxDepth" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int depth):
                 _settings.Grid.MaxDepth = Math.Clamp(depth, GridSettings.MinMaxDepth, GridSettings.MaxMaxDepth);
@@ -1140,6 +1148,8 @@ public sealed class TrayApp : ApplicationContext
             CursorColors.ToColor(_settings.Feedback.BorderColor),
             _settings.Feedback.BorderThickness);
         _screenBorder.Refresh(_monitors);
+        _hintOverlay.Theme = OverlayThemeNames.ParseHint(_settings.Hint.Style);
+        _gridOverlay.Theme = OverlayThemeNames.ParseGrid(_settings.Grid.Theme);
         _router.UpdateGrid(_settings.Grid);
         _router.UpdateKeys(_settings.Keys);
         _router.UpdateHint(_settings.Hint);

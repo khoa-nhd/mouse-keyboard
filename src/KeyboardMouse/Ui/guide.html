@@ -218,6 +218,10 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .style-tile svg { width: 40px; height: 40px; color: var(--accent); }
 .style-tile.active::after { content: ""; position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 @media (max-width: 720px) { .style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.look-prev { position: relative; width: 100%; height: 58px; border-radius: 8px; overflow: hidden; font-family: "Segoe UI", sans-serif; background: #f3f4f6; }
+.look-prev .fb { position: absolute; height: 20px; border-radius: 5px; background: #fff; border: 1px solid #d5d9df; box-sizing: border-box; }
+.look-prev .lb { position: absolute; white-space: nowrap; font: 700 11px/1 "Segoe UI", sans-serif; letter-spacing: .3px; }
+.look-prev .gc { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
 
 /* ---------- keymap ---------- */
 .keymap-head { align-items: flex-start; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -788,6 +792,14 @@ td:first-child { width: 168px; white-space: nowrap; }
             <div class="seg" id="grid-style"><button data-grid-style="recursive" data-t="grid.recursive">Recursive 3 x 3</button><button data-grid-style="codes" data-t="grid.codes">4-letter codes</button></div></div>
           <div class="setting" data-grid-only="recursive"><div><h3 data-t="settings.depthT">Grid levels</h3><p data-t="settings.depth">How many times the recursive grid narrows before it parks the pointer and closes.</p></div>
             <div class="seg" id="grid-depth"><button data-depth="2">2</button><button data-depth="3">3</button><button data-depth="4">4</button><button data-depth="5">5</button></div></div>
+          <div class="setting" style="display:block" data-grid-only="recursive">
+            <div style="margin-bottom:12px"><h3 data-t="settings.gridLookT">Grid look</h3><p data-t="settings.gridLook">How the 3 x 3 grid is drawn. Applies the next time you press G.</p></div>
+            <div class="style-grid look-grid" id="grid-look"></div>
+          </div>
+          <div class="setting" style="display:block">
+            <div style="margin-bottom:12px"><h3 data-t="settings.hintLookT">Hint label look</h3><p data-t="settings.hintLook">The frame and colours of the hint labels. Applies the next time you press H.</p></div>
+            <div class="style-grid look-grid" id="hint-look"></div>
+          </div>
           <div class="setting" style="display:block; border-bottom:0; padding-bottom:4px">
             <div style="margin-bottom:12px"><h3 data-t="settings.styleT">Pointer style</h3><p data-t="settings.style">The shape that follows the pointer. Its colour shows the active layer.</p></div>
             <div class="style-grid" id="style-grid"></div>
@@ -986,6 +998,12 @@ const T = {
     "practice.tip1": "Press G, then the key of the cell the target is in, two or three times. The pointer lands on it; press Space to click, or F for a right click.",
     "settings.gridT": "Grid style", "settings.grid": "What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the four letters that reach it.",
     "grid.recursive": "Recursive 3 x 3", "grid.codes": "4-letter codes",
+    "settings.gridLookT": "Grid look", "settings.gridLook": "How the 3 x 3 grid is drawn. Applies the next time you press G.",
+    "settings.hintLookT": "Hint label look", "settings.hintLook": "The frame and colours of the hint labels. Applies the next time you press H.",
+    "look.hint.classic": "Original yellow", "look.hint.bubble": "Blue bubble", "look.hint.blueOutline": "Blue outline", "look.hint.glass": "White glass",
+    "look.hint.badge": "Round badge", "look.hint.tag": "Hanging tag", "look.hint.purple": "Deep purple", "look.hint.keycap": "Keycap",
+    "look.grid.classic": "Original", "look.grid.frosted": "Frosted glass", "look.grid.spotlight": "Spotlight", "look.grid.thin": "Thin lines",
+    "look.grid.cards": "Floating cards", "look.grid.bubble": "Bubbles", "look.grid.keyboard": "Keyboard pattern", "look.grid.glow": "Glow border",
     "settings.depthT": "Grid levels", "settings.depth": "How many times the recursive grid narrows before it parks the pointer and closes.",
     "keymap.rgridLead": "One key per cell of the 3 x 3 grid, top row first.",
     "keymap.rgridMode": "In grid mode: a cell key moves the pointer into that cell and narrows the grid to it; after the last level the grid closes with the pointer there. Backspace goes up a level, Tab or the Grid key stops here, Space or Enter click, the Next monitor key (N) switches monitor, Esc cancels.",
@@ -1082,6 +1100,12 @@ const T = {
     "practice.tip1": "Bấm G, rồi bấm phím của ô chứa mục tiêu hai ba lần. Con trỏ nằm ngay trên đó; bấm Space để click, hoặc F để click chuột phải.",
     "settings.gridT": "Kiểu lưới", "settings.grid": "Phím G mở lưới nào. Đệ quy thu hẹp lưới 3 x 3 sau mỗi phím. Mã bốn chữ phủ màn hình bằng các ô nhỏ, mỗi ô in sẵn bốn chữ để tới ô đó.",
     "grid.recursive": "Đệ quy 3 x 3", "grid.codes": "Mã 4 chữ",
+    "settings.gridLookT": "Giao diện lưới", "settings.gridLook": "Cách vẽ lưới 3 x 3. Áp dụng từ lần bấm G tiếp theo.",
+    "settings.hintLookT": "Giao diện nhãn gợi ý", "settings.hintLook": "Khung và màu của nhãn gợi ý. Áp dụng từ lần bấm H tiếp theo.",
+    "look.hint.classic": "Vàng gốc", "look.hint.bubble": "Bong bóng xanh", "look.hint.blueOutline": "Xanh viền", "look.hint.glass": "Kính trắng",
+    "look.hint.badge": "Huy hiệu tròn", "look.hint.tag": "Thẻ treo", "look.hint.purple": "Tím đậm", "look.hint.keycap": "Phím bấm",
+    "look.grid.classic": "Gốc", "look.grid.frosted": "Kính mờ", "look.grid.spotlight": "Đèn rọi", "look.grid.thin": "Nét mảnh",
+    "look.grid.cards": "Thẻ nổi", "look.grid.bubble": "Bong bóng", "look.grid.keyboard": "Họa tiết bàn phím", "look.grid.glow": "Viền sáng",
     "settings.depthT": "Số tầng lưới", "settings.depth": "Lưới đệ quy thu hẹp bao nhiêu lần trước khi đặt con trỏ và tự đóng.",
     "keymap.rgridLead": "Mỗi ô của lưới 3 x 3 một phím, bắt đầu từ hàng trên.",
     "keymap.rgridMode": "Trong chế độ lưới: phím của ô đưa con trỏ vào ô đó và thu lưới lại trong ô; hết tầng cuối thì lưới đóng, con trỏ nằm tại đó. Backspace lùi một tầng, Tab hoặc phím Lưới dừng tại đây, Space hoặc Enter click, phím Sang màn hình kế (N) đổi màn hình, Esc hủy.",
@@ -1112,7 +1136,7 @@ const ACTIONS = [
   { id: "back", cat: "nav", def: "U", en: ["Back", "Mouse back button (browser back)."], vi: ["Lùi", "Nút lùi của chuột (quay lại trang trước)."] },
   { id: "forward", cat: "nav", def: "O", en: ["Forward", "Mouse forward button."], vi: ["Tới", "Nút tới của chuột."] },
   { id: "grid", cat: "jump", def: "G", en: ["Grid", "One grid of small cells, each printed with the four keys that click it."], vi: ["Lưới", "Một lưới ô nhỏ, mỗi ô in sẵn bốn phím để bấm vào ô đó."] },
-  { id: "hint", cat: "jump", def: "H", en: ["Hints", "Label every clickable thing; type a label to click it."], vi: ["Nhãn", "Gắn nhãn cho mọi thứ bấm được; gõ nhãn để click."] },
+  { id: "hint", cat: "jump", def: "H", en: ["Hints", "Label every clickable thing; type a label to click it. Press it again to close."], vi: ["Nhãn", "Gắn nhãn cho mọi thứ bấm được; gõ nhãn để click. Bấm lại để tắt."] },
   { id: "centerScreen", cat: "jump", def: "X", en: ["Screen", "Jump to the center of the current screen."], vi: ["Giữa MH", "Nhảy tới giữa màn hình hiện tại."] },
   { id: "centerWindow", cat: "jump", def: "C", en: ["Window", "Jump to the center of the active window."], vi: ["Giữa CS", "Nhảy tới giữa cửa sổ đang mở."] },
   { id: "nextMonitor", cat: "jump", def: "N", en: ["Monitor", "Jump to the next monitor."], vi: ["MH kế", "Nhảy sang màn hình kế tiếp."] },
@@ -1146,7 +1170,7 @@ let selectedKey = null;
 let state = {
   version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
   shortcuts: { desktop: false, startMenu: false },
-  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {}, gridStyle: "recursive", gridMaxDepth: 3, recursiveGridKeys: ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"] }
+  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {}, gridStyle: "recursive", gridMaxDepth: 3, hintStyle: "classic", gridTheme: "classic", recursiveGridKeys: ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"] }
 };
 
 /* ---------------- pointer styles ---------------- */
@@ -1359,6 +1383,7 @@ function renderSettings() {
   $('[data-bind="screenBorder"]').checked = !!s.screenBorder;
   $('[data-bind="updateCheckOnStart"]').checked = !!s.updateCheckOnStart;
   renderStyleGrid();
+  renderLooks();
   const size = Math.max(4, Math.min(40, Math.round(s.dotSize || 12)));
   if (!drafts.has("dotSize")) {
     if (document.activeElement !== $("#dot-size")) $("#dot-size").value = size;
@@ -1592,6 +1617,63 @@ function renderStyleGrid() {
     return `<button class="style-tile${active ? " active" : ""}" type="button" data-style="${s.id}" aria-pressed="${active}">` +
       `<svg viewBox="0 0 40 40" aria-hidden="true" style="color:${tint}">${s.svg}</svg><span>${t(s.label)}</span></button>`;
   }).join("");
+}
+
+/* Hint label and grid looks. The previews mirror what the overlay draws. */
+const BLUE = "#2F6BFF";
+const HINT_LOOKS = [
+  { id: "classic", label: "look.hint.classic", css: "background:#FFD60A;border:1px solid #1e1e1e;border-radius:4px;padding:3px 6px;color:#191919;box-shadow:2px 2px 0 rgba(0,0,0,.45)" },
+  { id: "bubble", label: "look.hint.bubble", css: "background:#2F6BFF;color:#fff;border-radius:7px;padding:4px 8px;box-shadow:0 2px 0 rgba(20,40,120,.45)", tail: "#2F6BFF" },
+  { id: "blueOutline", label: "look.hint.blueOutline", css: "background:#fff;color:#1E4FD8;border:1.5px solid #2F6BFF;border-radius:7px;padding:3px 8px;box-shadow:0 2px 0 rgba(0,0,0,.3)", tail: "#2F6BFF" },
+  { id: "glass", label: "look.hint.glass", css: "background:rgba(255,255,255,.91);color:#111;border:1px solid rgba(0,0,0,.18);border-radius:6px;padding:4px 8px;box-shadow:0 2px 0 rgba(0,0,0,.35)" },
+  { id: "badge", label: "look.hint.badge", css: "background:#111827;color:#fff;border:2px solid #FFD84D;border-radius:999px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box" },
+  { id: "tag", label: "look.hint.tag", css: "background:#FF6B4A;color:#fff;border-radius:3px 7px 7px 3px;padding:4px 8px 4px 13px;box-shadow:0 2px 0 rgba(0,0,0,.35)", hole: true },
+  { id: "purple", label: "look.hint.purple", css: "background:#3B2A8C;color:#F4F7A1;border-radius:6px;padding:4px 8px;box-shadow:0 2px 0 rgba(0,0,0,.4)" },
+  { id: "keycap", label: "look.hint.keycap", css: "background:#fff;color:#1b1f24;border:1px solid #9aa1ab;border-bottom:3px solid #7d8590;border-radius:5px;padding:2px 7px;text-transform:uppercase;box-shadow:0 2px 0 rgba(0,0,0,.3)" }
+];
+const GRID_LOOKS = [
+  { id: "classic", label: "look.grid.classic" }, { id: "frosted", label: "look.grid.frosted" },
+  { id: "spotlight", label: "look.grid.spotlight" }, { id: "thin", label: "look.grid.thin" },
+  { id: "cards", label: "look.grid.cards" }, { id: "bubble", label: "look.grid.bubble" },
+  { id: "keyboard", label: "look.grid.keyboard" }, { id: "glow", label: "look.grid.glow" }
+];
+function hintPreview(look) {
+  const tail = look.tail ? `<i style="position:absolute;left:6px;bottom:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${look.tail}"></i>` : "";
+  const hole = look.hole ? `<i style="position:absolute;left:4px;top:50%;margin-top:-2.5px;width:5px;height:5px;border-radius:50%;background:#fff"></i>` : "";
+  const label = (text, left) => `<span class="lb" style="left:${left};top:9px"><span style="position:relative;display:inline-block;${look.css}">${text}${tail}${hole}</span></span>`;
+  return `<div class="look-prev"><div class="fb" style="left:20px;top:26px;width:42%"></div><div class="fb" style="left:60%;top:26px;width:32%"></div>${label("as", "10px")}${label("jd", "55%")}</div>`;
+}
+function gridPreview(id) {
+  const keys = ["U", "I", "O", "J", "K", "L", "M", ",", "."];
+  const dim = { classic: .38, frosted: .30, spotlight: .62, thin: 0, cards: .45, bubble: .35, keyboard: .30, glow: .70 }[id];
+  let cells = "";
+  for (let i = 0; i < 9; i++) {
+    const x = (i % 3) * 33.333, y = Math.floor(i / 3) * 33.333, k = keys[i];
+    let cell = "", key = "";
+    if (id === "classic") { cell = `background:${i % 2 ? "rgba(44,112,123,.2)" : "rgba(59,91,140,.3)"};border:1px solid rgba(255,255,255,.75)`; key = `<b style="font:700 11px Segoe UI;color:#fff;text-shadow:1px 1px 1px #000">${k}</b>`; }
+    if (id === "frosted") { cell = "border:1px solid rgba(255,255,255,.55)"; key = `<b style="font:700 7px Segoe UI;color:#fff;background:rgba(22,24,29,.72);border-radius:50%;width:11px;height:11px;display:flex;align-items:center;justify-content:center">${k}</b>`; }
+    if (id === "spotlight") { cell = "border:1px solid rgba(255,255,255,.18)"; key = `<b style="font:700 7px Segoe UI;color:#1b1f24;background:#fff;border-bottom:2px solid #8a929c;border-radius:2px;padding:0 3px">${k}</b>`; }
+    if (id === "thin") { cell = "border:1px dashed rgba(60,60,60,.9)"; key = `<b style="font:800 11px Segoe UI;color:#fff;-webkit-text-stroke:1px #111;paint-order:stroke">${k}</b>`; }
+    if (id === "cards") { cell = "margin:1px;width:calc(33.333% - 2px)!important;height:calc(33.333% - 2px)!important;background:rgba(17,20,28,.45);border:1px solid rgba(255,255,255,.25);border-radius:3px"; key = `<b style="font:600 10px Segoe UI;color:#fff">${k}</b>`; }
+    if (id === "bubble") { cell = "border:1px solid rgba(255,255,255,.35)"; key = `<b style="font:700 7px Segoe UI;color:#fff;background:#2F6BFF;border-radius:3px;padding:1px 3px">${k}</b>`; }
+    if (id === "keyboard") { cell = "background:rgba(7,10,18,.3);border:1px solid rgba(255,255,255,.45)"; key = `<b style="font:600 10px Segoe UI;color:#fff;text-shadow:0 1px 1px #000">${k}</b>`; }
+    if (id === "glow") { cell = "background:rgba(7,10,18,.45);border:1px solid rgba(127,178,255,.35)"; key = `<b style="font:300 11px Segoe UI;color:#fff">${k}</b>`; }
+    cells += `<div class="gc" style="left:${x}%;top:${y}%;width:33.333%;height:33.333%;${cell}">${key}</div>`;
+  }
+  const frame = { classic: "2px solid #FFD666", frosted: "1.5px solid #fff", spotlight: "1.5px solid #2F6BFF", thin: "1px solid #111", cards: "0", bubble: "1.5px solid #2F6BFF", keyboard: "1px solid #fff", glow: "1.5px solid #7FB2FF" }[id];
+  const glow = id === "glow" ? "box-shadow:0 0 6px 2px rgba(127,178,255,.6);" : "";
+  return `<div class="look-prev"><div class="fb" style="left:8px;top:8px;width:46%"></div><div class="fb" style="left:56%;top:30px;width:38%"></div>` +
+    `<div style="position:absolute;inset:0;background:rgba(7,10,18,${dim})"></div>` +
+    `<div style="position:absolute;left:18%;top:5px;width:64%;height:48px;border:${frame};border-radius:3px;box-sizing:border-box;${glow}">${cells}</div></div>`;
+}
+function renderLooks() {
+  const hint = String(state.settings.hintStyle || "classic");
+  const grid = String(state.settings.gridTheme || "classic");
+  const tile = (attr, id, active, preview, label) =>
+    `<button class="style-tile${active ? " active" : ""}" type="button" ${attr}="${id}" aria-pressed="${active}">${preview}<span>${t(label)}</span></button>`;
+  const h = $("#hint-look"), g = $("#grid-look");
+  if (h) h.innerHTML = HINT_LOOKS.map(l => tile("data-hint-look", l.id, l.id === hint, hintPreview(l), l.label)).join("");
+  if (g) g.innerHTML = GRID_LOOKS.map(l => tile("data-grid-look", l.id, l.id === grid, gridPreview(l.id), l.label)).join("");
 }
 
 function renderAll() {
@@ -2058,6 +2140,21 @@ $$("#border-style button").forEach(button => button.addEventListener("click", ()
   if (id === "none" && state.settings.screenBorder) setScreenBorder(false);
   renderSettings();
 }));
+
+$("#hint-look").addEventListener("click", e => {
+  const tile = e.target.closest("[data-hint-look]");
+  if (!tile) return;
+  state.settings.hintStyle = tile.dataset.hintLook;
+  send({ cmd: "setSetting", key: "hint.style", value: tile.dataset.hintLook });
+  renderLooks();
+});
+$("#grid-look").addEventListener("click", e => {
+  const tile = e.target.closest("[data-grid-look]");
+  if (!tile) return;
+  state.settings.gridTheme = tile.dataset.gridLook;
+  send({ cmd: "setSetting", key: "grid.theme", value: tile.dataset.gridLook });
+  renderLooks();
+});
 
 $$("#grid-style button").forEach(b => b.addEventListener("click", () => {
   state.settings.gridStyle = b.dataset.gridStyle;
