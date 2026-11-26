@@ -3,6 +3,25 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.9.2] - 2026-11-26
+
+### Fixed
+- **Caps Lock and mouse control did nothing while the KeyboardMouse window
+  was in front.** The raw keyboard input that the 1.9.0 watchdog listened to
+  stopped the keyboard hook from being called whenever the app's own window
+  had focus. Raw input is gone; the watchdog now only reads which keys
+  Windows reports as held, and reinstalls the hook after three fresh key
+  presses that the hook never heard. It still sends no input of its own.
+- The Keys page keyboard no longer runs off the edge of a small window: keys
+  shrink to fit, and on very small windows the action names hide (hover a
+  key to see it).
+
+### Changed
+- **No key** sits right under the keyboard, with a Hide / Show button. A
+  hidden box opens by itself while you drag.
+- Shorter drag hint: drag a key onto another key to move it, drag it off the
+  keyboard to remove it.
+
 ## [1.9.1] - 2026-11-26
 
 ### Fixed

@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using KeyboardMouse.Native;
 using KeyboardMouse.Platform;
 
@@ -21,11 +20,14 @@ public sealed class KeyboardHook : IDisposable
     private System.Threading.Timer? _watchdog;
     private long _lastCallbackTicks;
     private int _reinstalling;
-    private long _lastRawTicks;      // last raw key-down the hook did not see
-    private int _rawMissed;          // raw key-downs since the hook's last callback
+    private int _missedPolls;        // polls that saw a key held while the hook was silent
     private long _lastReinstallTicks;
     private int _probePending;
-    private RawKeyboardSink? _rawSink;
+    private int _pollCount;
+#if DEBUG
+    private System.Threading.Timer? _testDropper;
+#endif
+    private readonly bool[] _heldBefore = new bool[256]; // watchdog thread only
     private SynchronizationContext? _uiContext; // the installing (message loop) thread
 
     public KeyboardHook()
@@ -64,30 +66,30 @@ public sealed class KeyboardHook : IDisposable
 
         _keysDown.Clear();
         Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
-        Volatile.Write(ref _lastRawTicks, 0);
-        Interlocked.Exchange(ref _rawMissed, 0);
+        Interlocked.Exchange(ref _missedPolls, 0);
 
-        // Windows silently removes slow low-level hooks. Raw input reports
-        // every key without us injecting anything, so a key that raw input
-        // saw but the hook did not means the hook is gone. Nothing synthetic
-        // is ever sent: injected input resets the idle timer and would keep
-        // the PC from sleeping or starting the screen saver.
-        if (_rawSink is null)
+        // Windows silently removes slow low-level hooks. Every 100 ms the
+        // watchdog asks Windows which keys are held down: new key presses
+        // while the hook has heard nothing for a while mean the hook is gone.
+        // It only reads key state. It never sends input (that would reset
+        // the idle timer and keep the PC awake) and never registers for raw
+        // input (that stops the hook while our own window is in front).
+        _watchdog ??= new System.Threading.Timer(WatchdogTick, null, 1000, 50);
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("KM_TEST_DROP_HOOK") == "1")
         {
-            try
+            // Simulates Windows silently removing the hook.
+            var context = _uiContext;
+            var dropper = new System.Threading.Timer(_ => context.Post(__ =>
             {
-                _rawSink = new RawKeyboardSink(OnRawKeyDown);
-            }
-            catch (Exception ex)
-            {
-                Log.Error("Raw keyboard input is unavailable; the hook watchdog is off", ex);
-            }
+                User32.UnhookWindowsHookEx(_hook);
+                Log.Info("[test] hook dropped on purpose");
+            }, null));
+            dropper.Change(4000, System.Threading.Timeout.Infinite);
+            GC.KeepAlive(dropper);
+            _testDropper = dropper;
         }
-
-        if (_watchdog is null && _rawSink is not null)
-        {
-            _watchdog = new System.Threading.Timer(WatchdogTick, null, 2000, 2000);
-        }
+#endif
     }
 
     public void Uninstall()
@@ -95,8 +97,6 @@ public sealed class KeyboardHook : IDisposable
         _handler = null;
         _watchdog?.Dispose();
         _watchdog = null;
-        _rawSink?.Dispose();
-        _rawSink = null;
         if (_hook != IntPtr.Zero)
         {
             User32.UnhookWindowsHookEx(_hook);
@@ -116,7 +116,6 @@ public sealed class KeyboardHook : IDisposable
         // Heartbeat: updated before any filtering, so every event the hook
         // sees proves it is alive.
         Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
-        Interlocked.Exchange(ref _rawMissed, 0);
 
         try
         {
@@ -124,7 +123,7 @@ public sealed class KeyboardHook : IDisposable
 
             // Never react to our own injected input: otherwise e.g. the copy
             // chord we synthesize would be routed back into the app.
-            if ((data.flags & User32.LLKHF_INJECTED) != 0)
+            if ((data.flags & User32.LLKHF_INJECTED) != 0 && !IsTestKey(data))
             {
                 return User32.CallNextHookEx(_hook, nCode, wParam, lParam);
             }
@@ -175,6 +174,17 @@ public sealed class KeyboardHook : IDisposable
         }
     }
 
+#if DEBUG
+    // Debug builds only: with KM_TEST_KEYS=1, injected keys tagged with this
+    // extra-info value count as real, so UI tests can drive the hook.
+    private static readonly bool TestKeysEnabled = Environment.GetEnvironmentVariable("KM_TEST_KEYS") == "1";
+
+    private static bool IsTestKey(KBDLLHOOKSTRUCT data) =>
+        TestKeysEnabled && data.dwExtraInfo == (UIntPtr)0x4B4D5445u;
+#else
+    private static bool IsTestKey(KBDLLHOOKSTRUCT data) => false;
+#endif
+
     public void Dispose()
     {
         if (_disposed)
@@ -199,9 +209,9 @@ public sealed class KeyboardHook : IDisposable
 
         long now = Environment.TickCount64;
 
-        // Probe the UI thread: the hook runs there, so a stall over the
-        // low-level hook timeout is what makes Windows drop the hook.
-        if (Interlocked.CompareExchange(ref _probePending, 1, 0) == 0)
+        // Every 2 s (40 polls), probe the UI thread: the hook runs there, so a stall over
+        // the low-level hook timeout is what makes Windows drop the hook.
+        if (++_pollCount % 40 == 0 && Interlocked.CompareExchange(ref _probePending, 1, 0) == 0)
         {
             long posted = now;
             _uiContext?.Post(_ =>
@@ -215,18 +225,25 @@ public sealed class KeyboardHook : IDisposable
             }, null);
         }
 
-        if (!HookLooksDead(
-                Volatile.Read(ref _rawMissed),
-                Volatile.Read(ref _lastRawTicks),
-                now))
+        bool newKeyDown = NewKeyWentDown(_heldBefore);
+        long silentFor = now - Volatile.Read(ref _lastCallbackTicks);
+        if (!HookLooksDead(silentFor))
+        {
+            Interlocked.Exchange(ref _missedPolls, 0);
+            return;
+        }
+
+        // Three fresh key presses that the hook never heard. A key stuck
+        // down counts once at most, so it cannot trigger this on its own.
+        if (!newKeyDown || Interlocked.Increment(ref _missedPolls) < 3)
         {
             return;
         }
 
-        Interlocked.Exchange(ref _rawMissed, 0);
+        Interlocked.Exchange(ref _missedPolls, 0);
 
-        // A non-elevated hook never sees keys typed into an elevated window,
-        // while raw input may: that is not a dead hook.
+        // A non-elevated hook never sees keys typed into an elevated window:
+        // that is not a dead hook.
         if (ForegroundIsOutOfReach())
         {
             return;
@@ -250,22 +267,32 @@ public sealed class KeyboardHook : IDisposable
     }
 
     /// <summary>
-    /// Raw input delivered a key-down. The hook's callback for the same key
-    /// runs first and clears the counter, so a live hook keeps it at 0 or 1.
+    /// A live hook hears every key press within milliseconds, so a press
+    /// after more than a second of silence was not delivered to the hook.
     /// </summary>
-    private void OnRawKeyDown()
-    {
-        Interlocked.Increment(ref _rawMissed);
-        Volatile.Write(ref _lastRawTicks, Environment.TickCount64);
-    }
+    internal static bool HookLooksDead(long silentForMs) => silentForMs > 1000;
 
     /// <summary>
-    /// True when at least three real key presses reached raw input without a
-    /// single hook callback in between, and the last one is old enough
-    /// (300 ms) that a live hook would have seen it by now.
+    /// Reads which keyboard keys Windows reports as held and returns true
+    /// when one of them was not held at the previous poll. Keys the hook
+    /// swallows never show up here, so only keys that reached Windows count.
     /// </summary>
-    internal static bool HookLooksDead(int rawMissed, long lastRawTicks, long nowTicks) =>
-        rawMissed >= 3 && lastRawTicks > 0 && nowTicks - lastRawTicks > 300;
+    private static bool NewKeyWentDown(bool[] heldBefore)
+    {
+        bool fresh = false;
+        for (int vk = 0x08; vk <= 0xFE; vk++)
+        {
+            bool held = vk != 0xE7 && (User32.GetAsyncKeyState((short)vk) & 0x8000) != 0;
+            if (held && !heldBefore[vk])
+            {
+                fresh = true;
+            }
+
+            heldBefore[vk] = held;
+        }
+
+        return fresh;
+    }
 
     private static bool ForegroundIsOutOfReach()
     {
@@ -310,7 +337,7 @@ public sealed class KeyboardHook : IDisposable
             _hook = User32.SetWindowsHookExW(User32.WH_KEYBOARD_LL, _proc, module, 0);
 
             Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
-            Interlocked.Exchange(ref _rawMissed, 0);
+            Interlocked.Exchange(ref _missedPolls, 0);
 
             if (_hook == IntPtr.Zero)
             {
@@ -328,90 +355,6 @@ public sealed class KeyboardHook : IDisposable
         finally
         {
             Interlocked.Exchange(ref _reinstalling, 0);
-        }
-    }
-}
-
-/// <summary>
-/// A message-only window that receives raw keyboard input in the background
-/// (RIDEV_INPUTSINK). It only notes when a key arrived; it never reads which.
-/// </summary>
-internal sealed class RawKeyboardSink : NativeWindow, IDisposable
-{
-    private const int WM_INPUT = 0x00FF;
-    private readonly Action _onKey;
-
-    public RawKeyboardSink(Action onKey)
-    {
-        _onKey = onKey;
-        CreateHandle(new CreateParams { Parent = new IntPtr(-3) }); // HWND_MESSAGE
-
-        var device = new User32.RAWINPUTDEVICE
-        {
-            usUsagePage = 0x01, // generic desktop
-            usUsage = 0x06,     // keyboard
-            dwFlags = User32.RIDEV_INPUTSINK,
-            hwndTarget = Handle
-        };
-
-        if (!User32.RegisterRawInputDevices(new[] { device }, 1, (uint)Marshal.SizeOf<User32.RAWINPUTDEVICE>()))
-        {
-            int error = Marshal.GetLastWin32Error();
-            DestroyHandle();
-            throw new InvalidOperationException($"RegisterRawInputDevices failed with error {error}.");
-        }
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WM_INPUT && IsRealKeyDown(m.LParam))
-        {
-            _onKey();
-        }
-
-        base.WndProc(ref m);
-    }
-
-    /// <summary>
-    /// Key-downs with a real virtual key only. Key-ups, fake keys (VK 0xFF,
-    /// sent by some laptop Fn keys and remappers) and packets are skipped.
-    /// </summary>
-    private static bool IsRealKeyDown(IntPtr rawInput)
-    {
-        const uint RID_INPUT = 0x10000003;
-        const uint RIM_TYPEKEYBOARD = 1;
-        int header = IntPtr.Size == 8 ? 24 : 16;
-        var buffer = new byte[header + 16];
-        uint size = (uint)buffer.Length;
-        if (User32.GetRawInputData(rawInput, RID_INPUT, buffer, ref size, (uint)header) == unchecked((uint)-1))
-        {
-            return false;
-        }
-
-        if (BitConverter.ToUInt32(buffer, 0) != RIM_TYPEKEYBOARD)
-        {
-            return false;
-        }
-
-        ushort flags = BitConverter.ToUInt16(buffer, header + 2);
-        ushort vk = BitConverter.ToUInt16(buffer, header + 6);
-        bool keyUp = (flags & 0x01) != 0;
-        return !keyUp && vk is not (0 or 0xFF or 0xE7);
-    }
-
-    public void Dispose()
-    {
-        if (Handle != IntPtr.Zero)
-        {
-            var device = new User32.RAWINPUTDEVICE
-            {
-                usUsagePage = 0x01,
-                usUsage = 0x06,
-                dwFlags = User32.RIDEV_REMOVE,
-                hwndTarget = IntPtr.Zero
-            };
-            User32.RegisterRawInputDevices(new[] { device }, 1, (uint)Marshal.SizeOf<User32.RAWINPUTDEVICE>());
-            DestroyHandle();
         }
     }
 }

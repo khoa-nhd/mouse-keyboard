@@ -232,6 +232,12 @@ public sealed class TrayApp : ApplicationContext
         }
 
         bool swallow = _router.HandleKey(keyEvent);
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("KM_TEST_KEYS") == "1")
+        {
+            Log.Info($"[test] {keyEvent.Key} {(keyEvent.IsDown ? "down" : "up")} swallow={swallow} mode={_state.MouseModeOn} guideActive={Form.ActiveForm == _guide} fg=0x{User32.GetForegroundWindow():X}");
+        }
+#endif
 
         if (_guide is { } guide && !keyEvent.IsRepeat && Form.ActiveForm == guide)
         {
