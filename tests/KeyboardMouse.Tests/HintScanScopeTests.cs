@@ -44,9 +44,11 @@ public class HintScanScopeTests
     public void Settings_NormalizeRepairsTheScopeId()
     {
         var settings = new Settings();
+        // An unreadable value in a file from before the scope picker lands on
+        // the default, the whole screen.
         settings.Hint.ScanScope = "bogus";
         settings.Normalize();
-        Assert.Equal(ScanScopeNames.Foreground, settings.Hint.ScanScope);
+        Assert.Equal(ScanScopeNames.ActiveMonitor, settings.Hint.ScanScope);
 
         settings.Hint.ScanScope = "  allMonitors ";
         settings.Normalize();

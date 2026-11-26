@@ -207,6 +207,9 @@ public sealed class ClickableScanner : IClickableScanner
         var handles = ChooseWindows(foreground, options, region);
         var visibility = VisibilityFor(handles);
 
+        // The screen as it looked when H was pressed, for the blank test.
+        var pixels = captures.Select(capture => (capture.Region, capture.Image)).ToList();
+
         // Reading a property of an accessibility element is a cross-process
         // call, so a huge tree (a browser, an IDE) can spend seconds on elements
         // the cap would discard anyway. Stop reading once the list is clearly
@@ -227,7 +230,7 @@ public sealed class ClickableScanner : IClickableScanner
             budgetMs,
             early =>
             {
-                var partial = HintTargetFilter.Apply(early, monitors, limit, visibility: visibility);
+                var partial = VisualHintSupplement.DropBlank(HintTargetFilter.Apply(early, monitors, limit, visibility: visibility), pixels);
 
                 if (visual is { IsCompleted: true })
                 {
@@ -250,7 +253,7 @@ public sealed class ClickableScanner : IClickableScanner
 
         // No region clip here: the foreground scope owns its popups, and a
         // context menu can be drawn outside the window's own bounds.
-        var targets = HintTargetFilter.Apply(raw, monitors, limit, visibility: visibility);
+        var targets = VisualHintSupplement.DropBlank(HintTargetFilter.Apply(raw, monitors, limit, visibility: visibility), pixels);
 
         // Chromium and Electron apps build their accessibility tree lazily.
         // One quick retry gives the first scan a chance to become useful.
@@ -258,7 +261,7 @@ public sealed class ClickableScanner : IClickableScanner
         {
             Thread.Sleep(150);
             var retry = CollectWindows(handles, rawCap, stopwatch, budgetMs);
-            targets = HintTargetFilter.Apply(retry.Raw, monitors, limit, visibility: visibility);
+            targets = VisualHintSupplement.DropBlank(HintTargetFilter.Apply(retry.Raw, monitors, limit, visibility: visibility), pixels);
         }
 
         Log.Info(
@@ -676,7 +679,7 @@ public sealed class ClickableScanner : IClickableScanner
         {
             // UIA3 is COM-based; the automation object and every call it makes
             // stay on this reader's thread.
-            Collect(automation, automation.FromHandle(handle), items, cap, handle);
+            Collect(automation, FromHandleWithRetry(automation, handle), items, cap, handle);
             items = ConfirmHits(automation, handle, items);
         }
         catch (Exception ex)
@@ -712,7 +715,13 @@ public sealed class ClickableScanner : IClickableScanner
             return items;
         }
 
-        var request = new CacheRequest { TreeScope = TreeScope.Element };
+        var request = new CacheRequest
+        {
+            TreeScope = TreeScope.Element,
+            // FlaUI defaults to None: cached elements with no live reference,
+            // on which every later call (walking to a parent) fails.
+            AutomationElementMode = AutomationElementMode.Full
+        };
         request.Add(automation.PropertyLibrary.Element.BoundingRectangle);
 
         using (request.Activate())
@@ -750,32 +759,33 @@ public sealed class ClickableScanner : IClickableScanner
     /// </summary>
     private static bool HasAncestorAt(UIA3Automation automation, AutomationElement? target, Rectangle hit)
     {
-        if (target is null)
+        if (target?.FrameworkAutomationElement is not UIA3FrameworkAutomationElement framework)
         {
             return true;
         }
 
-        var walker = automation.TreeWalkerFactory.GetRawViewWalker();
-        var property = automation.PropertyLibrary.Element.BoundingRectangle;
+        var walker = automation.NativeAutomation.RawViewWalker;
+        var current = framework.NativeElement;
         long hitArea = (long)hit.Width * hit.Height;
-        var current = target;
 
-        for (int depth = 0; depth < 24; depth++)
+        for (int depth = 0; depth < 24 && current is not null; depth++)
         {
-            current = walker.GetParent(current);
+            current = walker.GetParentElement(current);
 
-            if (current is null ||
-                !current.FrameworkAutomationElement.TryGetPropertyValue<Rectangle>(property, out var bounds))
+            if (current is null)
             {
                 return false;
             }
+
+            var rect = current.CurrentBoundingRectangle;
+            var bounds = Rectangle.FromLTRB(rect.left, rect.top, rect.right, rect.bottom);
 
             if (bounds == hit)
             {
                 return true;
             }
 
-            if ((long)bounds.Width * bounds.Height > hitArea && !bounds.IsEmpty)
+            if (!bounds.IsEmpty && (long)bounds.Width * bounds.Height > hitArea)
             {
                 return false;
             }
@@ -783,6 +793,28 @@ public sealed class ClickableScanner : IClickableScanner
 
         return false;
     }
+
+    /// <summary>
+    /// UI Automation sometimes answers E_FAIL for a window that is perfectly
+    /// readable a moment later (a provider still starting, a busy broker).
+    /// Losing the window then meant losing every one of its hints.
+    /// </summary>
+    private static AutomationElement FromHandleWithRetry(UIA3Automation automation, IntPtr handle)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return automation.FromHandle(handle);
+            }
+            catch (Exception ex) when (attempt < FromHandleAttempts && ex is COMException or System.ComponentModel.Win32Exception)
+            {
+                Thread.Sleep(25 * attempt);
+            }
+        }
+    }
+
+    private const int FromHandleAttempts = 3;
 
     /// <summary>A window this slow is worth naming in the log.</summary>
     private const int SlowWindowMs = 400;
@@ -823,7 +855,13 @@ public sealed class ClickableScanner : IClickableScanner
             patterns.ExpandCollapsePattern.AvailabilityProperty
         };
 
-        var request = new CacheRequest { TreeScope = TreeScope.Element };
+        var request = new CacheRequest
+        {
+            TreeScope = TreeScope.Element,
+            // FlaUI defaults to None: cached elements with no live reference,
+            // on which every later call (walking to a parent) fails.
+            AutomationElementMode = AutomationElementMode.Full
+        };
         request.Add(element.ControlType);
         request.Add(element.BoundingRectangle);
         request.Add(element.IsOffscreen);

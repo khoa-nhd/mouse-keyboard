@@ -80,7 +80,8 @@ public static class HitConfirmation
                 continue;
             }
 
-            if (found.Contains(bounds) && SafeAncestor(isAncestor, items[i], found))
+            if (found.Contains(bounds) &&
+                (IsStrip(found, bounds) || SafeAncestor(isAncestor, items[i], found)))
             {
                 continue;
             }
@@ -128,6 +129,18 @@ public static class HitConfirmation
 
         return hitArea <= MaxPartScale * targetArea && shared >= MinSharedShare * hitArea;
     }
+
+    /// <summary>
+    /// A hit that encloses the target but is not much bigger in one direction is
+    /// the bar the control sits on (a title bar answering for its caption
+    /// buttons), not content drawn over it. What hides a control — a page, a
+    /// panel — dwarfs it both ways.
+    /// </summary>
+    public static bool IsStrip(Rectangle hit, Rectangle target) =>
+        hit.Width < CoverScale * target.Width || hit.Height < CoverScale * target.Height;
+
+    /// <summary>How much bigger, in both directions, a covering element is than what it hides.</summary>
+    public const double CoverScale = 2;
 
     /// <summary>Largest size, relative to the target, an overflowing part may have.</summary>
     public const double MaxPartScale = 4;

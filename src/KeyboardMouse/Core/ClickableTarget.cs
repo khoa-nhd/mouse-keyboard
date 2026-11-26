@@ -42,6 +42,23 @@ public static class HintTargetFilter
 {
     private const int DuplicateCenterPixels = 4;
 
+    /// <summary>Share of the larger box two boxes must share to count as one control.</summary>
+    public const double SameControlShare = 0.7;
+
+    /// <summary>Whether two boxes overlap so much that they are the same control.</summary>
+    public static bool SameControl(Rectangle a, Rectangle b)
+    {
+        var overlap = Rectangle.Intersect(a, b);
+
+        if (overlap.Width <= 0 || overlap.Height <= 0)
+        {
+            return false;
+        }
+
+        long larger = Math.Max((long)a.Width * a.Height, (long)b.Width * b.Height);
+        return (long)overlap.Width * overlap.Height >= SameControlShare * larger;
+    }
+
     /// <summary>Width or height above which an unnamed element is panel-sized.</summary>
     public const int ContainerWidth = 600;
 
@@ -170,6 +187,20 @@ public static class HintTargetFilter
                 {
                     duplicate = true;
                     break;
+                }
+            }
+
+            // A row and the link filling it, or a button and its inner part, are
+            // one control to the user: two labels for it is only clutter.
+            if (!duplicate)
+            {
+                foreach (var existing in targets)
+                {
+                    if (SameControl(existing.Bounds, bounds))
+                    {
+                        duplicate = true;
+                        break;
+                    }
                 }
             }
 

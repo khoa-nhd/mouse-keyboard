@@ -796,6 +796,8 @@ td:first-child { width: 168px; white-space: nowrap; }
             <div style="margin-bottom:12px"><h3 data-t="settings.gridLookT">Grid look</h3><p data-t="settings.gridLook">How the 3 x 3 grid is drawn. Applies the next time you press G.</p></div>
             <div class="style-grid look-grid" id="grid-look"></div>
           </div>
+          <div class="setting"><div><h3 data-t="settings.scopeT">Hint area</h3><p data-t="settings.scope">Where H looks for things to click: the window you are in, the whole screen the pointer is on, or every screen.</p></div>
+            <div class="seg" id="hint-scope"><button data-scope="foreground" data-t="scope.window">Window</button><button data-scope="activeMonitor" data-t="scope.screen">Screen</button><button data-scope="allMonitors" data-t="scope.all">All screens</button></div></div>
           <div class="setting" style="display:block">
             <div style="margin-bottom:12px"><h3 data-t="settings.hintLookT">Hint label look</h3><p data-t="settings.hintLook">The frame and colours of the hint labels. Applies the next time you press H.</p></div>
             <div class="style-grid look-grid" id="hint-look"></div>
@@ -999,6 +1001,8 @@ const T = {
     "settings.gridT": "Grid style", "settings.grid": "What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the four letters that reach it.",
     "grid.recursive": "Recursive 3 x 3", "grid.codes": "4-letter codes",
     "settings.gridLookT": "Grid look", "settings.gridLook": "How the 3 x 3 grid is drawn. Applies the next time you press G.",
+    "settings.scopeT": "Hint area", "settings.scope": "Where H looks for things to click: the window you are in, the whole screen the pointer is on, or every screen.",
+    "scope.window": "Window", "scope.screen": "Screen", "scope.all": "All screens",
     "settings.hintLookT": "Hint label look", "settings.hintLook": "The frame and colours of the hint labels. Applies the next time you press H.",
     "look.hint.classic": "Original yellow", "look.hint.bubble": "Blue bubble", "look.hint.blueOutline": "Blue outline", "look.hint.glass": "White glass",
     "look.hint.badge": "Round badge", "look.hint.tag": "Hanging tag", "look.hint.purple": "Deep purple", "look.hint.keycap": "Keycap",
@@ -1101,6 +1105,8 @@ const T = {
     "settings.gridT": "Kiểu lưới", "settings.grid": "Phím G mở lưới nào. Đệ quy thu hẹp lưới 3 x 3 sau mỗi phím. Mã bốn chữ phủ màn hình bằng các ô nhỏ, mỗi ô in sẵn bốn chữ để tới ô đó.",
     "grid.recursive": "Đệ quy 3 x 3", "grid.codes": "Mã 4 chữ",
     "settings.gridLookT": "Giao diện lưới", "settings.gridLook": "Cách vẽ lưới 3 x 3. Áp dụng từ lần bấm G tiếp theo.",
+    "settings.scopeT": "Vùng gợi ý", "settings.scope": "Phím H tìm nút ở đâu: cửa sổ đang dùng, cả màn hình đang có con trỏ, hay mọi màn hình.",
+    "scope.window": "Cửa sổ", "scope.screen": "Màn hình", "scope.all": "Mọi màn hình",
     "settings.hintLookT": "Giao diện nhãn gợi ý", "settings.hintLook": "Khung và màu của nhãn gợi ý. Áp dụng từ lần bấm H tiếp theo.",
     "look.hint.classic": "Vàng gốc", "look.hint.bubble": "Bong bóng xanh", "look.hint.blueOutline": "Xanh viền", "look.hint.glass": "Kính trắng",
     "look.hint.badge": "Huy hiệu tròn", "look.hint.tag": "Thẻ treo", "look.hint.purple": "Tím đậm", "look.hint.keycap": "Phím bấm",
@@ -1170,7 +1176,7 @@ let selectedKey = null;
 let state = {
   version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
   shortcuts: { desktop: false, startMenu: false },
-  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {}, gridStyle: "recursive", gridMaxDepth: 3, hintStyle: "classic", gridTheme: "classic", recursiveGridKeys: ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"] }
+  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {}, gridStyle: "recursive", gridMaxDepth: 3, hintStyle: "classic", gridTheme: "classic", hintScope: "activeMonitor", recursiveGridKeys: ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"] }
 };
 
 /* ---------------- pointer styles ---------------- */
@@ -1384,6 +1390,7 @@ function renderSettings() {
   $('[data-bind="updateCheckOnStart"]').checked = !!s.updateCheckOnStart;
   renderStyleGrid();
   renderLooks();
+  $$("#hint-scope button").forEach(b => b.classList.toggle("active", b.dataset.scope === String(s.hintScope || "activeMonitor")));
   const size = Math.max(4, Math.min(40, Math.round(s.dotSize || 12)));
   if (!drafts.has("dotSize")) {
     if (document.activeElement !== $("#dot-size")) $("#dot-size").value = size;
@@ -2141,6 +2148,11 @@ $$("#border-style button").forEach(button => button.addEventListener("click", ()
   renderSettings();
 }));
 
+$$("#hint-scope button").forEach(b => b.addEventListener("click", () => {
+  state.settings.hintScope = b.dataset.scope;
+  send({ cmd: "setSetting", key: "hint.scope", value: b.dataset.scope });
+  renderSettings();
+}));
 $("#hint-look").addEventListener("click", e => {
   const tile = e.target.closest("[data-hint-look]");
   if (!tile) return;

@@ -449,6 +449,7 @@ public sealed class TrayApp : ApplicationContext
                 gridMaxDepth = _settings.Grid.MaxDepth,
                 gridTheme = OverlayThemeNames.NormalizeGrid(_settings.Grid.Theme),
                 hintStyle = OverlayThemeNames.NormalizeHint(_settings.Hint.Style),
+                hintScope = ScanScopeNames.ToId(ScanScopeNames.Parse(_settings.Hint.ScanScope)),
                 hintAlphabet = _settings.Hint.Alphabet
             }
         });
@@ -660,6 +661,10 @@ public sealed class TrayApp : ApplicationContext
                 break;
             case "grid.theme" when v.ValueKind == System.Text.Json.JsonValueKind.String:
                 _settings.Grid.Theme = OverlayThemeNames.NormalizeGrid(v.GetString());
+                break;
+            case "hint.scope" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Hint.ScanScope = ScanScopeNames.ToId(ScanScopeNames.Parse(v.GetString()));
+                _settings.Hint.ScanScopeVersion = HintSettings.CurrentScanScopeVersion;
                 break;
             case "hint.style" when v.ValueKind == System.Text.Json.JsonValueKind.String:
                 _settings.Hint.Style = OverlayThemeNames.NormalizeHint(v.GetString());

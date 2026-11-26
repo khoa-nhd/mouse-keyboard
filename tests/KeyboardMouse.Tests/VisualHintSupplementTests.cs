@@ -69,6 +69,29 @@ public class VisualHintSupplementTests
     }
 
     [Fact]
+    public void DropsSmallControlsThatDrawNothing()
+    {
+        // A flat 200 x 100 surface with one drawn icon at (20,20)-(52,52).
+        var image = new Image32(200, 100);
+        for (int y = 0; y < 100; y++)
+        for (int x = 0; x < 200; x++)
+        {
+            bool icon = x is >= 28 and < 44 && y is >= 28 and < 44;
+            byte v = icon ? (byte)40 : (byte)240;
+            image.Set(x, y, v, v, v);
+        }
+
+        var region = new Rectangle(1000, 500, 200, 100);
+        var drawn = new ClickableTarget(new Rectangle(1020, 520, 32, 32), "Visible icon");
+        var empty = new ClickableTarget(new Rectangle(1120, 520, 32, 32), "Hover-only button");
+        var wide = new ClickableTarget(new Rectangle(1000, 500, 180, 90), "Empty panel");
+
+        var kept = VisualHintSupplement.DropBlank([drawn, empty, wide], [(region, image)]);
+
+        Assert.Equal(["Visible icon", "Empty panel"], kept.Select(t => t.Name).ToArray());
+    }
+
+    [Fact]
     public void RejectsANearMissWithWeakGeometry()
     {
         Assert.False(VisualHintSupplement.IsAcceptable(

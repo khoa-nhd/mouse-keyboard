@@ -3,7 +3,30 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
-## [1.8.0] - 2026-11-26
+## [1.8.1] - 2026-11-26
+
+### Added
+- **Hint area setting.** Settings > General > *Hint area* picks where H looks:
+  the window you are in, the whole screen the pointer is on (default), or every
+  screen. Stored as `hint.scanScope`.
+
+### Changed
+- Settings files from older versions still held their old default, the window
+  in front, and there was no way to change it. They move to the whole screen
+  once; choosing *Window* afterwards is kept.
+
+### Fixed
+- **Hint labels no longer cover each other.** A label whose spot is taken moves
+  to a free spot on or beside its control, and stays put while you type. A row
+  and the link filling it get one label instead of two.
+- **Hidden controls are really left out now.** The 1.8.0 check for controls a
+  window draws over (Chrome's collapsed tab strip, a hidden tab-group bar) never
+  took effect; it does now. Window caption buttons are kept.
+- **Hover-only buttons** (invisible until the pointer is over their row) no
+  longer get labels.
+- **A window no longer loses all its labels** when Windows briefly refuses to
+  read it; the read is retried.
+
 
 ### Added
 - **Hint label and grid looks.** Settings > General has two new pickers with a

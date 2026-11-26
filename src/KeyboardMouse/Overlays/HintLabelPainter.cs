@@ -91,27 +91,36 @@ public static class HintLabelPainter
         using var format = (StringFormat)StringFormat.GenericTypographic.Clone();
         format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
 
-        foreach (var (target, label) in items)
+        float padX = look.PadX * scale;
+        float padY = look.PadY * scale;
+        float extraLeft = look.TagHole ? 4f * scale : 0f;
+        float edge = look.KeyEdge is null ? 0f : 2f * scale;
+        var texts = new SizeF[items.Count];
+        var sizes = new SizeF[items.Count];
+
+        for (int i = 0; i < items.Count; i++)
         {
+            string shown = look.Uppercase ? items[i].Label.ToUpperInvariant() : items[i].Label;
+            texts[i] = g.MeasureString(shown, font, int.MaxValue, format);
+            float h = texts[i].Height + (padY * 2) + edge;
+            float w = texts[i].Width + (padX * 2) + extraLeft;
+            sizes[i] = new SizeF(look.Pill ? Math.Max(w, h) : w, h);
+        }
+
+        var spots = Place(monitor, items, sizes);
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            string label = items[i].Label;
             bool matches = typed.Length == 0 || label.StartsWith(typed, StringComparison.Ordinal);
             int typedLength = matches ? typed.Length : 0;
             string shown = look.Uppercase ? label.ToUpperInvariant() : label;
 
-            var text = g.MeasureString(shown, font, int.MaxValue, format);
-            float padX = look.PadX * scale;
-            float padY = look.PadY * scale;
-            float extraLeft = look.TagHole ? 4f * scale : 0f;
-            float edge = look.KeyEdge is null ? 0f : 2f * scale;
-            float height = text.Height + (padY * 2) + edge;
-            float width = text.Width + (padX * 2) + extraLeft;
-
-            if (look.Pill)
-            {
-                width = Math.Max(width, height);
-            }
-
-            float x = Math.Clamp(target.Bounds.Left - monitor.Bounds.Left, 2f, Math.Max(2f, monitor.Bounds.Width - width - 2f));
-            float y = Math.Clamp(target.Bounds.Top - monitor.Bounds.Top, 2f, Math.Max(2f, monitor.Bounds.Height - height - 2f));
+            var text = texts[i];
+            float height = sizes[i].Height;
+            float width = sizes[i].Width;
+            float x = spots[i].X;
+            float y = spots[i].Y;
             var box = new RectangleF(x, y, width, height);
             float radius = look.Pill ? height / 2f : look.Radius * scale;
             float leftRadius = look.LeftRadius >= 0 ? look.LeftRadius * scale : radius;
@@ -204,23 +213,29 @@ public static class HintLabelPainter
             LineAlignment = StringAlignment.Center
         };
 
-        foreach (var (target, label) in items)
+        float paddingX = 6f * scale;
+        float paddingY = 2f * scale;
+        var sizes = new SizeF[items.Count];
+
+        for (int i = 0; i < items.Count; i++)
         {
+            var size = g.MeasureString(items[i].Label, font);
+            sizes[i] = new SizeF(size.Width + (paddingX * 2), size.Height + (paddingY * 2));
+        }
+
+        var spots = Place(monitor, items, sizes);
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            string label = items[i].Label;
             bool matches = typed.Length == 0 ||
                 label.StartsWith(typed, StringComparison.Ordinal);
             int alpha = matches ? 255 : 38;
 
-            var measured = g.MeasureString(label, font);
-            float paddingX = 6f * scale;
-            float paddingY = 2f * scale;
-            float boxWidth = measured.Width + (paddingX * 2);
-            float boxHeight = measured.Height + (paddingY * 2);
-
-            int localLeft = target.Bounds.Left - monitor.Bounds.Left;
-            int localTop = target.Bounds.Top - monitor.Bounds.Top;
-
-            float x = Math.Clamp(localLeft, 2f, Math.Max(2f, monitor.Bounds.Width - boxWidth - 2f));
-            float y = Math.Clamp(localTop, 2f, Math.Max(2f, monitor.Bounds.Height - boxHeight - 2f));
+            float boxWidth = sizes[i].Width;
+            float boxHeight = sizes[i].Height;
+            float x = spots[i].X;
+            float y = spots[i].Y;
             var box = new RectangleF(x, y, boxWidth, boxHeight);
 
             using (var shadow = new SolidBrush(Color.FromArgb(Math.Min(120, alpha), 0, 0, 0)))
@@ -255,6 +270,27 @@ public static class HintLabelPainter
                     new RectangleF(x + paddingX, y + paddingY, boxWidth, boxHeight), format);
             }
         }
+    }
+
+    /// <summary>
+    /// Label positions on the monitor surface. They depend only on the targets
+    /// and the label sizes, never on what was typed, so labels hold still while
+    /// the user types.
+    /// </summary>
+    private static PointF[] Place(
+        MonitorInfo monitor,
+        IReadOnlyList<(ClickableTarget Target, string Label)> items,
+        SizeF[] sizes)
+    {
+        var input = new (RectangleF Target, SizeF Size)[items.Count];
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            var b = items[i].Target.Bounds;
+            input[i] = (new RectangleF(b.Left - monitor.Bounds.Left, b.Top - monitor.Bounds.Top, b.Width, b.Height), sizes[i]);
+        }
+
+        return LabelLayout.Place(input, new RectangleF(0, 0, monitor.Bounds.Width, monitor.Bounds.Height));
     }
 
     private static Color Fade(Color color, int alpha) =>

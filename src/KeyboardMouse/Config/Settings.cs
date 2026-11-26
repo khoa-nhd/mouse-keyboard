@@ -72,6 +72,16 @@ public sealed class Settings
         Hint.ScanScope = string.IsNullOrWhiteSpace(Hint.ScanScope)
             ? ScanScopeNames.ActiveMonitor
             : ScanScopeNames.ToId(ScanScopeNames.Parse(Hint.ScanScope));
+
+        if (Hint.ScanScopeVersion < HintSettings.CurrentScanScopeVersion)
+        {
+            if (Hint.ScanScope == ScanScopeNames.Foreground)
+            {
+                Hint.ScanScope = ScanScopeNames.ActiveMonitor;
+            }
+
+            Hint.ScanScopeVersion = HintSettings.CurrentScanScopeVersion;
+        }
         Hint.Style = OverlayThemeNames.NormalizeHint(Hint.Style);
         Grid.Theme = OverlayThemeNames.NormalizeGrid(Grid.Theme);
 
@@ -297,6 +307,15 @@ public sealed class HintSettings
     /// the default), "allMonitors" or "virtualDesktop".
     /// </summary>
     public string ScanScope { get; set; } = ScanScopeNames.ActiveMonitor;
+
+    /// <summary>
+    /// 1 once the scope has been settled under 1.8.1 rules. Older versions
+    /// wrote "foreground" as their default without asking, so a file without
+    /// this mark that says "foreground" is moved to the monitor scope once.
+    /// </summary>
+    public int ScanScopeVersion { get; set; }
+
+    public const int CurrentScanScopeVersion = 1;
 
     /// <summary>
     /// Adds pixel detection on top of UI Automation, catching custom drawn

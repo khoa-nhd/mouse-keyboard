@@ -44,6 +44,23 @@ public class OverlayThemeTests
     }
 
     [Fact]
+    public void AnOldForegroundDefaultMovesToTheScreenOnce()
+    {
+        var settings = new Settings();
+        settings.Hint.ScanScope = "foreground";
+        settings.Hint.ScanScopeVersion = 0;
+        settings.Normalize();
+
+        Assert.Equal("activeMonitor", settings.Hint.ScanScope);
+
+        // Chosen again after the move, it stays.
+        settings.Hint.ScanScope = "foreground";
+        settings.Normalize();
+
+        Assert.Equal("foreground", settings.Hint.ScanScope);
+    }
+
+    [Fact]
     public void EveryThemeHasADistinctIdThatRoundTrips()
     {
         foreach (var theme in Enum.GetValues<HintTheme>())

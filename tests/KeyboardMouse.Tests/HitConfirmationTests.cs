@@ -58,6 +58,39 @@ public class HitConfirmationTests
     }
 
     [Fact]
+    public void KeepsCaptionButtonsWhoseHitIsTheTitleBar()
+    {
+        // The hit test answers with the 66 px title bar, not an ancestor of the
+        // button but only a strip it sits on.
+        var titleBar = new Rectangle(0, 0, 1920, 66);
+        var items = new[] { new RawClickableTarget(new Rectangle(1851, 0, 69, 54), false, true, "Close") };
+
+        var kept = HitConfirmation.Filter(items, _ => true, _ => titleBar, (_, _) => false);
+
+        Assert.Single(kept);
+    }
+
+    [Fact]
+    public void DropsAHiddenBarButtonUnderAToolbarTwiceItsHeight()
+    {
+        // Chrome's saved tab-group bar, hidden under the PDF viewer's toolbar.
+        var toolbar = new Rectangle(95, 74, 1259, 84);
+        var items = new[]
+        {
+            new RawClickableTarget(new Rectangle(174, 78, 47, 30), false, true, "Hidden group"),
+            new RawClickableTarget(new Rectangle(640, 92, 48, 48), false, true, "Zoom in")
+        };
+
+        var kept = HitConfirmation.Filter(
+            items,
+            _ => true,
+            point => items[1].Bounds.Contains(point) ? items[1].Bounds : toolbar,
+            (_, _) => false);
+
+        Assert.Equal(["Zoom in"], kept.Select(i => i.Name).ToArray());
+    }
+
+    [Fact]
     public void KeepsARowWhoseTruncatedLabelOverflowsIt()
     {
         // A sidebar link 296 px wide whose title text reports its full width.

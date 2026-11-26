@@ -195,6 +195,88 @@ public static class VisualHintSupplement
         return added;
     }
 
+    /// <summary>Largest side of a control the blank test applies to.</summary>
+    public const int BlankMaxSide = 72;
+
+    /// <summary>Luma spread at or below which a box shows nothing at all.</summary>
+    public const int BlankLumaRange = 8;
+
+    /// <summary>
+    /// Drops small accessible controls that draw nothing: hover-only buttons
+    /// (a row's "more options", a folder's "new session") stay in the tree and
+    /// answer the hit test while fully transparent, so the only way to see they
+    /// are not there is to look. Larger boxes are left alone: an empty text
+    /// field or a plain panel is still a real, visible target.
+    /// </summary>
+    public static IReadOnlyList<ClickableTarget> DropBlank(
+        IReadOnlyList<ClickableTarget> targets,
+        IReadOnlyList<(Rectangle Region, Image32 Image)> captures)
+    {
+        if (captures.Count == 0 || targets.Count == 0)
+        {
+            return targets;
+        }
+
+        var kept = new List<ClickableTarget>(targets.Count);
+
+        foreach (var target in targets)
+        {
+            if (!IsBlank(target.Bounds, captures))
+            {
+                kept.Add(target);
+            }
+        }
+
+        if (kept.Count < targets.Count)
+        {
+            Log.Info($"Hint scan dropped {targets.Count - kept.Count} control(s) that draw nothing on screen.");
+        }
+
+        return kept;
+    }
+
+    public static bool IsBlank(Rectangle bounds, IReadOnlyList<(Rectangle Region, Image32 Image)> captures)
+    {
+        if (bounds.Width > BlankMaxSide || bounds.Height > BlankMaxSide || bounds.Width < 6 || bounds.Height < 6)
+        {
+            return false;
+        }
+
+        foreach (var (region, image) in captures)
+        {
+            if (!region.Contains(bounds))
+            {
+                continue;
+            }
+
+            int left = bounds.Left - region.Left + 1;
+            int top = bounds.Top - region.Top + 1;
+            int right = Math.Min(image.Width, bounds.Right - region.Left - 1);
+            int bottom = Math.Min(image.Height, bounds.Bottom - region.Top - 1);
+            int low = 255;
+            int high = 0;
+
+            for (int y = Math.Max(0, top); y < bottom; y++)
+            {
+                for (int x = Math.Max(0, left); x < right; x++)
+                {
+                    int luma = image.Luma(x, y);
+                    low = Math.Min(low, luma);
+                    high = Math.Max(high, luma);
+
+                    if (high - low > BlankLumaRange)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return high >= low;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Whether a pixel box describes a control UI Automation already reported.
     /// Nested boxes count: a label inside a button is not a second target.
