@@ -127,9 +127,6 @@ nav button:hover { background: var(--panel); color: var(--text); }
 nav button[aria-current="page"] { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
 nav button[aria-current="page"] svg { color: var(--accent); }
 .sidebar .grow { flex: 1; }
-.lang { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
-.lang button { flex: 1; border: 0; background: none; padding: 6px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: 12.5px; }
-.lang button.active { background: var(--accent); color: var(--accent-ink); }
 
 main { overflow-y: auto; scroll-behavior: smooth; }
 .page { display: none; padding: 34px 40px 48px; max-width: 1040px; margin: 0 auto; animation: fade .25s ease; }
@@ -284,6 +281,32 @@ input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .fixed-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--muted); font-size: 13px; }
 .fixed-row kbd { min-width: 0; height: 22px; padding: 0 6px; font-size: 12px; }
 .keymap-note { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+/* ---------- keys page editing ---------- */
+.hand-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.hand-card > div:first-child { flex: 1 1 320px; }
+.hand-card p { font-size: 13px; margin-top: 2px; }
+.keyboard .key { cursor: pointer; }
+.detail .picker { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pick-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
+.pick-row select { flex: 1 1 240px; max-width: 420px; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; background: var(--panel); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.pick-row select:focus { outline: none; border-color: var(--accent); }
+.assign-card { padding: 6px 8px; overflow-x: auto; }
+.assign-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.assign-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 10px 10px 8px; }
+.assign-table td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
+.assign-table td:first-child b { font-weight: 650; }
+.assign-table td:nth-child(2), .assign-table td:nth-child(3) { white-space: nowrap; }
+.assign-table td:first-child small { display: block; color: var(--muted); font-size: 12px; margin-left: 18px; }
+.assign-table .cat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 10px; }
+.assign-table kbd { white-space: nowrap; min-width: 0; height: 22px; padding: 0 7px; font-size: 12px; }
+.assign-table tr.missing td { background: color-mix(in srgb, #f59e0b 7%, transparent); }
+.assign-table tr.capturing td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.assign-table .tools { white-space: nowrap; text-align: right; }
+.assign-table .tools > * + * { margin-left: 6px; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+.pill.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.pill.warn { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #b45309; }
+.btn.small { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
 
 /* ---------- home ---------- */
 .hero {
@@ -493,8 +516,6 @@ td:first-child { width: 168px; white-space: nowrap; }
   .side-shutdown span, .side-restart span { display: none; }
   nav button { justify-content: center; padding: 10px 0; }
   nav button span { display: none; }
-  .lang { flex-direction: column; }
-  .lang button { padding: 4px 0; font-size: 11px; }
 
   /* Sliders and segmented controls drop below their label instead of
      squeezing it into a column of single words. */
@@ -552,6 +573,7 @@ td:first-child { width: 168px; white-space: nowrap; }
 
       <button class="side-shutdown" data-cmd="exitApp" type="button"><svg><use href="#i-power"/></svg><span data-t="about.shutdownBtn">Shutdown</span></button>
       <button class="side-restart" data-cmd="restartApp" type="button"><svg><use href="#i-restart"/></svg><span data-t="settings.restart">Restart app</span></button>
+      <button class="side-restart side-update" data-cmd="checkForUpdates" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.checkUpdate">Check for updates</span></button>
     </div>
 
     <nav id="nav">
@@ -564,10 +586,6 @@ td:first-child { width: 168px; white-space: nowrap; }
     </nav>
 
     <div class="grow"></div>
-    <div class="lang" id="lang">
-      <button data-lang="en">English</button>
-      <button data-lang="vi">Tiếng Việt</button>
-    </div>
   </aside>
 
   <main id="main">
@@ -581,10 +599,10 @@ td:first-child { width: 168px; white-space: nowrap; }
           <span class="hint"><span data-t="home.orPress">or press</span> <kbd data-toggle-key>Caps Lock</kbd></span>
         </div>
         <div class="hero-art" aria-hidden="true">
-          <div class="k" style="left:96px;top:66px" data-hk="I">I</div>
-          <div class="k" style="left:34px;top:126px" data-hk="J">J</div>
-          <div class="k" style="left:96px;top:126px" data-hk="K">K</div>
-          <div class="k" style="left:158px;top:126px" data-hk="L">L</div>
+          <div class="k" style="left:96px;top:66px" data-hk="I" data-key="up">I</div>
+          <div class="k" style="left:34px;top:126px" data-hk="J" data-key="left">J</div>
+          <div class="k" style="left:96px;top:126px" data-hk="K" data-key="down">K</div>
+          <div class="k" style="left:158px;top:126px" data-hk="L" data-key="right">L</div>
           <div class="ring" id="hero-ring"></div>
           <svg class="ptr" id="hero-ptr"><use href="#ptr"/></svg>
         </div>
@@ -638,12 +656,44 @@ td:first-child { width: 168px; white-space: nowrap; }
     <section class="page" id="page-keys">
       <div class="page-head">
         <h1 data-t="keys.title">Every key, at a glance</h1>
-        <p data-t="keys.lead">Hover a key to see what it does. Turn on mouse mode and press keys — they light up here so you can learn by doing.</p>
+        <p data-t="keys.lead">Click a key to choose what it does.</p>
+      </div>
+      <div class="card hand-card">
+        <div><h3 data-t="keys.handT">Which hand moves the pointer?</h3><p class="muted" data-t="keys.hand">Switching loads that layout's keys.</p></div>
+        <div class="row" style="gap:10px; flex-wrap:wrap">
+          <div class="seg" id="hand"><button data-hand="right" type="button" data-t="keys.right">Right hand</button><button data-hand="left" type="button" data-t="keys.left">Left hand</button></div>
+          <button class="btn" id="keymap-reset-all" type="button" data-t="keymap.resetAll">Reset all</button>
+        </div>
       </div>
       <div class="legend" id="legend"></div>
       <div class="keyboard-wrap">
         <div class="card keyboard" id="keyboard"></div>
         <div class="card detail" id="detail"></div>
+      </div>
+      <div class="capture-banner" style="margin-top:16px" id="capture-banner" hidden>
+        <div class="row" style="gap:10px"><span class="capture-dot"></span><div><b id="capture-action"></b><span data-t="keymap.listeningSub">Esc cancels. Modifier-only presses are ignored.</span></div></div>
+        <button class="btn" id="capture-cancel" type="button" data-t="keymap.cancel">Cancel</button>
+      </div>
+      <div class="section-title"><h2 data-t="keys.tableT">Which actions have a key</h2><span class="muted" id="assign-summary"></span></div>
+      <div class="card assign-card"><table class="assign-table" id="assign-table"></table></div>
+      <div class="card" style="margin-top:16px">
+          <div class="section-title" style="margin-top:0"><h3 style="margin:0" data-t="keymap.gridT">Grid keys</h3><span data-grid-only="recursive" data-t="keymap.rgridLead">One key per cell of the 3 x 3 grid, top row first.</span><span data-grid-only="codes" data-t="keymap.gridLead">Every cell prints four of these ten keys: column band, column, row band, row.</span></div>
+          <div class="grid-pad recursive" id="keymap-rgrid" data-grid-only="recursive"></div>
+          <p class="keymap-note" data-grid-only="recursive" data-t="keymap.rgridMode">In grid mode: a cell key moves the pointer into that cell and narrows the grid to it; after the last level the grid closes with the pointer there. Backspace goes up a level, Tab or the Grid key stops here, Space or Enter click, the Next monitor key (N) switches monitor, Esc cancels.</p>
+          <div class="grid-pad" id="keymap-grid" data-grid-only="codes"></div>
+          <p class="keymap-note" data-grid-only="codes" data-t="keymap.gridMode">In grid mode: a full code only moves the pointer and closes the grid, so the click is your own Space; Space or Enter pressed inside the grid click straight away, Tab moves and closes, N switches monitor, Backspace goes back, Ctrl + the Grid key closes, Esc cancels.</p>
+          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.hintT">Hint characters</h3><span data-t="keymap.hintLead">Letters, digits and punctuation the hint labels can use. At least two different characters.</span></div>
+          <div class="hint-editor">
+            <div class="hint-row">
+              <input id="hint-alphabet" type="text" spellcheck="false" autocomplete="off">
+              <button class="btn primary" id="hint-save" type="button" data-t="keymap.hintSave">Save</button>
+            </div>
+            <div class="row" style="gap:6px; flex-wrap:wrap">
+              <span class="muted" style="font-size:12px" data-t="keymap.hintPreview">Preview</span>
+              <div class="hint-preview" id="hint-preview"></div>
+            </div>
+          </div>
+          <div class="fixed-row"><kbd>Esc</kbd> <span data-t="keymap.fixed">Fixed</span> <span class="muted" data-t="keymap.fixedLead">Esc and Backspace stay fixed in grid and hint modes.</span></div>
       </div>
       <div class="section-title"><h2 data-t="keys.ref">Quick reference</h2></div>
       <div class="grid-2" id="reference"></div>
@@ -750,40 +800,6 @@ td:first-child { width: 168px; white-space: nowrap; }
         <button class="btn primary" id="apply-settings" type="button" data-t="settings.apply">Apply</button>
       </div>
       <div class="stack">
-        <div class="card keymap-card">
-          <div class="keymap-head">
-            <div>
-              <h2 style="margin-bottom:4px" data-t="keymap.title">Keymap</h2>
-              <p class="muted" data-t="keymap.lead">Every key that runs in mouse mode can be changed. Click a key, then press the replacement.</p>
-            </div>
-            <div class="keymap-tools">
-              <div class="keymap-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="keymap-search" type="search" data-t-placeholder="keymap.search" placeholder="Search keys or actions"></div>
-              <button class="btn" id="keymap-reset-all" type="button" data-t="keymap.resetAll">Reset all</button>
-            </div>
-          </div>
-          <div class="capture-banner" id="capture-banner" hidden>
-            <div class="row" style="gap:10px"><span class="capture-dot"></span><div><b id="capture-action"></b><span data-t="keymap.listeningSub">Esc cancels. Modifier-only presses are ignored.</span></div></div>
-            <button class="btn" id="capture-cancel" type="button" data-t="keymap.cancel">Cancel</button>
-          </div>
-          <div class="keymap-groups" id="keymap-groups"></div>
-          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.gridT">Grid keys</h3><span data-grid-only="recursive" data-t="keymap.rgridLead">One key per cell of the 3 x 3 grid, top row first.</span><span data-grid-only="codes" data-t="keymap.gridLead">Every cell prints four of these ten keys: column band, column, row band, row.</span></div>
-          <div class="grid-pad recursive" id="keymap-rgrid" data-grid-only="recursive"></div>
-          <p class="keymap-note" data-grid-only="recursive" data-t="keymap.rgridMode">In grid mode: a cell key moves the pointer into that cell and narrows the grid to it; after the last level the grid closes with the pointer there. Backspace goes up a level, Tab or the Grid key stops here, Space or Enter click, the Next monitor key (N) switches monitor, Esc cancels.</p>
-          <div class="grid-pad" id="keymap-grid" data-grid-only="codes"></div>
-          <p class="keymap-note" data-grid-only="codes" data-t="keymap.gridMode">In grid mode: a full code only moves the pointer and closes the grid, so the click is your own Space; Space or Enter pressed inside the grid click straight away, Tab moves and closes, N switches monitor, Backspace goes back, Ctrl + the Grid key closes, Esc cancels.</p>
-          <div class="section-title" style="margin-top:18px"><h3 style="margin:0" data-t="keymap.hintT">Hint characters</h3><span data-t="keymap.hintLead">Letters, digits and punctuation the hint labels can use. At least two different characters.</span></div>
-          <div class="hint-editor">
-            <div class="hint-row">
-              <input id="hint-alphabet" type="text" spellcheck="false" autocomplete="off">
-              <button class="btn primary" id="hint-save" type="button" data-t="keymap.hintSave">Save</button>
-            </div>
-            <div class="row" style="gap:6px; flex-wrap:wrap">
-              <span class="muted" style="font-size:12px" data-t="keymap.hintPreview">Preview</span>
-              <div class="hint-preview" id="hint-preview"></div>
-            </div>
-          </div>
-          <div class="fixed-row"><kbd>Esc</kbd> <span data-t="keymap.fixed">Fixed</span> <span class="muted" data-t="keymap.fixedLead">Esc and Backspace stay fixed in grid and hint modes.</span></div>
-        </div>
         <div class="card">
           <h2 style="margin-bottom:10px" data-t="settings.general">General</h2>
           <div class="setting"><div><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div><label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label></div>
@@ -850,7 +866,6 @@ td:first-child { width: 168px; white-space: nowrap; }
           <div class="row" style="flex-wrap:wrap; gap:10px">
             <button class="btn" data-cmd="openSettingsFile" type="button"><svg><use href="#i-file"/></svg><span data-t="settings.open">Open settings file</span></button>
             <button class="btn" data-cmd="reloadSettings" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.reload">Reload settings</span></button>
-            <button class="btn" data-cmd="checkForUpdates" type="button"><svg><use href="#i-refresh"/></svg><span data-t="settings.checkUpdate">Check for updates</span></button>
             <button class="btn" data-cmd="openLogFolder" type="button"><svg><use href="#i-folder"/></svg><span data-t="settings.log">Open log folder</span></button>
           </div>
         </div>
@@ -918,9 +933,9 @@ const T = {
     "home.lead": "Move, click, drag and scroll without lifting your hands from the home row. KeyboardMouse runs quietly in the system tray.",
     "home.turnOn": "Turn on mouse mode", "home.turnOff": "Turn off mouse mode", "home.orPress": "or press",
     "home.quick": "Get going in 30 seconds",
-    "home.s1t": "Turn it on", "home.s1": "Tap Caps Lock. A small green marker appears next to the pointer — you are in mouse mode.",
+    "home.s1t": "Turn it on", "home.s1": "Tap {k:toggle}. A small green marker appears next to the pointer — you are in mouse mode.",
     "home.s2t": "Move", "home.s2": "Hold a key and the pointer glides, getting faster the longer you hold. Press two for diagonals.",
-    "home.s3t": "Click", "home.s3": "Space is the left button. Hold it while moving to drag. Tap Caps Lock again to type normally.",
+    "home.s3t": "Click", "home.s3": "{k:leftClick} is the left button. Hold it while moving to drag. Tap {k:toggle} again to type normally.",
     "home.tray": "Closing this window does not stop the app. Find it in the system tray next to the clock (click <b>^</b> if it is hidden). Right-click the icon for the menu, double-click to reopen this guide.",
     "home.setup": "Make it feel like home",
     "home.autostartT": "Start with Windows", "home.autostart": "Launch silently in the tray every time you sign in.",
@@ -928,41 +943,41 @@ const T = {
     "home.desktopT": "Desktop shortcut", "home.desktop": "An icon on the desktop to reopen this window.",
     "home.add": "Add", "home.added": "Added",
     "keys.title": "Every key, at a glance",
-    "keys.lead": "Hover a key to see what it does. Turn on mouse mode and press keys — they light up here so you can learn by doing.",
-    "keys.ref": "Quick reference", "keys.all": "All", "keys.pick": "Hover or press a key", "keys.pickSub": "Colored keys do something in mouse mode. Gray keys keep working as usual.",
+    "keys.lead": "Click any key on the keyboard to choose what it does in mouse mode. Turn on mouse mode and press keys — they light up here so you can learn by doing.",
+    "keys.ref": "Quick reference", "keys.all": "All", "keys.pick": "Click a key to change it", "keys.pickSub": "Colored keys do something in mouse mode. Gray keys keep typing as usual. Click any of them to choose its action.",
     "keys.live": "Live: press keys in mouse mode", "keys.liveOff": "Turn on mouse mode to see presses here",
     "keys.notMapped": "Not used in mouse mode — this key types as usual.",
     "cat.system": "On / off", "cat.move": "Move", "cat.layer": "Hold layers", "cat.click": "Click", "cat.nav": "Back / forward", "cat.jump": "Jump", "cat.edit": "Edit",
-    "modes.title": "Power moves", "modes.lead": "Moving across a big screen with I J K L is fine — but these are much faster.",
+    "modes.title": "Power moves", "modes.lead": "Moving across a big screen with {k:up} {k:left} {k:down} {k:right} is fine — but these are much faster.",
     "modes.gridT": "Grid jump", "modes.codes": "One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.",
     "modes.codes1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of",
     "modes.codes2": "A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7",
-    "modes.codes3": "<kbd>Tab</kbd> moves there and closes without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back · then <kbd>Space</kbd> clicks where the pointer landed",
+    "modes.codes3": "<kbd>Tab</kbd> moves there and closes without clicking · <kbd>{k:nextMonitor}</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back · then <kbd>{k:leftClick}</kbd> clicks where the pointer landed",
     "modes.hintT": "Hints", "modes.hint": "Every button and link gets a short label. Type the label and it is clicked — no aiming at all.",
     "modes.hint1": "Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
-    "modes.hint2": "<kbd>Shift</kbd> + label = hover · <kbd>F</kbd> + label = right click",
-    "modes.scrollT": "Scroll layer", "modes.scroll": "Hold D and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.",
-    "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> up/down · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sideways",
-    "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom",
-    "modes.autoT": "Auto clicker", "modes.auto": "Press B and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press B again to stop.",
+    "modes.hint2": "<kbd>Shift</kbd> + label = hover · <kbd>{k:rightClick}</kbd> + label = right click",
+    "modes.scrollT": "Scroll layer", "modes.scroll": "Hold {k:scrollLayer} and the movement keys scroll instead of moving. Smooth, and it speeds up as you hold.",
+    "modes.scroll1": "<kbd>{k:scrollLayer}</kbd> + <kbd>{k:up}</kbd>/<kbd>{k:down}</kbd> up/down · <kbd>{k:scrollLayer}</kbd> + <kbd>{k:left}</kbd>/<kbd>{k:right}</kbd> sideways",
+    "modes.scroll2": "<kbd>{k:scrollLayer}</kbd> + <kbd>{k:back}</kbd>/<kbd>{k:forward}</kbd> page up/down · add <kbd>Ctrl</kbd> to zoom",
+    "modes.autoT": "Auto clicker", "modes.auto": "Press {k:autoClick} and it clicks for you, again and again, wherever the pointer is. Keep moving while it runs. Press {k:autoClick} again to stop.",
     "modes.auto1": "The indicator turns <b style=\"color:#eab308\">yellow</b> while it runs", "modes.auto2": "Speed and button: <b>Settings → Auto clicker</b>",
     "modes.moreT": "More moves",
-    "modes.dragT": "Drag lock", "modes.drag": "Holds the left button down so you can move freely. Press V or Space to drop.",
+    "modes.dragT": "Drag lock", "modes.drag": "Holds the left button down so you can move freely. Press {k:dragLock} or {k:leftClick} to drop.",
     "modes.typeT": "Click & type", "modes.type": "Clicks a text box and leaves mouse mode in one key, so you can start typing.",
-    "modes.speedT": "Speed", "modes.speed": "Hold S for pixel-precise moves, hold A for turbo across the screen.",
+    "modes.speedT": "Speed", "modes.speed": "Hold {k:precisionLayer} for pixel-precise moves, hold {k:turboLayer} for turbo across the screen.",
     "modes.jumpT": "Jumps", "modes.jump": "Center of the screen, center of the window, or the next monitor.",
-    "modes.markT": "Marks", "modes.mark": "M then a letter saves the spot; ' then the letter jumps back. Saved across restarts.",
+    "modes.markT": "Marks", "modes.mark": "{k:markSave} then a letter saves the spot; {k:markJump} then the letter jumps back. Saved across restarts.",
     "modes.panicT": "Panic", "modes.panic": "If a button ever feels stuck: releases everything and leaves mouse mode.",
     "modes.dotT": "What the colours mean",
-    "dot.normal": "Mouse mode on", "dot.scroll": "Scrolling (D)", "dot.precision": "Precise (S)", "dot.turbo": "Turbo (A)", "dot.drag": "Drag lock (V)", "dot.auto": "Auto clicking (B)",
+    "dot.normal": "Mouse mode on", "dot.scroll": "Scrolling ({k:scrollLayer})", "dot.precision": "Precise ({k:precisionLayer})", "dot.turbo": "Turbo ({k:turboLayer})", "dot.drag": "Drag lock ({k:dragLock})", "dot.auto": "Auto clicking ({k:autoClick})",
     "practice.title": "Practice range", "practice.lead": "Hit 10 targets without touching the mouse. Turn on mouse mode first, then click Start with Space.",
     "practice.hits": "Hits", "practice.time": "Time", "practice.best": "Best", "practice.size": "Target size", "practice.big": "Big", "practice.small": "Small",
-    "practice.ready": "Ready?", "practice.how": "Tap Caps Lock, move onto the button with I J K L, then press Space.", "practice.start": "Start",
+    "practice.ready": "Ready?", "practice.how": "Tap {k:toggle}, move onto the button with {k:up} {k:left} {k:down} {k:right}, then press {k:leftClick}.", "practice.start": "Start",
     "practice.done": "Nice! {time}", "practice.newBest": "New personal best!", "practice.again": "Play again",
-    "practice.tip1t": "Use the grid", "practice.codesTip": "Press G and read the four letters printed in the cell you want. Type them and the pointer jumps there while the grid closes; then press Space to click, or F for a right click.",
-    "practice.tip2t": "Try hints", "practice.tip2": "Press H — the target gets a label. Type it to click instantly.",
-    "practice.tip3t": "Go precise", "practice.tip3": "Hold S for slow, exact moves on the small targets.",
-    "settings.title": "Settings", "settings.lead": "Adjust a slider, a colour or any key below. Sliders and colours apply on Enter, blur or Apply; keys apply immediately.",
+    "practice.tip1t": "Use the grid", "practice.codesTip": "Press {k:grid} and read the four letters printed in the cell you want. Type them and the pointer jumps there while the grid closes; then press {k:leftClick} to click, or {k:rightClick} for a right click.",
+    "practice.tip2t": "Try hints", "practice.tip2": "Press {k:hint} — the target gets a label. Type it to click instantly.",
+    "practice.tip3t": "Go precise", "practice.tip3": "Hold {k:precisionLayer} for slow, exact moves on the small targets.",
+    "settings.title": "Settings", "settings.lead": "Adjust a slider or a colour, then press Enter, click outside it, or press Apply. Keys are changed on the Keys page.",
     "settings.general": "General",
     "settings.dotT": "Show pointer indicator", "settings.dot": "Draw the indicator next to the pointer while mouse mode is on.",
     "settings.styleT": "Pointer style", "settings.style": "The shape that follows the pointer. Its colour shows the active layer.",
@@ -982,7 +997,7 @@ const T = {
     "settings.checkUpdate": "Check for updates",
     "settings.autoT": "Auto clicker", "settings.speedT": "Speed", "settings.speed": "How many clicks per second while auto click is on.",
     "settings.buttonT": "Button", "settings.button": "Which mouse button gets clicked.", "settings.left": "Left", "settings.right": "Right", "settings.middle": "Middle",
-    "settings.advT": "Advanced", "settings.adv": "Remap any key, change speeds or the toggle key in settings.json, then reload.",
+    "settings.advT": "Advanced", "settings.adv": "Speeds and other fine details live in settings.json, then reload. Most changes apply at once; restart when something only takes effect on a fresh start.",
     "settings.open": "Open settings file", "settings.reload": "Reload settings", "settings.log": "Open log folder",
     "about.license": "Free and open source (MIT)", "about.bug": "Report a problem",
     "about.privacyT": "Your privacy", "about.p1": "Never records or saves what you type.", "about.p2": "Stays offline unless you turn on update checks (GitHub only).", "about.p3": "All source code is public on GitHub.",
@@ -992,12 +1007,12 @@ const T = {
     "toast.bindingReset": "Key reset", "toast.bindingUnbound": "Key unbound", "toast.allReset": "All keys reset", "toast.hintSaved": "Hint characters saved", "toast.hintInvalid": "Use at least two different supported characters",
     "perSec": "{n} / s",
     "keymap.title": "Keymap", "keymap.lead": "Every key that runs in mouse mode can be changed. Click a key, then press the replacement.",
-    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid keys", "keymap.gridLead": "Every cell prints four of these ten keys: column band, column, row band, row.", "keymap.gridMode": "In grid mode: a full code only moves the pointer to the cell and closes the grid, so the click is your own Space; Space or Enter inside the grid click straight away, Tab moves and closes, the Next monitor key (N) switches monitor, Backspace erases a letter, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid key {n}", "keymap.gridColDesc": "Character {n} of every cell code.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid keys",
-    "modes.grid": "Press G and a 3 x 3 grid covers the screen, one key printed in each cell. Press the key of the cell you want: the pointer jumps to its centre and that cell becomes the next, smaller 3 x 3 grid. After the last level the pointer stays there and the grid closes. It never clicks for you — the click is your own Space. Prefer one big grid of four-letter codes? Switch Grid style in Settings.",
-    "modes.grid1": "<kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> · <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> · <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> — the nine cells, top row to bottom row",
-    "modes.grid2": "Three keys reach any spot — <kbd>O</kbd><kbd>J</kbd><kbd>K</kbd> is the top-right cell, then its middle-left, then its centre",
-    "modes.grid3": "<kbd>Backspace</kbd> up a level · <kbd>Tab</kbd> or <kbd>G</kbd> stop here · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Space</kbd> clicks where the pointer is",
-    "practice.tip1": "Press G, then the key of the cell the target is in, two or three times. The pointer lands on it; press Space to click, or F for a right click.",
+    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid keys", "keymap.gridLead": "Every cell prints four of these ten keys: column band, column, row band, row.", "keymap.gridMode": "In grid mode: a full code only moves the pointer to the cell and closes the grid, so the click is your own {k:leftClick}; Space or Enter inside the grid click straight away, Tab moves and closes, the Next monitor key ({k:nextMonitor}) switches monitor, Backspace erases a letter, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid key {n}", "keymap.gridColDesc": "Character {n} of every cell code.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid keys",
+    "modes.grid": "Press {k:grid} and a 3 x 3 grid covers the screen, one key printed in each cell. Press the key of the cell you want: the pointer jumps to its centre and that cell becomes the next, smaller 3 x 3 grid. After the last level the pointer stays there and the grid closes. It never clicks for you — the click is your own {k:leftClick}. Prefer one big grid of four-letter codes? Switch Grid style in Settings.",
+    "modes.grid1": "<kbd>{rg:0}</kbd> <kbd>{rg:1}</kbd> <kbd>{rg:2}</kbd> · <kbd>{rg:3}</kbd> <kbd>{rg:4}</kbd> <kbd>{rg:5}</kbd> · <kbd>{rg:6}</kbd> <kbd>{rg:7}</kbd> <kbd>{rg:8}</kbd> — the nine cells, top row to bottom row",
+    "modes.grid2": "Three keys reach any spot — <kbd>{rg:2}</kbd><kbd>{rg:3}</kbd><kbd>{rg:4}</kbd> is the top-right cell, then its middle-left, then its centre",
+    "modes.grid3": "<kbd>Backspace</kbd> up a level · <kbd>Tab</kbd> or <kbd>{k:grid}</kbd> stop here · <kbd>{k:nextMonitor}</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>{k:leftClick}</kbd> clicks where the pointer is",
+    "practice.tip1": "Press {k:grid}, then the key of the cell the target is in, two or three times. The pointer lands on it; press {k:leftClick} to click, or {k:rightClick} for a right click.",
     "settings.gridT": "Grid style", "settings.grid": "What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the four letters that reach it.",
     "grid.recursive": "Recursive 3 x 3", "grid.codes": "4-letter codes",
     "settings.gridLookT": "Grid look", "settings.gridLook": "How the 3 x 3 grid is drawn. Applies the next time you press G.",
@@ -1010,148 +1025,54 @@ const T = {
     "look.grid.cards": "Floating cards", "look.grid.bubble": "Bubbles", "look.grid.keyboard": "Keyboard pattern", "look.grid.glow": "Glow border",
     "settings.depthT": "Grid levels", "settings.depth": "How many times the recursive grid narrows before it parks the pointer and closes.",
     "keymap.rgridLead": "One key per cell of the 3 x 3 grid, top row first.",
-    "keymap.rgridMode": "In grid mode: a cell key moves the pointer into that cell and narrows the grid to it; after the last level the grid closes with the pointer there. Backspace goes up a level, Tab or the Grid key stops here, Space or Enter click, the Next monitor key (N) switches monitor, Esc cancels.",
+    "keymap.rgridMode": "In grid mode: a cell key moves the pointer into that cell and narrows the grid to it; after the last level the grid closes with the pointer there. Backspace goes up a level, Tab or the Grid key ({k:grid}) stops here, Space or Enter click, the Next monitor key ({k:nextMonitor}) switches monitor, Esc cancels.",
     "keymap.rgridCell": "Grid cell {n}", "keymap.rgridCellDesc": "Narrows the recursive grid into cell {n} (row {row}, column {col}).",
-    "toast.gridStyle": "Grid style saved"
-  },
-  vi: {
-    "nav.home": "Bắt đầu", "nav.keys": "Phím", "nav.modes": "Tuyệt chiêu", "nav.practice": "Luyện tập", "nav.settings": "Cài đặt", "nav.about": "Giới thiệu",
-    "status.off": "Chế độ chuột: tắt", "status.offSub": "Bấm {key} để bật", "status.on": "Chế độ chuột: bật", "status.onSub": "Bấm {key} để gõ chữ lại",
-    "status.auto": "Đang auto click", "status.autoSub": "Bấm {b} để dừng", "status.paused": "Đang tạm dừng", "status.pausedSub": "Bấm để tiếp tục",
-    "home.title": "Bàn phím giờ là con chuột của bạn.",
-    "home.lead": "Di chuột, click, kéo thả và cuộn trang mà không cần rời tay khỏi hàng phím chính. KeyboardMouse chạy ngầm ở khay hệ thống.",
-    "home.turnOn": "Bật chế độ chuột", "home.turnOff": "Tắt chế độ chuột", "home.orPress": "hoặc bấm",
-    "home.quick": "Bắt đầu trong 30 giây",
-    "home.s1t": "Bật lên", "home.s1": "Bấm Caps Lock. Một chỉ báo xanh nhỏ hiện cạnh con trỏ — bạn đang ở chế độ chuột.",
-    "home.s2t": "Di chuyển", "home.s2": "Giữ phím để con trỏ lướt đi, giữ càng lâu càng nhanh. Bấm hai phím cùng lúc để đi chéo.",
-    "home.s3t": "Click", "home.s3": "Space là nút chuột trái. Giữ Space trong lúc di để kéo thả. Bấm Caps Lock lần nữa để gõ chữ bình thường.",
-    "home.tray": "Đóng cửa sổ này không làm tắt app. App nằm ở khay hệ thống cạnh đồng hồ (bấm <b>^</b> nếu bị ẩn). Chuột phải vào icon để mở menu, nhấp đúp để mở lại hướng dẫn này.",
-    "home.setup": "Thiết lập cho tiện",
-    "home.autostartT": "Khởi động cùng Windows", "home.autostart": "Tự chạy ngầm ở khay hệ thống mỗi khi bạn đăng nhập.",
-    "home.startMenuT": "Thêm vào Start menu", "home.startMenu": "Gõ tên KeyboardMouse trong Start là tìm thấy.",
-    "home.desktopT": "Shortcut ngoài desktop", "home.desktop": "Một icon trên desktop để mở lại cửa sổ này.",
-    "home.add": "Thêm", "home.added": "Đã thêm",
-    "keys.title": "Tất cả các phím, nhìn là hiểu",
-    "keys.lead": "Rê chuột lên một phím để xem nó làm gì. Bật chế độ chuột rồi bấm phím — phím sẽ sáng lên ở đây để bạn vừa bấm vừa học.",
-    "keys.ref": "Bảng tra nhanh", "keys.all": "Tất cả", "keys.pick": "Rê chuột hoặc bấm một phím", "keys.pickSub": "Phím có màu có tác dụng trong chế độ chuột. Phím xám vẫn gõ bình thường.",
-    "keys.live": "Trực tiếp: bấm phím trong chế độ chuột", "keys.liveOff": "Bật chế độ chuột để thấy phím sáng lên ở đây",
-    "keys.notMapped": "Không dùng trong chế độ chuột — phím này vẫn gõ bình thường.",
-    "cat.system": "Bật / tắt", "cat.move": "Di chuyển", "cat.layer": "Giữ để đổi", "cat.click": "Click", "cat.nav": "Lùi / tới", "cat.jump": "Nhảy nhanh", "cat.edit": "Chỉnh sửa",
-    "modes.title": "Tuyệt chiêu", "modes.lead": "Di chuột qua màn hình lớn bằng I J K L vẫn ổn — nhưng các chiêu này nhanh hơn nhiều.",
-    "modes.gridT": "Nhảy bằng lưới", "modes.codes": "Một lưới ô nhỏ phủ kín màn hình, mỗi ô in sẵn đủ bốn chữ cái để tới ô đó ngay từ lần mở đầu. Lưới tự co giãn theo màn hình: màn hình càng lớn thì chia ra càng nhiều ô, chứ không phải ô to hơn. Đọc ô muốn tới rồi gõ đủ bốn chữ: con trỏ nhảy tới đó và lưới tự đóng. Lưới không tự click — bạn tự bấm Space để click. Phần còn lại của lưới mờ dần theo từng phím.",
-    "modes.codes1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — mười phím ghép nên mọi mã ô",
-    "modes.codes2": "Mã đọc là nhóm cột, cột, nhóm hàng, hàng — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> là cột 13, hàng 7",
-    "modes.codes3": "<kbd>Tab</kbd> di chuyển tới rồi đóng, không click · <kbd>N</kbd> sang màn hình kế · <kbd>Esc</kbd> hủy · <kbd>Backspace</kbd> lùi lại · sau đó bấm <kbd>Space</kbd> để click tại chỗ con trỏ",
-    "modes.hintT": "Nhãn gợi ý", "modes.hint": "Mỗi nút bấm và link có một nhãn ngắn. Gõ nhãn là click luôn — không cần nhắm.",
-    "modes.hint1": "Nhãn chỉ dùng các chữ ở hàng phím chính: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
-    "modes.hint2": "<kbd>Shift</kbd> + nhãn = chỉ rê tới · <kbd>F</kbd> + nhãn = click phải",
-    "modes.scrollT": "Cuộn trang", "modes.scroll": "Giữ D thì các phím di chuyển sẽ cuộn trang thay vì di chuột. Mượt, và nhanh dần khi giữ.",
-    "modes.scroll1": "<kbd>D</kbd> + <kbd>I</kbd>/<kbd>K</kbd> lên/xuống · <kbd>D</kbd> + <kbd>J</kbd>/<kbd>L</kbd> sang ngang",
-    "modes.scroll2": "<kbd>D</kbd> + <kbd>U</kbd>/<kbd>O</kbd> lật trang · thêm <kbd>Ctrl</kbd> để phóng to",
-    "modes.autoT": "Auto click", "modes.auto": "Bấm B là app tự click liên tục tại vị trí con trỏ. Vẫn di chuột được trong lúc đó. Bấm B lần nữa để dừng.",
-    "modes.auto1": "Chỉ báo chuyển <b style=\"color:#eab308\">màu vàng</b> khi đang chạy", "modes.auto2": "Tốc độ và nút chuột: <b>Cài đặt → Auto click</b>",
-    "modes.moreT": "Thêm vài chiêu",
-    "modes.dragT": "Khóa kéo", "modes.drag": "Giữ nút trái xuống để bạn di thoải mái. Bấm V hoặc Space để thả.",
-    "modes.typeT": "Click rồi gõ", "modes.type": "Click vào ô nhập chữ và thoát chế độ chuột chỉ bằng một phím, để gõ ngay.",
-    "modes.speedT": "Tốc độ", "modes.speed": "Giữ S để di chậm, chính xác từng điểm; giữ A để lướt nhanh qua màn hình.",
-    "modes.jumpT": "Nhảy", "modes.jump": "Tới giữa màn hình, giữa cửa sổ, hoặc sang màn hình kế tiếp.",
-    "modes.markT": "Đánh dấu", "modes.mark": "M rồi một chữ để lưu vị trí; ' rồi chữ đó để nhảy về. Vẫn nhớ sau khi khởi động lại.",
-    "modes.panicT": "Khẩn cấp", "modes.panic": "Nếu chuột có vẻ bị kẹt nút: thả hết các nút và thoát chế độ chuột.",
-    "modes.dotT": "Màu sắc nghĩa là gì",
-    "dot.normal": "Đang bật chế độ chuột", "dot.scroll": "Đang cuộn (D)", "dot.precision": "Chính xác (S)", "dot.turbo": "Siêu nhanh (A)", "dot.drag": "Khóa kéo (V)", "dot.auto": "Đang auto click (B)",
-    "practice.title": "Sân luyện tập", "practice.lead": "Bắn trúng 10 mục tiêu mà không đụng tới chuột. Bật chế độ chuột trước, rồi bấm Bắt đầu bằng phím Space.",
-    "practice.hits": "Trúng", "practice.time": "Thời gian", "practice.best": "Kỷ lục", "practice.size": "Cỡ mục tiêu", "practice.big": "To", "practice.small": "Nhỏ",
-    "practice.ready": "Sẵn sàng chưa?", "practice.how": "Bấm Caps Lock, di con trỏ lên nút bằng I J K L, rồi bấm Space.", "practice.start": "Bắt đầu",
-    "practice.done": "Giỏi lắm! {time}", "practice.newBest": "Kỷ lục mới!", "practice.again": "Chơi lại",
-    "practice.tip1t": "Dùng lưới", "practice.codesTip": "Bấm G rồi đọc bốn chữ in trong ô bạn muốn. Gõ đủ bốn chữ là con trỏ nhảy tới đó và lưới tự đóng; sau đó bấm Space để click, hoặc F để click phải.",
-    "practice.tip2t": "Thử nhãn gợi ý", "practice.tip2": "Bấm H — mục tiêu sẽ có nhãn. Gõ nhãn là click ngay.",
-    "practice.tip3t": "Đi chậm mà chắc", "practice.tip3": "Giữ S để di chậm và chính xác với mục tiêu nhỏ.",
-    "settings.title": "Cài đặt", "settings.lead": "Kéo thanh, chọn màu hoặc đổi bất kỳ phím nào bên dưới. Thanh và màu áp dụng khi nhấn Enter, bấm ra ngoài hoặc bấm Áp dụng; phím áp dụng ngay.",
-    "settings.general": "Chung",
-    "settings.dotT": "Hiện chỉ báo con trỏ", "settings.dot": "Vẽ chỉ báo cạnh con trỏ khi chế độ chuột đang bật.",
-    "settings.styleT": "Kiểu con trỏ", "settings.style": "Hình dạng đi theo con trỏ. Màu của nó cho biết lớp đang dùng.",
-    "settings.sizeT": "Cỡ chỉ báo", "settings.size": "Độ lớn của chỉ báo.",
-    "settings.colorT": "Màu con trỏ", "settings.color": "Màu khi bật mouse mode. Cuộn, khóa kéo, chính xác, tăng tốc và tự nhấn vẫn giữ màu riêng.",
-    "settings.statesT": "Màu từng trạng thái", "settings.states": "Mỗi lớp giữ màu riêng để bạn nhìn là biết con trỏ đang ở trạng thái nào.",
-    "settings.restart": "Khởi động lại",
-    "settings.restartHint": "Đã lưu cài đặt. Khởi động lại app để mọi thay đổi được áp dụng đầy đủ.",
-    "settings.pending": "Chưa áp dụng", "settings.apply": "Áp dụng",
-    "settings.borderLookT": "Kiểu viền", "settings.borderLook": "Frame là đường viền gọn, Glow là dải sáng mềm, Corners chỉ vẽ bốn góc, Không viền thì không vẽ gì.", "settings.borderColor": "Màu",
-    "border.frame": "Viền", "border.glow": "Phát sáng", "border.corners": "Bốn góc", "border.none": "Không viền",
-    "style.dot": "Chấm", "style.halo": "Vòng sáng", "style.spotlight": "Đèn rọi", "style.reticle": "Tâm ngắm",
-    "style.arrow": "Mũi tên", "style.comet": "Sao chổi", "style.orbit": "Quỹ đạo", "style.brackets": "Khung góc",
-    "settings.borderT": "Viền màn hình", "settings.border": "Viền màu mỏng quanh màn hình khi chế độ chuột đang bật.",
-    "settings.editT": "Phím copy, paste, undo", "settings.edit": "Y, P và Z gửi Ctrl+C, Ctrl+V và Ctrl+Z trong chế độ chuột.",
-    "settings.updateT": "Tự kiểm tra bản cập nhật", "settings.update": "Mỗi ngày một lần, hỏi GitHub xem có bản mới không. Không gửi thông tin gì về bạn. Mặc định tắt.",
-    "settings.checkUpdate": "Kiểm tra cập nhật",
-    "settings.autoT": "Auto click", "settings.speedT": "Tốc độ", "settings.speed": "Số lần click mỗi giây khi auto click đang chạy.",
-    "settings.buttonT": "Nút chuột", "settings.button": "Nút chuột nào sẽ được click.", "settings.left": "Trái", "settings.right": "Phải", "settings.middle": "Giữa",
-    "settings.advT": "Nâng cao", "settings.adv": "Đổi bất kỳ phím nào, chỉnh tốc độ hoặc phím bật/tắt trong settings.json, rồi tải lại.",
-    "settings.open": "Mở file cài đặt", "settings.reload": "Tải lại cài đặt", "settings.log": "Mở thư mục log",
-    "about.license": "Miễn phí và mã nguồn mở (MIT)", "about.bug": "Báo lỗi",
-    "about.privacyT": "Quyền riêng tư", "about.p1": "Không bao giờ ghi lại hay lưu những gì bạn gõ.", "about.p2": "Không lên mạng, trừ khi bạn bật kiểm tra cập nhật (chỉ tới GitHub).", "about.p3": "Toàn bộ mã nguồn công khai trên GitHub.",
-    "about.limitsT": "Nên biết", "about.l1": "Cửa sổ chạy quyền admin (vd. Task Manager) chỉ nhận lệnh nếu KeyboardMouse cũng chạy bằng quyền admin.", "about.l2": "Một số game bỏ qua thao tác chuột giả lập.", "about.l3": "Dùng chung được với TrackPoint, touchpad hoặc chuột thật.",
-    "about.powerT": "Tắt hoặc khởi động lại", "about.power": "Shutdown tắt hẳn app và bàn phím trở lại bình thường ngay lập tức. Restart tắt app rồi chạy lại từ đầu.", "about.shutdownBtn": "Tắt", "about.restartBtn": "Khởi động lại",
-    "toast.saved": "Đã lưu", "toast.reloaded": "Đã tải lại cài đặt", "toast.shortcut": "Đã tạo shortcut", "toast.failed": "Có lỗi xảy ra — xem file log",
-    "toast.bindingReset": "Đã đặt lại phím", "toast.bindingUnbound": "Đã bỏ gán phím", "toast.allReset": "Đã đặt lại mọi phím", "toast.hintSaved": "Đã lưu ký tự gợi ý", "toast.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau",
-    "perSec": "{n} / giây",
-    "keymap.title": "Bản đồ phím", "keymap.lead": "Mọi phím chạy trong chế độ chuột đều đổi được. Bấm vào phím, rồi bấm phím thay thế.",
-    "keymap.search": "Tìm phím hoặc chức năng", "keymap.resetAll": "Đặt lại tất cả", "keymap.confirmReset": "Bấm lần nữa để đặt lại", "keymap.change": "Đổi", "keymap.reset": "Đặt lại", "keymap.unbind": "Bỏ gán", "keymap.unbound": "Chưa gán", "keymap.listening": "Bấm một phím cho {action}", "keymap.listeningSub": "Esc hủy. Phím chỉ chứa modifier sẽ bị bỏ qua.", "keymap.cancel": "Hủy", "keymap.swapped": "{action} giờ là {key}. {other} nhận {old}.", "keymap.bound": "{action} giờ là {key}.", "keymap.captureCancelled": "Đã hủy đổi phím", "keymap.fixed": "Cố định", "keymap.fixedLead": "Esc và Backspace luôn cố định; chế độ lưới còn dành riêng Space, Enter và Tab.", "keymap.gridT": "Phím lưới", "keymap.gridLead": "Mỗi ô in bốn trong mười phím này: nhóm cột, cột, nhóm hàng, hàng.", "keymap.gridMode": "Trong chế độ lưới: gõ đủ mã chỉ di chuyển con trỏ tới ô rồi tự đóng lưới, bạn bấm Space để click; Space hoặc Enter bấm khi lưới còn mở thì click ngay, Tab di chuyển rồi đóng, phím Sang màn hình kế (N) đổi màn hình, Backspace xóa một chữ, Ctrl + phím Lưới đóng, Esc hủy.", "keymap.gridCol": "Phím lưới {n}", "keymap.gridColDesc": "Ký tự thứ {n} trong mã của mỗi ô.", "keymap.hintT": "Ký tự gợi ý", "keymap.hintLead": "Chữ cái, chữ số và dấu câu nhãn gợi ý có thể dùng. Ít nhất hai ký tự khác nhau.", "keymap.hintSave": "Lưu", "keymap.hintPreview": "Xem trước", "keymap.hintInvalid": "Dùng ít nhất hai ký tự hợp lệ khác nhau.", "keymap.group.toggle": "Chế độ chuột", "keymap.group.move": "Di chuyển", "keymap.group.layer": "Giữ để đổi", "keymap.group.click": "Click", "keymap.group.nav": "Lùi / tới", "keymap.group.jump": "Nhảy & chế độ", "keymap.group.edit": "Chỉnh sửa", "keymap.group.grid": "Phím lưới",
-    "modes.grid": "Bấm G, một lưới 3 x 3 phủ màn hình, mỗi ô in một phím. Bấm phím của ô muốn tới: con trỏ nhảy vào giữa ô đó và ô đó thành lưới 3 x 3 nhỏ hơn. Hết số tầng thì con trỏ dừng tại đó và lưới tự đóng. Lưới không tự click — bạn tự bấm Space để click. Thích một lưới lớn với mã bốn chữ? Đổi Kiểu lưới trong Cài đặt.",
-    "modes.grid1": "<kbd>U</kbd> <kbd>I</kbd> <kbd>O</kbd> · <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> · <kbd>M</kbd> <kbd>,</kbd> <kbd>.</kbd> — chín ô, từ hàng trên xuống hàng dưới",
-    "modes.grid2": "Ba phím tới được mọi chỗ — <kbd>O</kbd><kbd>J</kbd><kbd>K</kbd> là ô trên bên phải, rồi ô giữa bên trái của nó, rồi ô chính giữa",
-    "modes.grid3": "<kbd>Backspace</kbd> lùi một tầng · <kbd>Tab</kbd> hoặc <kbd>G</kbd> dừng tại đây · <kbd>N</kbd> sang màn hình kế · <kbd>Esc</kbd> hủy · <kbd>Space</kbd> click tại chỗ con trỏ",
-    "practice.tip1": "Bấm G, rồi bấm phím của ô chứa mục tiêu hai ba lần. Con trỏ nằm ngay trên đó; bấm Space để click, hoặc F để click chuột phải.",
-    "settings.gridT": "Kiểu lưới", "settings.grid": "Phím G mở lưới nào. Đệ quy thu hẹp lưới 3 x 3 sau mỗi phím. Mã bốn chữ phủ màn hình bằng các ô nhỏ, mỗi ô in sẵn bốn chữ để tới ô đó.",
-    "grid.recursive": "Đệ quy 3 x 3", "grid.codes": "Mã 4 chữ",
-    "settings.gridLookT": "Giao diện lưới", "settings.gridLook": "Cách vẽ lưới 3 x 3. Áp dụng từ lần bấm G tiếp theo.",
-    "settings.scopeT": "Vùng gợi ý", "settings.scope": "Phím H tìm nút ở đâu: cửa sổ đang dùng, cả màn hình đang có con trỏ, hay mọi màn hình.",
-    "scope.window": "Cửa sổ", "scope.screen": "Màn hình", "scope.all": "Mọi màn hình",
-    "settings.hintLookT": "Giao diện nhãn gợi ý", "settings.hintLook": "Khung và màu của nhãn gợi ý. Áp dụng từ lần bấm H tiếp theo.",
-    "look.hint.classic": "Vàng gốc", "look.hint.bubble": "Bong bóng xanh", "look.hint.blueOutline": "Xanh viền", "look.hint.glass": "Kính trắng",
-    "look.hint.badge": "Huy hiệu tròn", "look.hint.tag": "Thẻ treo", "look.hint.purple": "Tím đậm", "look.hint.keycap": "Phím bấm",
-    "look.grid.classic": "Gốc", "look.grid.frosted": "Kính mờ", "look.grid.spotlight": "Đèn rọi", "look.grid.thin": "Nét mảnh",
-    "look.grid.cards": "Thẻ nổi", "look.grid.bubble": "Bong bóng", "look.grid.keyboard": "Họa tiết bàn phím", "look.grid.glow": "Viền sáng",
-    "settings.depthT": "Số tầng lưới", "settings.depth": "Lưới đệ quy thu hẹp bao nhiêu lần trước khi đặt con trỏ và tự đóng.",
-    "keymap.rgridLead": "Mỗi ô của lưới 3 x 3 một phím, bắt đầu từ hàng trên.",
-    "keymap.rgridMode": "Trong chế độ lưới: phím của ô đưa con trỏ vào ô đó và thu lưới lại trong ô; hết tầng cuối thì lưới đóng, con trỏ nằm tại đó. Backspace lùi một tầng, Tab hoặc phím Lưới dừng tại đây, Space hoặc Enter click, phím Sang màn hình kế (N) đổi màn hình, Esc hủy.",
-    "keymap.rgridCell": "Ô lưới {n}", "keymap.rgridCellDesc": "Thu lưới đệ quy vào ô {n} (hàng {row}, cột {col}).",
-    "toast.gridStyle": "Đã lưu kiểu lưới"
+    "toast.gridStyle": "Grid style saved", "toast.handSaved": "Keys switched to the new layout",
+    "keys.handT": "Which hand moves the pointer?",
+    "keys.hand": "Right hand moves with I J K L and keeps the hold layers under the left hand. Left hand moves with W A S D and mirrors everything else onto the right hand. Switching replaces your keys with that layout.",
+    "keys.right": "Right hand · I J K L", "keys.left": "Left hand · W A S D",
+    "keys.tableT": "Which actions have a key", "keys.summary": "{n} of {total} actions have a key",
+    "keys.colAction": "Action", "keys.colKey": "Key", "keys.colStatus": "Status",
+    "keys.assigned": "Assigned", "keys.missing": "No key yet", "keys.fixedStatus": "Fixed", "keys.assign": "Assign",
+    "keys.unused": "Types as usual", "keys.doesWhat": "In mouse mode this key:",
+    "keys.nothing": "Does nothing — types as usual", "keys.nowOn": "now on {key}", "keys.noKey": "no key yet",
+    "keys.fixedKey": "Esc is fixed: it always closes the grid or hints, otherwise it leaves mouse mode.",
+    "keys.modifier": "Shift, Ctrl and Alt stay modifiers, so they cannot run an action."
   }
 };
 
 /* ---------------- actions ---------------- */
 const CAT_COLORS = { system: "--c-system", move: "--c-move", layer: "--c-layer", click: "--c-click", nav: "--c-nav", jump: "--c-jump", edit: "--c-edit" };
 const ACTIONS = [
-  { id: "toggle", cat: "system", def: "CapsLock", en: ["Mouse mode", "Tap to turn mouse mode on/off. Hold it for mouse mode only while held. Shift + Caps Lock = real Caps Lock."], vi: ["Chế độ chuột", "Bấm nhả để bật/tắt chế độ chuột. Giữ phím = chỉ bật trong lúc giữ. Shift + Caps Lock = Caps Lock thật."] },
-  { id: "escape", cat: "system", def: "Escape", fixed: true, en: ["Exit", "Closes the grid or hints, otherwise leaves mouse mode."], vi: ["Thoát", "Đóng lưới hoặc nhãn gợi ý, nếu không thì thoát chế độ chuột."] },
-  { id: "up", cat: "move", def: "I", en: ["Up", "Move the pointer up. Hold to accelerate."], vi: ["Lên", "Di con trỏ lên. Giữ để nhanh dần."] },
-  { id: "left", cat: "move", def: "J", en: ["Left", "Move the pointer left. Hold to accelerate."], vi: ["Trái", "Di con trỏ sang trái. Giữ để nhanh dần."] },
-  { id: "down", cat: "move", def: "K", en: ["Down", "Move the pointer down. Hold to accelerate."], vi: ["Xuống", "Di con trỏ xuống. Giữ để nhanh dần."] },
-  { id: "right", cat: "move", def: "L", en: ["Right", "Move the pointer right. Hold to accelerate."], vi: ["Phải", "Di con trỏ sang phải. Giữ để nhanh dần."] },
-  { id: "turboLayer", cat: "layer", def: "A", en: ["Turbo", "Hold for very fast movement across the screen."], vi: ["Siêu nhanh", "Giữ để con trỏ lướt rất nhanh qua màn hình."] },
-  { id: "precisionLayer", cat: "layer", def: "S", en: ["Precise", "Hold for slow, pixel-exact movement. One tap = 1 pixel."], vi: ["Chính xác", "Giữ để di chậm, chính xác từng điểm. Mỗi lần bấm = 1 pixel."] },
-  { id: "scrollLayer", cat: "layer", def: "D", en: ["Scroll", "Hold, then I/K scroll up/down, J/L sideways, U/O page up/down."], vi: ["Cuộn", "Giữ, rồi I/K cuộn lên/xuống, J/L cuộn ngang, U/O lật trang."] },
-  { id: "leftClick", cat: "click", def: "Space", en: ["Left click", "Left mouse button. Hold while moving to drag."], vi: ["Click trái", "Nút chuột trái. Giữ trong lúc di để kéo thả."] },
-  { id: "rightClick", cat: "click", def: "F", en: ["Right click", "Right mouse button — opens context menus."], vi: ["Click phải", "Nút chuột phải — mở menu chuột phải."] },
-  { id: "middleClick", cat: "click", def: "E", en: ["Middle", "Middle click — e.g. open a link in a new tab."], vi: ["Click giữa", "Click giữa — vd. mở link trong tab mới."] },
-  { id: "doubleClick", cat: "click", def: "R", en: ["Double", "Double click in one press."], vi: ["Double", "Double click chỉ với một lần bấm."] },
-  { id: "clickAndExit", cat: "click", def: "T", en: ["Click+type", "Left click, then leave mouse mode so you can type."], vi: ["Click+gõ", "Click trái rồi thoát chế độ chuột để gõ chữ."] },
-  { id: "dragLock", cat: "click", def: "V", en: ["Drag lock", "Hold the left button down until you press V or Space again."], vi: ["Khóa kéo", "Giữ nút trái cho đến khi bấm V hoặc Space lần nữa."] },
-  { id: "autoClick", cat: "click", def: "B", en: ["Auto click", "Clicks repeatedly at the pointer until you press it again."], vi: ["Auto click", "Tự click liên tục tại con trỏ cho tới khi bấm lại."] },
-  { id: "back", cat: "nav", def: "U", en: ["Back", "Mouse back button (browser back)."], vi: ["Lùi", "Nút lùi của chuột (quay lại trang trước)."] },
-  { id: "forward", cat: "nav", def: "O", en: ["Forward", "Mouse forward button."], vi: ["Tới", "Nút tới của chuột."] },
-  { id: "grid", cat: "jump", def: "G", en: ["Grid", "One grid of small cells, each printed with the four keys that click it."], vi: ["Lưới", "Một lưới ô nhỏ, mỗi ô in sẵn bốn phím để bấm vào ô đó."] },
-  { id: "hint", cat: "jump", def: "H", en: ["Hints", "Label every clickable thing; type a label to click it. Press it again to close."], vi: ["Nhãn", "Gắn nhãn cho mọi thứ bấm được; gõ nhãn để click. Bấm lại để tắt."] },
-  { id: "centerScreen", cat: "jump", def: "X", en: ["Screen", "Jump to the center of the current screen."], vi: ["Giữa MH", "Nhảy tới giữa màn hình hiện tại."] },
-  { id: "centerWindow", cat: "jump", def: "C", en: ["Window", "Jump to the center of the active window."], vi: ["Giữa CS", "Nhảy tới giữa cửa sổ đang mở."] },
-  { id: "nextMonitor", cat: "jump", def: "N", en: ["Monitor", "Jump to the next monitor."], vi: ["MH kế", "Nhảy sang màn hình kế tiếp."] },
-  { id: "markSave", cat: "jump", def: "M", en: ["Save mark", "Then a letter: remember this spot."], vi: ["Lưu", "Rồi một chữ cái: ghi nhớ vị trí này."] },
-  { id: "markJump", cat: "jump", def: "Apostrophe", en: ["Go to mark", "Then a letter: jump to a saved spot."], vi: ["Tới dấu", "Rồi một chữ cái: nhảy tới vị trí đã lưu."] },
-  { id: "copy", cat: "edit", def: "Y", en: ["Copy", "Sends Ctrl+C."], vi: ["Copy", "Gửi Ctrl+C."] },
-  { id: "paste", cat: "edit", def: "P", en: ["Paste", "Sends Ctrl+V."], vi: ["Paste", "Gửi Ctrl+V."] },
-  { id: "undo", cat: "edit", def: "Z", en: ["Undo", "Sends Ctrl+Z."], vi: ["Undo", "Gửi Ctrl+Z."] },
-  { id: "redo", cat: "edit", def: "W", en: ["Redo", "Sends Ctrl+Y."], vi: ["Redo", "Gửi Ctrl+Y."] }
+  { id: "toggle", cat: "system", def: "CapsLock", en: ["Mouse mode", "Tap to turn mouse mode on/off. Hold it for mouse mode only while held. Shift + Caps Lock = real Caps Lock."] },
+  { id: "escape", cat: "system", def: "Escape", fixed: true, en: ["Exit", "Closes the grid or hints, otherwise leaves mouse mode."] },
+  { id: "up", cat: "move", def: "I", en: ["Up", "Move the pointer up. Hold to accelerate."] },
+  { id: "left", cat: "move", def: "J", en: ["Left", "Move the pointer left. Hold to accelerate."] },
+  { id: "down", cat: "move", def: "K", en: ["Down", "Move the pointer down. Hold to accelerate."] },
+  { id: "right", cat: "move", def: "L", en: ["Right", "Move the pointer right. Hold to accelerate."] },
+  { id: "turboLayer", cat: "layer", def: "A", en: ["Turbo", "Hold for very fast movement across the screen."] },
+  { id: "precisionLayer", cat: "layer", def: "S", en: ["Precise", "Hold for slow, pixel-exact movement. One tap = 1 pixel."] },
+  { id: "scrollLayer", cat: "layer", def: "D", en: ["Scroll", "Hold, then {k:up}/{k:down} scroll up/down, {k:left}/{k:right} sideways, {k:back}/{k:forward} page up/down."] },
+  { id: "leftClick", cat: "click", def: "Space", en: ["Left click", "Left mouse button. Hold while moving to drag."] },
+  { id: "rightClick", cat: "click", def: "F", en: ["Right click", "Right mouse button — opens context menus."] },
+  { id: "middleClick", cat: "click", def: "E", en: ["Middle", "Middle click — e.g. open a link in a new tab."] },
+  { id: "doubleClick", cat: "click", def: "R", en: ["Double", "Double click in one press."] },
+  { id: "clickAndExit", cat: "click", def: "T", en: ["Click+type", "Left click, then leave mouse mode so you can type."] },
+  { id: "dragLock", cat: "click", def: "V", en: ["Drag lock", "Hold the left button down until you press {k:dragLock} or {k:leftClick} again."] },
+  { id: "autoClick", cat: "click", def: "B", en: ["Auto click", "Clicks repeatedly at the pointer until you press it again."] },
+  { id: "back", cat: "nav", def: "U", en: ["Back", "Mouse back button (browser back). Page up while the scroll layer is held."] },
+  { id: "forward", cat: "nav", def: "O", en: ["Forward", "Mouse forward button. Page down while the scroll layer is held."] },
+  { id: "grid", cat: "jump", def: "G", en: ["Grid", "Opens the grid: type the keys of the cell you want and the pointer jumps there."] },
+  { id: "hint", cat: "jump", def: "H", en: ["Hints", "Label every clickable thing; type a label to click it. Press it again to close."] },
+  { id: "centerScreen", cat: "jump", def: "X", en: ["Screen", "Jump to the center of the current screen."] },
+  { id: "centerWindow", cat: "jump", def: "C", en: ["Window", "Jump to the center of the active window."] },
+  { id: "nextMonitor", cat: "jump", def: "N", en: ["Monitor", "Jump to the next monitor."] },
+  { id: "markSave", cat: "jump", def: "M", en: ["Save mark", "Then a letter: remember this spot."] },
+  { id: "markJump", cat: "jump", def: "Apostrophe", en: ["Go to mark", "Then a letter: jump to a saved spot."] },
+  { id: "copy", cat: "edit", def: "Y", en: ["Copy", "Sends Ctrl+C."] },
+  { id: "paste", cat: "edit", def: "P", en: ["Paste", "Sends Ctrl+V."] },
+  { id: "undo", cat: "edit", def: "Z", en: ["Undo", "Sends Ctrl+Z."] },
+  { id: "redo", cat: "edit", def: "W", en: ["Redo", "Sends Ctrl+Y."] }
 ];
 const ALIASES = { ";": "Semicolon", "'": "Apostrophe", ",": "Comma", ".": "Period", "/": "Slash", "ESC": "Escape", "CAPS": "CapsLock", "CAPSLOCK": "CapsLock", "SPACE": "Space" };
 const LABELS = { Semicolon: ";", Apostrophe: "'", Comma: ",", Period: ".", Slash: "/", Space: "Space", CapsLock: "Caps Lock", Escape: "Esc", LeftShift: "Shift", Backspace: "⌫", ScrollLock: "Scroll Lock" };
@@ -1169,14 +1090,14 @@ const ROW_OFFSETS = [0, 0.5, 0, 0, 2.5];
 /* ---------------- state ---------------- */
 const host = window.chrome && window.chrome.webview ? window.chrome.webview : null;
 const query = new URLSearchParams(location.search);
-let lang = query.get("lang") || load("lang", (navigator.language || "en").toLowerCase().startsWith("vi") ? "vi" : "en");
 if (query.get("theme")) document.documentElement.dataset.theme = query.get("theme");
 let filter = "all";
 let selectedKey = null;
+let pinned = false; // a clicked key stays selected so its action can be changed
 let state = {
   version: "0.0.0", mouseMode: false, paused: false, autoClicking: false, autostart: false,
   shortcuts: { desktop: false, startMenu: false },
-  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {}, gridStyle: "recursive", gridMaxDepth: 3, hintStyle: "classic", gridTheme: "classic", hintScope: "activeMonitor", recursiveGridKeys: ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"] }
+  settings: { toggleKey: "CapsLock", cursorDot: true, cursorStyle: "dot", cursorColor: "2ecc71", borderStyle: "frame", borderColor: "2ecc71", borderThickness: 3, scrollColor: "3498db", precisionColor: "9b59b6", turboColor: "e74c3c", dragLockColor: "e67e22", autoClickColor: "f1c40f", dotSize: 12, screenBorder: true, updateCheckOnStart: false, autoClick: { intervalMs: 100, button: "Left" }, keys: {}, hand: "right", gridStyle: "recursive", gridMaxDepth: 3, hintStyle: "classic", gridTheme: "classic", hintScope: "activeMonitor", recursiveGridKeys: ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"] }
 };
 
 /* ---------------- pointer styles ---------------- */
@@ -1194,9 +1115,15 @@ const CURSOR_STYLES = [
 function load(key, fallback) { try { return localStorage.getItem("km." + key) ?? fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem("km." + key, value); } catch { /* private mode */ } }
 function t(key, vars) {
-  let s = (T[lang] && T[lang][key]) ?? T.en[key] ?? key;
+  let s = T.en[key] ?? key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace("{" + k + "}", v);
-  return s;
+  return fill(s);
+}
+/** Replaces {k:actionId} with that action's key and {rg:n} with grid cell n's key. */
+function fill(s) {
+  return String(s)
+    .replace(/\{k:(\w+)\}/g, (_, id) => esc(label(keyOf(id))))
+    .replace(/\{rg:(\d)\}/g, (_, n) => esc(label(norm((state.settings.recursiveGridKeys || [])[Number(n)] || ""))));
 }
 function send(msg) {
   if (host) host.postMessage(msg);
@@ -1254,15 +1181,15 @@ function keyOf(actionId) {
 
 /* ---------------- i18n ---------------- */
 function applyText() {
-  document.documentElement.lang = lang;
+  renderAll();
+}
+function refreshText() {
   $$("[data-t]").forEach(el => { el.innerHTML = t(el.dataset.t); });
   // Icon-only layouts hide these labels, so repeat them as tooltips.
   $$("#nav button").forEach(b => { const label = b.querySelector("span"); if (label) b.title = label.textContent; });
   const status = $("#status");
   if (status) status.title = status.textContent.replace(/\s+/g, " ").trim();
   $$(".side-shutdown, .side-restart").forEach(b => { b.title = b.textContent.trim(); });
-  $$("#lang button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
-  renderAll();
 }
 
 /* ---------------- navigation ---------------- */
@@ -1289,6 +1216,7 @@ function renderStatus() {
   $("#hero-toggle span").textContent = state.mouseMode ? t("home.turnOff") : t("home.turnOn");
   $$("[data-toggle-key]").forEach(k => { k.textContent = k.classList.contains("lg") && toggle === "Caps Lock" ? "Caps" : toggle; });
   $$("[data-key]").forEach(k => { k.textContent = label(keyOf(k.dataset.key)); });
+  $$(".hero-art .k[data-key]").forEach(k => { k.dataset.hk = keyOf(k.dataset.key); });
   const live = $("#live");
   if (live) { live.classList.toggle("on", state.mouseMode); live.querySelector("span").textContent = state.mouseMode ? t("keys.live") : t("keys.liveOff"); }
   $("#version").textContent = "v" + state.version;
@@ -1316,8 +1244,9 @@ function renderKeyboard() {
       if (a && filter !== "all" && a.cat !== filter) k.classList.add("dim");
       if (!a && filter !== "all") k.classList.add("dim");
       if (name === selectedKey) k.classList.add("sel");
-      k.innerHTML = `<span class="cap">${esc(label(name))}</span><span class="act">${a ? esc(a[lang][0]) : ""}</span>`;
-      k.addEventListener("mouseenter", () => select(name));
+      k.innerHTML = `<span class="cap">${esc(label(name))}</span><span class="act">${a ? esc(a.en[0]) : ""}</span>`;
+      k.addEventListener("mouseenter", () => { if (!pinned) select(name); });
+      k.addEventListener("click", () => { pinned = true; select(name); });
       r.appendChild(k);
     }
     kb.appendChild(r);
@@ -1329,24 +1258,60 @@ function renderKeyboard() {
 }
 function renderDetail() {
   const d = $("#detail");
-  const a = selectedKey ? bindings().get(selectedKey) : null;
   if (!selectedKey) {
     d.style.removeProperty("--c");
     d.innerHTML = `<div class="top"><kbd class="lg">?</kbd><div><h3>${t("keys.pick")}</h3></div></div><p>${t("keys.pickSub")}</p>`;
     return;
   }
-  if (!a) {
-    d.style.removeProperty("--c");
-    d.innerHTML = `<div class="top"><kbd class="lg">${esc(label(selectedKey))}</kbd><div><div class="badge">—</div></div></div><p>${t("keys.notMapped")}</p>`;
-    return;
+  const name = selectedKey;
+  const a = bindings().get(name);
+  if (a) d.style.setProperty("--c", `var(${CAT_COLORS[a.cat]})`); else d.style.removeProperty("--c");
+  const head = `<div class="top"><kbd class="lg">${esc(label(name))}</kbd><div><div class="badge">${a ? t("cat." + a.cat) : "—"}</div><h2>${a ? esc(a.en[0]) : t("keys.unused")}</h2></div></div>`;
+  let body;
+  if (name === "Escape") body = `<p>${t("keys.fixedKey")}</p>`;
+  else if (name === "LeftShift") body = `<p>${t("keys.modifier")}</p>`;
+  else {
+    const groups = Object.keys(CAT_COLORS).map(cat => {
+      const opts = ACTIONS.filter(x => x.cat === cat && !x.fixed).map(x => {
+        const bound = bindingValue(x.id);
+        const note = bound === name ? "" : bound ? " — " + t("keys.nowOn", { key: label(bound) }) : " — " + t("keys.noKey");
+        return `<option value="${x.id}"${a && a.id === x.id ? " selected" : ""}>${esc(x.en[0] + note)}</option>`;
+      }).join("");
+      return opts ? `<optgroup label="${esc(t("cat." + cat))}">${opts}</optgroup>` : "";
+    }).join("");
+    body = `<div class="picker"><p>${a ? actionDesc(a.id) : t("keys.notMapped")}</p>
+      <label class="pick-row"><span>${t("keys.doesWhat")}</span><select id="key-action" data-key-name="${esc(name)}"><option value=""${a ? "" : " selected"}>${esc(t("keys.nothing"))}</option>${groups}</select></label></div>`;
   }
-  d.style.setProperty("--c", `var(${CAT_COLORS[a.cat]})`);
-  d.innerHTML = `<div class="top"><kbd class="lg">${esc(label(selectedKey))}</kbd><div><div class="badge">${t("cat." + a.cat)}</div><h2>${esc(a[lang][0])}</h2></div></div><p>${esc(a[lang][1])}</p>`;
+  d.innerHTML = head + body;
 }
 function select(name) {
   selectedKey = name;
   $$("#keyboard .key").forEach(k => k.classList.toggle("sel", k.dataset.name === name));
   renderDetail();
+}
+function renderAssignTable() {
+  const table = $("#assign-table");
+  if (!table) return;
+  const editable = ACTIONS.filter(x => !x.fixed);
+  const assigned = editable.filter(x => bindingValue(x.id)).length;
+  $("#assign-summary").textContent = t("keys.summary", { n: assigned, total: editable.length });
+  const rows = Object.keys(CAT_COLORS).flatMap(cat => ACTIONS.filter(x => x.cat === cat).map(x => {
+    const key = x.fixed ? x.def : bindingValue(x.id);
+    const status = x.fixed ? `<span class="pill">${t("keys.fixedStatus")}</span>`
+      : key ? `<span class="pill ok">${t("keys.assigned")}</span>` : `<span class="pill warn">${t("keys.missing")}</span>`;
+    const tools = x.fixed ? "" :
+      `<button class="btn small${key ? "" : " primary"}" type="button" data-capture="${x.id}">${key ? t("keymap.change") : t("keys.assign")}</button>` +
+      `<button class="row-act" type="button" data-reset="${x.id}" title="${esc(t("keymap.reset"))}">↺</button>` +
+      (key ? `<button class="row-act" type="button" data-unbind="${x.id}" title="${esc(t("keymap.unbind"))}">×</button>` : "");
+    const cls = (key ? "" : "missing") + (capture && capture.id === x.id ? " capturing" : "");
+    return `<tr class="${cls}" style="--c:var(${CAT_COLORS[x.cat]})"><td><i class="cat-dot"></i><b>${esc(x.en[0])}</b><small>${actionDesc(x.id)}</small></td>` +
+      `<td class="muted">${t("cat." + x.cat)}</td><td>${key ? `<kbd>${esc(label(key))}</kbd>` : `<span class="muted">—</span>`}</td><td>${status}</td><td class="tools">${tools}</td></tr>`;
+  })).join("");
+  table.innerHTML = `<thead><tr><th>${t("keys.colAction")}</th><th></th><th>${t("keys.colKey")}</th><th>${t("keys.colStatus")}</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+}
+function renderHand() {
+  const hand = String(state.settings.hand || "right") === "left" ? "left" : "right";
+  $$("#hand button").forEach(b => b.classList.toggle("active", b.dataset.hand === hand));
 }
 function renderLegend() {
   const cats = ["all", ...Object.keys(CAT_COLORS)];
@@ -1358,12 +1323,12 @@ function renderReference() {
   const byCat = {};
   for (const [k, a] of map) (byCat[a.cat] ||= []).push([k, a]);
   $("#reference").innerHTML = Object.keys(CAT_COLORS).filter(c => byCat[c]).map(c => `
-    <div class="card ref" style="--c:var(${CAT_COLORS[c]})"><h3><i></i>${t("cat." + c)}</h3><table>${byCat[c].map(([k, a]) => `<tr><td><kbd>${esc(label(k))}</kbd> <span class="muted" style="margin-left:6px">${esc(a[lang][0])}</span></td><td class="muted">${esc(a[lang][1])}</td></tr>`).join("")}</table></div>`).join("");
+    <div class="card ref" style="--c:var(${CAT_COLORS[c]})"><h3><i></i>${t("cat." + c)}</h3><table>${byCat[c].map(([k, a]) => `<tr><td><kbd>${esc(label(k))}</kbd> <span class="muted" style="margin-left:6px">${esc(a.en[0])}</span></td><td class="muted">${actionDesc(a.id)}</td></tr>`).join("")}</table></div>`).join("");
 }
 function pressKey(name, down) {
   const k = $(`#keyboard .key[data-name="${CSS.escape(name)}"]`);
   if (k) k.classList.toggle("pressed", down);
-  if (down && $("#page-keys").classList.contains("active")) select(name);
+  if (down && !pinned && $("#page-keys").classList.contains("active")) select(name);
   const hk = $(`.hero-art .k[data-hk="${CSS.escape(name)}"]`);
   if (hk) hk.classList.toggle("down", down);
 }
@@ -1455,7 +1420,7 @@ function actionName(id) {
   if (id.startsWith("rgrid")) return t("keymap.rgridCell", { n: Number(id.slice(5)) + 1 });
   if (id.startsWith("grid")) return t("keymap.gridCol", { n: Number(id.slice(4)) + 1 });
   const a = ACTIONS.find(x => x.id === id);
-  return a ? a[lang][0] : id;
+  return a ? a.en[0] : id;
 }
 function actionDesc(id) {
   if (id.startsWith("rgrid")) {
@@ -1464,7 +1429,7 @@ function actionDesc(id) {
   }
   if (id.startsWith("grid")) return t("keymap.gridColDesc");
   const a = ACTIONS.find(x => x.id === id);
-  return a ? a[lang][1] : "";
+  return a ? fill(esc(a.en[1])) : "";
 }
 
 let capture = null; // { id }
@@ -1472,48 +1437,6 @@ let resetAllPending = false;
 let resetAllTimer = null;
 
 function renderKeymap() {
-  const groupsEl = $("#keymap-groups");
-  if (!groupsEl) return;
-  const q = String($("#keymap-search")?.value || "").trim().toLowerCase();
-  const groups = [
-    { id: "system", label: t("keymap.group.toggle"), actions: ["toggle", "escape"] },
-    { id: "move", label: t("keymap.group.move"), actions: ["up", "left", "down", "right"] },
-    { id: "layer", label: t("keymap.group.layer"), actions: ["turboLayer", "precisionLayer", "scrollLayer"] },
-    { id: "click", label: t("keymap.group.click"), actions: ["leftClick", "rightClick", "middleClick", "doubleClick", "clickAndExit", "dragLock", "autoClick"] },
-    { id: "nav", label: t("keymap.group.nav"), actions: ["back", "forward"] },
-    { id: "jump", label: t("keymap.group.jump"), actions: ["grid", "hint", "centerScreen", "centerWindow", "nextMonitor", "markSave", "markJump"] },
-    { id: "edit", label: t("keymap.group.edit"), actions: ["copy", "paste", "undo", "redo"] }
-  ];
-  const groupHtml = groups.map(g => {
-    const rows = g.actions.map(id => {
-      const fixed = id === "escape";
-      const key = fixed ? "Escape" : bindingValue(id);
-      const match = !q || g.label.toLowerCase().includes(q) || actionName(id).toLowerCase().includes(q) || actionDesc(id).toLowerCase().includes(q) || id.includes(q) || label(key).toLowerCase().includes(q);
-      const rowClass = "binding-row" + (capture && capture.id === id ? " capturing" : "") + (match ? "" : " hidden");
-      const keyClass = "key-btn" + (fixed ? " locked" : "") + (key ? "" : " unbound");
-      const keyHtml = fixed
-        ? `<button class="${keyClass}" type="button" disabled>${esc(label(key))}</button>`
-        : `<button class="${keyClass}" type="button" data-capture="${id}"><kbd>${esc(label(key))}</kbd><span>${t("keymap.change")}</span></button>`;
-      const resetBtn = fixed ? "" : `<button class="row-act" type="button" data-reset="${id}" title="${esc(t("keymap.reset"))}">↺</button>`;
-      const unbindBtn = fixed ? "" : `<button class="row-act" type="button" data-unbind="${id}" title="${esc(t("keymap.unbind"))}">×</button>`;
-      return `<div class="${rowClass}" data-id="${id}">
-        <div class="binding-name"><b>${esc(actionName(id))}</b><span>${esc(actionDesc(id))}</span></div>
-        ${keyHtml}
-        ${resetBtn}
-        ${unbindBtn}
-      </div>`;
-    }).join("");
-    // hide whole group if no visible rows
-    const visible = g.actions.some(id => {
-      const a = ACTIONS.find(x => x.id === id);
-      return !q || g.label.toLowerCase().includes(q) || actionName(id).toLowerCase().includes(q) || actionDesc(id).toLowerCase().includes(q) || id.includes(q) || label(bindingValue(id)).toLowerCase().includes(q);
-    });
-    const colorKey = g.id === "system" ? "system" : g.id === "move" ? "move" : g.id === "layer" ? "layer" : g.id === "click" ? "click" : g.id === "nav" ? "nav" : g.id === "jump" ? "jump" : "edit";
-    const color = "var(" + CAT_COLORS[colorKey] + ")";
-    return `<div class="keymap-group${visible ? "" : " hidden"}" data-group="${g.id}"><h3><i style="background:${color}"></i>${esc(g.label)}</h3>${rows}</div>`;
-  }).join("");
-  groupsEl.innerHTML = groupHtml;
-
   // recursive grid pad
   const rgridEl = $("#keymap-rgrid");
   if (rgridEl) {
@@ -1684,7 +1607,8 @@ function renderLooks() {
 }
 
 function renderAll() {
-  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderDots(); renderSettings(); renderKeymap(); renderStatus(); renderPracticeBest();
+  renderGridStyle(); refreshText();
+  renderLegend(); renderKeyboard(); renderDetail(); renderReference(); renderAssignTable(); renderHand(); renderDots(); renderSettings(); renderKeymap(); renderStatus(); renderPracticeBest();
 }
 
 /* ---------------- toast ---------------- */
@@ -2007,7 +1931,7 @@ function onHost(msg) {
     } else if (c.error) {
       toast(t(c.error === "invalid" ? "keymap.hintInvalid" : "toast.failed"));
     }
-    renderKeymap();
+    renderAll();
   } else if (msg.type === "page") {
     showPage(msg.page);
   }
@@ -2017,7 +1941,6 @@ function onHost(msg) {
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 $$("#nav button").forEach(b => b.addEventListener("click", () => showPage(b.dataset.page)));
-$$("#lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; save("lang", lang); applyText(); }));
 $("#status").addEventListener("click", () => { if (state.paused) send({ cmd: "setPaused", on: false }); else send({ cmd: "setMouseMode", on: !state.mouseMode }); if (!host) { state.mouseMode = !state.mouseMode; renderStatus(); } });
 $("#hero-toggle").addEventListener("click", () => { send({ cmd: "setMouseMode", on: !state.mouseMode }); if (!host) { state.mouseMode = !state.mouseMode; renderStatus(); } });
 $$('[data-bind]').forEach(input => input.addEventListener("change", () => {
@@ -2217,6 +2140,25 @@ if (hintInput) {
 $("#hint-save")?.addEventListener("click", () => {
   send({ cmd: "setHintAlphabet", value: $("#hint-alphabet").value });
 });
+$$("#hand button").forEach(b => b.addEventListener("click", () => {
+  const hand = b.dataset.hand;
+  if ((state.settings.hand || "right") === hand) return;
+  state.settings.hand = hand;
+  send({ cmd: "setHand", hand });
+  renderHand();
+}));
+$("#detail").addEventListener("change", e => {
+  const sel = e.target.closest("#key-action");
+  if (!sel) return;
+  const key = sel.dataset.keyName;
+  const current = bindings().get(key);
+  if (!sel.value) { if (current) send({ cmd: "unbindBinding", id: current.id }); }
+  else send({ cmd: "assignKey", id: sel.value, key });
+});
+// A click outside the keyboard and the editor lets hovering preview again.
+document.addEventListener("click", e => {
+  if (pinned && !e.target.closest("#keyboard, #detail")) { pinned = false; }
+});
 $("#capture-cancel")?.addEventListener("click", () => {
   if (capture) {
     send({ cmd: "cancelCapture" });
@@ -2245,7 +2187,7 @@ document.addEventListener("click", e => {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     capture = { id };
     send({ cmd: "beginCapture", id });
-    renderKeymap();
+    renderKeymap(); renderAssignTable();
     return;
   }
   const reset = e.target.closest("[data-reset]");

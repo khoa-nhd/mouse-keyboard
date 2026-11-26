@@ -143,6 +143,9 @@ public sealed class ActivationSettings
 
 public sealed class KeysSettings
 {
+    /// <summary>"right" (move with I J K L) or "left" (move with W A S D).</summary>
+    public string Hand { get; set; } = "right";
+
     public string Up { get; set; } = "I";
     public string Left { get; set; } = "J";
     public string Down { get; set; } = "K";

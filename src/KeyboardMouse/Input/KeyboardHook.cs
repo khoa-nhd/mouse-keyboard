@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using KeyboardMouse.Native;
 using KeyboardMouse.Platform;
 
@@ -19,9 +20,10 @@ public sealed class KeyboardHook : IDisposable
     private bool _disposed;
     private System.Threading.Timer? _watchdog;
     private long _lastCallbackTicks;
-    private int _staleChecks;
     private int _reinstalling;
-    private uint _lastPokeTick = unchecked((uint)Environment.TickCount); // GetTickCount() of our last injected poke
+    private long _lastRawTicks;      // last WM_INPUT keyboard event (raw input sees every key)
+    private long _lastReinstallTicks;
+    private RawKeyboardSink? _rawSink;
     private SynchronizationContext? _uiContext; // the installing (message loop) thread
 
     public KeyboardHook()
@@ -60,12 +62,28 @@ public sealed class KeyboardHook : IDisposable
 
         _keysDown.Clear();
         Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
-        _staleChecks = 0;
-        if (_watchdog is null)
+        Volatile.Write(ref _lastRawTicks, 0);
+
+        // Windows silently removes slow low-level hooks. Raw input reports
+        // every key without us injecting anything, so a key that raw input
+        // saw but the hook did not means the hook is gone. Nothing synthetic
+        // is ever sent: injected input resets the idle timer and would keep
+        // the PC from sleeping or starting the screen saver.
+        if (_rawSink is null)
         {
-            // Windows silently removes slow low-level hooks. Every 5 s we
-            // poke with a system-ignored key and reinstall if no callback saw it.
-            _watchdog = new System.Threading.Timer(WatchdogTick, null, 5000, 5000);
+            try
+            {
+                _rawSink = new RawKeyboardSink(() => Volatile.Write(ref _lastRawTicks, Environment.TickCount64));
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Raw keyboard input is unavailable; the hook watchdog is off", ex);
+            }
+        }
+
+        if (_watchdog is null && _rawSink is not null)
+        {
+            _watchdog = new System.Threading.Timer(WatchdogTick, null, 2000, 2000);
         }
     }
 
@@ -74,6 +92,8 @@ public sealed class KeyboardHook : IDisposable
         _handler = null;
         _watchdog?.Dispose();
         _watchdog = null;
+        _rawSink?.Dispose();
+        _rawSink = null;
         if (_hook != IntPtr.Zero)
         {
             User32.UnhookWindowsHookEx(_hook);
@@ -156,11 +176,8 @@ public sealed class KeyboardHook : IDisposable
     }
 
     /// <summary>
-    /// Runs on a timer thread every 5 s. If the last callback is older than
-    /// 3.5 s the hook has seen nothing for a while — expected when nobody is
-    /// pressing keys. We inject one system-ignored key and wait briefly; a
-    /// live hook sees it and refreshes the heartbeat. If not, the hook was
-    /// silently removed and we reinstall it.
+    /// Runs on a timer thread every 2 s. Reinstalls the hook when raw input
+    /// saw a key that the hook never got. Sends no input of its own.
     /// </summary>
     private void WatchdogTick(object? state)
     {
@@ -169,42 +186,20 @@ public sealed class KeyboardHook : IDisposable
             return;
         }
 
-        long elapsed = Environment.TickCount64 - Volatile.Read(ref _lastCallbackTicks);
-        if (elapsed < 3500)
-        {
-            _staleChecks = 0;
-            return;
-        }
-
-        // An injected key resets the system idle timer just like a real one,
-        // so poking while the user is away would keep the PC from ever
-        // sleeping or blanking the screen. Only poke when real input arrived
-        // since our last poke; an idle machine gets at most one poke.
-        if (!TryGetLastInputTick(out uint lastInput) || !ShouldPoke(lastInput, _lastPokeTick))
-        {
-            _staleChecks = 0;
-            return;
-        }
-
-        SendHeartbeatPoke();
-        _lastPokeTick = unchecked((uint)Environment.TickCount);
-        System.Threading.Thread.Sleep(300);
-
-        if (_disposed)
+        long now = Environment.TickCount64;
+        if (!HookLooksDead(
+                Volatile.Read(ref _lastRawTicks),
+                Volatile.Read(ref _lastCallbackTicks),
+                now))
         {
             return;
         }
 
-        elapsed = Environment.TickCount64 - Volatile.Read(ref _lastCallbackTicks);
-        if (elapsed < 1000)
+        // At most one reinstall per 10 s, in case some foreground window
+        // (an elevated one, say) keeps raw input and the hook out of step.
+        if (now - Interlocked.Read(ref _lastReinstallTicks) < 10_000)
         {
-            _staleChecks = 0;
-            return; // alive: the poke refreshed the heartbeat
-        }
-
-        if (_staleChecks++ < 1)
-        {
-            return; // one more poke cycle before assuming the hook is gone
+            return;
         }
 
         // Never call SetWindowsHookEx from this timer thread: it has no message
@@ -214,7 +209,23 @@ public sealed class KeyboardHook : IDisposable
             return;
         }
 
+        Interlocked.Exchange(ref _lastReinstallTicks, now);
         _uiContext?.Post(_ => ReinstallSilently(), null);
+    }
+
+    /// <summary>
+    /// True when raw input reported a key more than a second after the hook's
+    /// last callback, and that key is old enough (300 ms) that a live hook
+    /// would have seen it by now.
+    /// </summary>
+    internal static bool HookLooksDead(long lastRawTicks, long lastCallbackTicks, long nowTicks)
+    {
+        if (lastRawTicks <= 0)
+        {
+            return false;
+        }
+
+        return lastRawTicks - lastCallbackTicks > 1000 && nowTicks - lastRawTicks > 300;
     }
 
     /// <summary>Runs on the UI thread (posted by the watchdog).</summary>
@@ -239,7 +250,6 @@ public sealed class KeyboardHook : IDisposable
             _hook = User32.SetWindowsHookExW(User32.WH_KEYBOARD_LL, _proc, module, 0);
 
             Volatile.Write(ref _lastCallbackTicks, Environment.TickCount64);
-            _staleChecks = 0;
 
             if (_hook == IntPtr.Zero)
             {
@@ -259,53 +269,61 @@ public sealed class KeyboardHook : IDisposable
             Interlocked.Exchange(ref _reinstalling, 0);
         }
     }
+}
 
-    /// <summary>
-    /// True when the system saw input after our last poke (plus a small
-    /// margin, since the poke itself shows up as input a moment later).
-    /// Ticks are 32-bit GetTickCount values, compared wrap-safe.
-    /// </summary>
-    internal static bool ShouldPoke(uint lastInputTick, uint lastPokeTick)
+/// <summary>
+/// A message-only window that receives raw keyboard input in the background
+/// (RIDEV_INPUTSINK). It only notes when a key arrived; it never reads which.
+/// </summary>
+internal sealed class RawKeyboardSink : NativeWindow, IDisposable
+{
+    private const int WM_INPUT = 0x00FF;
+    private readonly Action _onKey;
+
+    public RawKeyboardSink(Action onKey)
     {
-        const int marginMs = 500;
-        return unchecked((int)(lastInputTick - lastPokeTick)) > marginMs;
-    }
+        _onKey = onKey;
+        CreateHandle(new CreateParams { Parent = new IntPtr(-3) }); // HWND_MESSAGE
 
-    private static bool TryGetLastInputTick(out uint tick)
-    {
-        var info = new User32.LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<User32.LASTINPUTINFO>() };
-        bool ok = User32.GetLastInputInfo(ref info);
-        tick = info.dwTime;
-        return ok;
-    }
-
-    /// <summary>
-    /// Sends down+up of an unassigned virtual key (VK 0xFF). Nothing maps it,
-    /// so foreground apps ignore it, but low-level hooks still receive it.
-    /// </summary>
-    private static void SendHeartbeatPoke()
-    {
-        const ushort unassignedVk = 0xFF;
-
-        try
+        var device = new User32.RAWINPUTDEVICE
         {
-            var down = new INPUT
-            {
-                type = User32.INPUT_KEYBOARD,
-                u = new INPUTUNION
-                {
-                    ki = new KEYBDINPUT { wVk = unassignedVk, wScan = 0 }
-                }
-            };
+            usUsagePage = 0x01, // generic desktop
+            usUsage = 0x06,     // keyboard
+            dwFlags = User32.RIDEV_INPUTSINK,
+            hwndTarget = Handle
+        };
 
-            var up = down;
-            up.u.ki.dwFlags |= User32.KEYEVENTF_KEYUP;
-
-            User32.SendInput(2, new[] { down, up }, Marshal.SizeOf<INPUT>());
+        if (!User32.RegisterRawInputDevices(new[] { device }, 1, (uint)Marshal.SizeOf<User32.RAWINPUTDEVICE>()))
+        {
+            int error = Marshal.GetLastWin32Error();
+            DestroyHandle();
+            throw new InvalidOperationException($"RegisterRawInputDevices failed with error {error}.");
         }
-        catch
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WM_INPUT)
         {
-            // The poke must never crash anything.
+            _onKey();
+        }
+
+        base.WndProc(ref m);
+    }
+
+    public void Dispose()
+    {
+        if (Handle != IntPtr.Zero)
+        {
+            var device = new User32.RAWINPUTDEVICE
+            {
+                usUsagePage = 0x01,
+                usUsage = 0x06,
+                dwFlags = User32.RIDEV_REMOVE,
+                hwndTarget = IntPtr.Zero
+            };
+            User32.RegisterRawInputDevices(new[] { device }, 1, (uint)Marshal.SizeOf<User32.RAWINPUTDEVICE>());
+            DestroyHandle();
         }
     }
 }

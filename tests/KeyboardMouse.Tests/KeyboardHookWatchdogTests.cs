@@ -6,23 +6,34 @@ namespace KeyboardMouse.Tests;
 public class KeyboardHookWatchdogTests
 {
     [Fact]
-    public void Idle_machine_is_not_poked_again()
+    public void No_raw_key_yet_means_alive()
     {
-        // The only input since the last poke is the poke itself.
-        Assert.False(KeyboardHook.ShouldPoke(lastInputTick: 10_050, lastPokeTick: 10_000));
-        Assert.False(KeyboardHook.ShouldPoke(lastInputTick: 9_000, lastPokeTick: 10_000));
+        Assert.False(KeyboardHook.HookLooksDead(lastRawTicks: 0, lastCallbackTicks: 1_000, nowTicks: 60_000));
     }
 
     [Fact]
-    public void Real_input_after_the_poke_allows_another()
+    public void Hook_that_saw_the_key_is_alive()
     {
-        Assert.True(KeyboardHook.ShouldPoke(lastInputTick: 14_000, lastPokeTick: 10_000));
+        // Callback first, raw input a few ms later: the normal order.
+        Assert.False(KeyboardHook.HookLooksDead(lastRawTicks: 10_005, lastCallbackTicks: 10_000, nowTicks: 15_000));
     }
 
     [Fact]
-    public void Tick_wraparound_is_handled()
+    public void Idle_machine_is_alive()
     {
-        Assert.True(KeyboardHook.ShouldPoke(lastInputTick: 2_000, lastPokeTick: uint.MaxValue - 1_000));
-        Assert.False(KeyboardHook.ShouldPoke(lastInputTick: 100, lastPokeTick: uint.MaxValue - 100));
+        // Nobody typed for a minute: nothing to compare, nothing is sent.
+        Assert.False(KeyboardHook.HookLooksDead(lastRawTicks: 10_000, lastCallbackTicks: 10_000, nowTicks: 70_000));
+    }
+
+    [Fact]
+    public void Key_the_hook_missed_means_dead()
+    {
+        Assert.True(KeyboardHook.HookLooksDead(lastRawTicks: 20_000, lastCallbackTicks: 10_000, nowTicks: 20_500));
+    }
+
+    [Fact]
+    public void Very_fresh_key_waits_for_the_hook()
+    {
+        Assert.False(KeyboardHook.HookLooksDead(lastRawTicks: 20_000, lastCallbackTicks: 10_000, nowTicks: 20_100));
     }
 }

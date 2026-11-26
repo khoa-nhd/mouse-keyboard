@@ -11,8 +11,13 @@ public sealed record KeyBindingDefinition(
     string Group,
     string DefaultKey,
     int GridIndex = -1,
-    int RecursiveIndex = -1)
+    int RecursiveIndex = -1,
+    string? LeftKey = null)
 {
+    /// <summary>The default key for the given hand layout.</summary>
+    public string DefaultFor(string? hand) =>
+        HandLayouts.IsLeft(hand) && LeftKey is not null ? LeftKey : DefaultKey;
+
     public bool IsGrid => GridIndex >= 0;
 
     public bool IsRecursiveGrid => RecursiveIndex >= 0;
@@ -38,48 +43,48 @@ public static class KeyBindingCatalog
     [
         new(ToggleId, "system", "CapsLock"),
 
-        new("up", "move", "I"),
-        new("left", "move", "J"),
-        new("down", "move", "K"),
-        new("right", "move", "L"),
+        new("up", "move", "I", LeftKey: "W"),
+        new("left", "move", "J", LeftKey: "A"),
+        new("down", "move", "K", LeftKey: "S"),
+        new("right", "move", "L", LeftKey: "D"),
 
-        new("turboLayer", "layer", "A"),
-        new("precisionLayer", "layer", "S"),
-        new("scrollLayer", "layer", "D"),
+        new("turboLayer", "layer", "A", LeftKey: "Semicolon"),
+        new("precisionLayer", "layer", "S", LeftKey: "L"),
+        new("scrollLayer", "layer", "D", LeftKey: "K"),
 
-        new("leftClick", "click", "Space"),
-        new("rightClick", "click", "F"),
-        new("middleClick", "click", "E"),
-        new("doubleClick", "click", "R"),
-        new("clickAndExit", "click", "T"),
-        new("dragLock", "click", "V"),
-        new("autoClick", "click", "B"),
+        new("leftClick", "click", "Space", LeftKey: "Space"),
+        new("rightClick", "click", "F", LeftKey: "J"),
+        new("middleClick", "click", "E", LeftKey: "I"),
+        new("doubleClick", "click", "R", LeftKey: "U"),
+        new("clickAndExit", "click", "T", LeftKey: "Y"),
+        new("dragLock", "click", "V", LeftKey: "M"),
+        new("autoClick", "click", "B", LeftKey: "N"),
 
-        new("back", "nav", "U"),
-        new("forward", "nav", "O"),
+        new("back", "nav", "U", LeftKey: "Q"),
+        new("forward", "nav", "O", LeftKey: "E"),
 
-        new("grid", "jump", "G"),
-        new("hint", "jump", "H"),
-        new("centerScreen", "jump", "X"),
-        new("centerWindow", "jump", "C"),
-        new("nextMonitor", "jump", "N"),
-        new("markSave", "jump", "M"),
-        new("markJump", "jump", "Apostrophe"),
+        new("grid", "jump", "G", LeftKey: "G"),
+        new("hint", "jump", "H", LeftKey: "H"),
+        new("centerScreen", "jump", "X", LeftKey: "Period"),
+        new("centerWindow", "jump", "C", LeftKey: "Comma"),
+        new("nextMonitor", "jump", "N", LeftKey: "Slash"),
+        new("markSave", "jump", "M", LeftKey: "O"),
+        new("markJump", "jump", "Apostrophe", LeftKey: "Apostrophe"),
 
-        new("copy", "edit", "Y"),
-        new("paste", "edit", "P"),
-        new("undo", "edit", "Z"),
-        new("redo", "edit", "W"),
+        new("copy", "edit", "Y", LeftKey: "C"),
+        new("paste", "edit", "P", LeftKey: "V"),
+        new("undo", "edit", "Z", LeftKey: "Z"),
+        new("redo", "edit", "W", LeftKey: "X"),
 
-        new("rgrid0", "recursiveGrid", "U", RecursiveIndex: 0),
-        new("rgrid1", "recursiveGrid", "I", RecursiveIndex: 1),
-        new("rgrid2", "recursiveGrid", "O", RecursiveIndex: 2),
-        new("rgrid3", "recursiveGrid", "J", RecursiveIndex: 3),
-        new("rgrid4", "recursiveGrid", "K", RecursiveIndex: 4),
-        new("rgrid5", "recursiveGrid", "L", RecursiveIndex: 5),
-        new("rgrid6", "recursiveGrid", "M", RecursiveIndex: 6),
-        new("rgrid7", "recursiveGrid", "Comma", RecursiveIndex: 7),
-        new("rgrid8", "recursiveGrid", "Period", RecursiveIndex: 8),
+        new("rgrid0", "recursiveGrid", "U", RecursiveIndex: 0, LeftKey: "Q"),
+        new("rgrid1", "recursiveGrid", "I", RecursiveIndex: 1, LeftKey: "W"),
+        new("rgrid2", "recursiveGrid", "O", RecursiveIndex: 2, LeftKey: "E"),
+        new("rgrid3", "recursiveGrid", "J", RecursiveIndex: 3, LeftKey: "A"),
+        new("rgrid4", "recursiveGrid", "K", RecursiveIndex: 4, LeftKey: "S"),
+        new("rgrid5", "recursiveGrid", "L", RecursiveIndex: 5, LeftKey: "D"),
+        new("rgrid6", "recursiveGrid", "M", RecursiveIndex: 6, LeftKey: "Z"),
+        new("rgrid7", "recursiveGrid", "Comma", RecursiveIndex: 7, LeftKey: "X"),
+        new("rgrid8", "recursiveGrid", "Period", RecursiveIndex: 8, LeftKey: "C"),
 
         new("grid0", "grid", "A", 0),
         new("grid1", "grid", "S", 1),
@@ -209,7 +214,7 @@ public static class KeyBindingCatalog
             return false;
         }
 
-        return TryAssign(settings, id, definition.DefaultKey, out swappedId);
+        return TryAssign(settings, id, definition.DefaultFor(settings.Keys?.Hand), out swappedId);
     }
 
     public static bool Unbind(Settings settings, string? id)
@@ -223,16 +228,50 @@ public static class KeyBindingCatalog
         return true;
     }
 
-    /// <summary>Restores every editable binding to its default key.</summary>
+    /// <summary>Restores every editable binding to the default key of the current hand layout.</summary>
     public static void ResetAll(Settings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        settings.Keys ??= new KeysSettings();
         settings.Grid ??= new GridSettings();
+        EnsureGridKeys(settings);
+        string hand = settings.Keys.Hand;
 
         foreach (var definition in Definitions)
         {
-            Set(settings, definition, definition.DefaultKey);
+            Set(settings, definition, definition.DefaultFor(hand));
         }
+    }
+
+    /// <summary>
+    /// Switches to the right- or left-hand layout: every mouse-mode key and the
+    /// 3 x 3 grid keys move to that layout's defaults. The toggle key and the
+    /// code grid keys stay as they are.
+    /// </summary>
+    public static bool ApplyHand(Settings settings, string? hand)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        if (!HandLayouts.TryParse(hand, out string id))
+        {
+            return false;
+        }
+
+        settings.Keys ??= new KeysSettings();
+        settings.Grid ??= new GridSettings();
+        EnsureGridKeys(settings);
+        settings.Keys.Hand = id;
+
+        foreach (var definition in Definitions)
+        {
+            if (definition.Id == ToggleId || definition.IsGrid)
+            {
+                continue;
+            }
+
+            Set(settings, definition, definition.DefaultFor(id));
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -251,6 +290,8 @@ public static class KeyBindingCatalog
         settings.Grid ??= new GridSettings();
 
         EnsureGridKeys(settings);
+        settings.Keys.Hand = HandLayouts.Normalize(settings.Keys.Hand);
+        string hand = settings.Keys.Hand;
         settings.Grid.Style = GridSettings.NormalizeStyle(settings.Grid.Style);
         settings.Grid.MaxDepth = Math.Clamp(
             settings.Grid.MaxDepth,
@@ -259,13 +300,15 @@ public static class KeyBindingCatalog
 
         foreach (var definition in NormalPool)
         {
-            NormalizeValue(settings, definition);
+            NormalizeValue(settings, definition, hand);
         }
 
-        ResolveDuplicates(settings, NormalPool);
+        ResolveDuplicates(settings, NormalPool, hand);
 
         NormalizeGridLevel(settings.Grid.Keys, GridSettings.DefaultKeys());
-        NormalizeGridLevel(settings.Grid.RecursiveKeys, GridSettings.DefaultRecursiveKeys());
+        NormalizeGridLevel(
+            settings.Grid.RecursiveKeys,
+            RecursiveGridPool.Select(definition => definition.DefaultFor(hand)).ToArray());
         ClampGridSize(settings.Grid);
     }
 
@@ -351,7 +394,7 @@ public static class KeyBindingCatalog
         }
     }
 
-    private static void NormalizeValue(Settings settings, KeyBindingDefinition definition)
+    private static void NormalizeValue(Settings settings, KeyBindingDefinition definition, string hand)
     {
         string current = Get(settings, definition);
         if (IsUnbound(current))
@@ -366,12 +409,13 @@ public static class KeyBindingCatalog
             return;
         }
 
-        Set(settings, definition, definition.DefaultKey);
+        Set(settings, definition, definition.DefaultFor(hand));
     }
 
     private static void ResolveDuplicates(
         Settings settings,
-        IEnumerable<KeyBindingDefinition> pool)
+        IEnumerable<KeyBindingDefinition> pool,
+        string hand)
     {
         var used = new HashSet<PhysicalKey>();
 
@@ -387,7 +431,7 @@ public static class KeyBindingCatalog
                 continue;
             }
 
-            if (TryParseBindingKey(definition.DefaultKey, out var fallback) &&
+            if (TryParseBindingKey(definition.DefaultFor(hand), out var fallback) &&
                 used.Add(fallback))
             {
                 Set(settings, definition, KeyNames.Canonical(fallback));
@@ -500,4 +544,39 @@ public static class KeyBindingCatalog
 
     private static bool IsUnbound(string? value) =>
         string.IsNullOrWhiteSpace(value);
+}
+
+/// <summary>
+/// The two built-in layouts. Right hand (the default) moves with I J K L and
+/// keeps the layers under the left hand; left hand moves with W A S D and
+/// mirrors everything else onto the right hand.
+/// </summary>
+public static class HandLayouts
+{
+    public const string Right = "right";
+    public const string Left = "left";
+
+    public static bool IsLeft(string? hand) =>
+        string.Equals(hand?.Trim(), Left, StringComparison.OrdinalIgnoreCase);
+
+    public static string Normalize(string? hand) => IsLeft(hand) ? Left : Right;
+
+    public static bool TryParse(string? hand, out string id)
+    {
+        string value = hand?.Trim() ?? string.Empty;
+        if (string.Equals(value, Left, StringComparison.OrdinalIgnoreCase))
+        {
+            id = Left;
+            return true;
+        }
+
+        if (string.Equals(value, Right, StringComparison.OrdinalIgnoreCase))
+        {
+            id = Right;
+            return true;
+        }
+
+        id = Right;
+        return false;
+    }
 }

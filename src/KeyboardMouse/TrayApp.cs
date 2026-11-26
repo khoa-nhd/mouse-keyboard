@@ -443,6 +443,7 @@ public sealed class TrayApp : ApplicationContext
                 autoClick = new { intervalMs = _settings.AutoClick.IntervalMs, button = _settings.AutoClick.Button },
                 updateCheckOnStart = _settings.Update.CheckOnStart,
                 keys = _settings.Keys,
+                hand = HandLayouts.Normalize(_settings.Keys.Hand),
                 gridKeys = _settings.Grid.Keys,
                 gridStyle = GridSettings.NormalizeStyle(_settings.Grid.Style),
                 recursiveGridKeys = _settings.Grid.RecursiveKeys,
@@ -515,6 +516,30 @@ public sealed class TrayApp : ApplicationContext
                     _captureBindingId = captureId;
                     _captureKeyDown = PhysicalKey.None;
                     _router.SetTextInput(false);
+                }
+                break;
+
+            case "assignKey":
+                // The Keys page: a key on the keyboard was given an action.
+                var assignId = command.GetString("id");
+                if (assignId is not null &&
+                    KeyBindingCatalog.TryGet(assignId, out _) &&
+                    KeyBindingCatalog.TryParseBindingKey(command.GetString("key"), out var assignKey))
+                {
+                    CancelCaptureInternal();
+                    CompleteCapture(assignId, assignKey);
+                }
+                break;
+
+            case "setHand":
+                if (KeyBindingCatalog.ApplyHand(_settings, command.GetString("hand")))
+                {
+                    _settings.Normalize();
+                    if (SaveSettings())
+                    {
+                        ApplySettings();
+                        _guide?.Toast("toast.handSaved");
+                    }
                 }
                 break;
 

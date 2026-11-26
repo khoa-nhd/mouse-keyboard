@@ -13,7 +13,6 @@ It works **alongside** a TrackPoint, touchpad or real mouse. Physical pointer
 movement is never blocked, and the program always re-syncs to wherever the
 pointer actually is.
 
-> 🇻🇳 **Tiếng Việt:** xem [Hướng dẫn tiếng Việt](#hướng-dẫn-tiếng-việt) ở cuối trang.
 
 **Requirements:** Windows 10 (1803+) or Windows 11, 64-bit. Nothing else is
 needed, because .NET is bundled inside the exe.
@@ -47,13 +46,13 @@ The **KeyboardMouse window** opens with an illustrated guide:
 | Tab | What's in it |
 |---|---|
 | **Start** | Turn mouse mode on, a 30-second quick start, and one-click setup: Start with Windows, Start menu entry, desktop shortcut |
-| **Keys** | An interactive keyboard. Hover a key to see what it does; in mouse mode the keys you press light up |
+| **Keys** | An interactive keyboard. Click any key to choose what it does, switch between the right-hand (I J K L) and left-hand (W A S D) layout, and see in a table which actions have a key and which do not; in mouse mode the keys you press light up |
 | **Power moves** | Animated demos of grid jump, hints, scrolling and the auto clicker |
 | **Practice** | A target range to practise clicking without the mouse, with your best time |
-| **Settings** | Every key in the keymap, auto-click speed and button, pointer dot, screen border, copy/paste/undo/redo keys |
+| **Settings** | Grid and hint style, auto-click speed and button, pointer style and colours, screen border |
 | **About** | Version, privacy, links, and Quit |
 
-The guide is available in **English and Tiếng Việt** (switch at the bottom left).
+The side bar also has **Shutdown**, **Restart app** and **Check for updates**.
 
 - **Closing the window doesn't stop the app.** It keeps running in the
   **system tray** (bottom-right, next to the clock). Double-click the tray icon,
@@ -353,8 +352,10 @@ On first run, a default `settings.json` is created at
 
 The common options (auto-click speed and button, pointer style and size,
 screen border, copy/paste/undo/redo keys) can be changed in the window's **Settings**
-tab, and **every key in the keymap** can now be remapped there too: click a key,
-press the replacement, or unbind/reset it. The pointer style is also in the
+tab. Keys are changed on the **Keys** tab: click a key on the keyboard and pick
+its action, or use the table below it to assign, reset or unbind an action. The
+**Left hand** layout moves with W A S D and puts the layers, clicks and jumps on
+the right hand. The pointer style is also in the
 tray menu under **Pointer style**. Everything else is in the file.
 
 Tray icon → **Open settings file**, edit it, save, then tray icon →
@@ -455,55 +456,3 @@ git push origin v0.1.0
 - `src/KeyboardMouse/Ui/`: the guide window (`guide.html` shown in WebView2 by `GuideWindow.cs`)
 - `tools/make-icons.ps1`: generates the app and tray icons
 - `tests/KeyboardMouse.Tests/`: xUnit tests for the pure logic
-
----
-
-## Hướng dẫn tiếng Việt
-
-**Yêu cầu:** Windows 10 (bản 1803 trở lên) hoặc Windows 11, 64-bit. Không cần cài thêm gì.
-
-### Tải và cài
-1. Vào [**trang Releases**](https://github.com/khoa-nhd/mouse-keyboard/releases/latest).
-2. Ở mục **Assets**, bấm vào `KeyboardMouse-vX.Y.Z-win-x64.zip` để tải về.
-3. Chuột phải vào file zip → **Extract All…** → **Extract**.
-4. Chép `KeyboardMouse.exe` vào một thư mục cố định, ví dụ `C:\Tools\KeyboardMouse\`.
-   Đừng để trong Downloads rồi xóa, vì tính năng tự khởi động cần đúng đường dẫn này.
-5. Nhấp đúp `KeyboardMouse.exe` để chạy (icon màu xanh có phím K và con trỏ).
-   - Nếu hiện **"Windows protected your PC"**, bấm **More info → Run anyway**.
-   - **Cửa sổ KeyboardMouse** mở ra với hướng dẫn có hình minh họa, gồm các tab:
-     **Bắt đầu**, **Phím** (bàn phím tương tác, phím sáng lên khi bạn bấm),
-     **Tuyệt chiêu** (minh họa động), **Luyện tập** (bắn mục tiêu), **Cài đặt**, **Giới thiệu**.
-     Đổi ngôn ngữ English / Tiếng Việt ở góc dưới bên trái.
-   - **Đóng cửa sổ không tắt app.** App vẫn chạy ở khay hệ thống (góc dưới bên phải, cạnh đồng hồ).
-     Nhấp đúp vào icon ở khay, hoặc mở lại file exe, để mở lại cửa sổ.
-     Không thấy icon thì bấm mũi tên **^** cạnh đồng hồ.
-6. **Tự chạy khi bật máy:** trong tab **Bắt đầu**, bật **Khởi động cùng Windows**.
-   Ở đó cũng có nút **Thêm vào Start menu** và **Shortcut ngoài desktop**.
-
-### Cách dùng
-1. **Bấm nhả Caps Lock** một lần → cạnh con trỏ hiện **chấm xanh lá**, nghĩa là chế độ chuột đã bật.
-2. **I J K L** để di chuột (lên / trái / xuống / phải). Giữ phím thì chuột chạy nhanh dần.
-3. **Space** = click trái (giữ Space rồi di = kéo thả). **F** = click phải. **R** = double click.
-4. Giữ **D** + **I / K** = cuộn lên / xuống. Giữ **D** + **J / L** = cuộn ngang.
-5. Giữ **S** = di chậm, chính xác. Giữ **A** = di rất nhanh.
-6. **G** rồi bấm **U I O / J K L / M , .** = nhảy nhanh tới vùng đó trên màn hình.
-7. **H** = hiện nhãn chữ trên các nút bấm được. Gõ nhãn để click vào nút đó.
-8. **T** = click rồi tắt chế độ chuột luôn, tiện khi bấm vào ô nhập chữ để gõ.
-   **B** = bật/tắt **auto click**: tự click liên tục tại vị trí con trỏ (mặc định 10 lần/giây, chấm cạnh con trỏ chuyển màu vàng).
-   Tự dừng khi tắt chế độ chuột. Đổi tốc độ trong `settings.json` → `"autoClick": { "intervalMs": 100, "button": "Left" }`.
-9. **Bấm Caps Lock** lần nữa hoặc **Esc** để quay lại gõ chữ bình thường.
-   Cần Caps Lock thật thì bấm **Shift + Caps Lock**.
-
-Khi chế độ chuột đang bật, các phím chữ không gõ ra chữ, nên hãy để ý chấm xanh cạnh con trỏ.
-Nếu chuột bị "kẹt" nút: **Ctrl + Alt + Backspace**.
-
-### Cập nhật / gỡ
-- **Cập nhật:** chuột phải icon → **Exit**, tải bản mới, chép đè `KeyboardMouse.exe`, chạy lại.
-- **Gỡ:** bỏ dấu ✓ ở **Start with Windows** → **Exit** → xóa `KeyboardMouse.exe`.
-  Muốn xóa sạch thì xóa thêm thư mục `%APPDATA%\KeyboardMouse` và `%LOCALAPPDATA%\KeyboardMouse`.
-
----
-
-## License
-
-[MIT](LICENSE) © 2026 khoa-nhd

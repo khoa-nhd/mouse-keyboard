@@ -3,6 +3,29 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.9.0] - 2026-11-26
+
+### Added
+- **Edit keys on the Keys page.** Click any key on the keyboard and pick what
+  it does from a list (or set it to do nothing). A table under the keyboard
+  shows every action, its key, and which actions have no key yet, with
+  Assign / reset / unbind buttons. Grid keys and hint characters moved there too.
+- **Left-hand layout.** The Keys page switches between *Right hand* (I J K L,
+  as before) and *Left hand*: move with W A S D, Q/E back/forward, layers on
+  ; L K, right click J, edit keys on Z X C V, and the 3 x 3 grid on
+  Q W E / A S D / Z X C. Stored as `keys.hand`.
+- **Check for updates** button in the side bar, under Restart app.
+
+### Changed
+- The quick reference and the guide texts follow your current keys.
+- The per-key list is gone from Settings; keys live on the Keys page.
+- The guide is English only; the language switch is gone.
+
+### Fixed
+- **Sleep and the screen saver.** The keyboard hook watchdog no longer sends
+  any input. It now notices a removed hook by comparing it with raw keyboard
+  input, so nothing the app does can reset the Windows idle timer.
+
 ## [1.8.2] - 2026-11-26
 
 ### Fixed
