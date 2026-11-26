@@ -444,6 +444,9 @@ public sealed class TrayApp : ApplicationContext
                 updateCheckOnStart = _settings.Update.CheckOnStart,
                 keys = _settings.Keys,
                 gridKeys = _settings.Grid.Keys,
+                gridStyle = GridSettings.NormalizeStyle(_settings.Grid.Style),
+                recursiveGridKeys = _settings.Grid.RecursiveKeys,
+                gridMaxDepth = _settings.Grid.MaxDepth,
                 hintAlphabet = _settings.Hint.Alphabet
             }
         });
@@ -649,6 +652,12 @@ public sealed class TrayApp : ApplicationContext
                 break;
             case "borderThickness" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int borderThickness):
                 _settings.Feedback.BorderThickness = Math.Clamp(borderThickness, 2, 12);
+                break;
+            case "grid.style" when v.ValueKind == System.Text.Json.JsonValueKind.String:
+                _settings.Grid.Style = GridSettings.NormalizeStyle(v.GetString());
+                break;
+            case "grid.maxDepth" when v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out int depth):
+                _settings.Grid.MaxDepth = Math.Clamp(depth, GridSettings.MinMaxDepth, GridSettings.MaxMaxDepth);
                 break;
             case "update.checkOnStart" when isBool:
                 _settings.Update.CheckOnStart = v.GetBoolean();

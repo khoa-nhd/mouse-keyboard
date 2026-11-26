@@ -349,6 +349,9 @@ internal sealed class RouterHarness
         Monitors = monitors ?? FakeMonitorService.Single();
         // Geometry tests pin the 28 x 18 lattice instead of a monitor-derived one.
         GridSettings.AdaptToScreen = false;
+        // The code-grid tests predate the recursive default; RecursiveGridTests
+        // switches the style back on for its own cases.
+        GridSettings.Style = GridSettings.CodesStyle;
         Mouse.OnMove = (x, y) => Pointer = new Point(x, y);
 
         Router = new InputRouter(

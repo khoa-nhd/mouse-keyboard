@@ -8,7 +8,17 @@ using KeyboardMouse.Overlays;
 namespace KeyboardMouse.Controllers;
 
 /// <summary>
-/// Grid mode: one grid of small cells over the screen, and four characters
+/// Grid mode. Two styles share one controller, picked by
+/// <see cref="GridSettings.Style"/> each time the grid opens.
+///
+/// <b>Recursive</b> (the default): a 3 x 3 grid over the monitor. Each cell key
+/// moves the pointer to that cell's centre and makes the cell the next, smaller
+/// 3 x 3 grid; after <see cref="GridSettings.MaxDepth"/> levels the grid closes
+/// with the pointer parked there. Backspace goes up a level, Tab or the Grid key
+/// closes keeping the position, Space/Enter click, N switches monitor, Esc
+/// restores the original pointer.
+///
+/// <b>Codes</b>: one grid of small cells over the screen, and four characters
 /// printed in every cell.
 ///
 /// The four characters are the complete code that reaches the cell, so they are
@@ -50,6 +60,13 @@ public sealed class GridController : IModeController
     private PhysicalKey[] _keyChars = [];
     private string[] _keyLabels = [];
     private string[] _labels = [];
+    private PhysicalKey[] _cellKeys = [];
+    private string[] _cellLabels = [];
+    private PhysicalKey _recursiveMonitorKey = PhysicalKey.N;
+    private readonly List<Rectangle> _parents = new();
+    private bool _recursive;
+    private Rectangle _rect;
+    private int _depth;
     private int _columns = GridSettings.DefaultColumns;
     private int _rows = GridSettings.DefaultRows;
     private bool _active;
@@ -86,6 +103,7 @@ public sealed class GridController : IModeController
     {
         _settings = settings;
         ParseSettings();
+        ParseControlKeys();
 
         if (_active)
         {
@@ -113,11 +131,16 @@ public sealed class GridController : IModeController
         _savedPointer = _cursor();
         _monitor = _monitors.GetAtPoint(_savedPointer);
         _root = _monitor.Bounds;
+        _recursive = _settings.IsRecursive;
         ApplyLattice(_root);
         ResetSelection();
+        ResetLevels();
         _active = true;
         Show();
     }
+
+    /// <summary>Which style the open grid uses (the one it opened with).</summary>
+    public bool IsRecursive => _active ? _recursive : _settings.IsRecursive;
 
     public HandleResult Handle(KeyEvent keyEvent, ModifierState modifiers)
     {
@@ -140,6 +163,12 @@ public sealed class GridController : IModeController
         if (keyEvent.Key == PhysicalKey.Escape)
         {
             Cancel();
+            return HandleResult.Swallow;
+        }
+
+        if (_recursive)
+        {
+            HandleRecursive(keyEvent.Key, modifiers);
             return HandleResult.Swallow;
         }
 
@@ -196,6 +225,109 @@ public sealed class GridController : IModeController
         }
 
         return HandleResult.Swallow;
+    }
+
+    /// <summary>
+    /// One key of the recursive grid. A cell key narrows the grid into that
+    /// cell. A control that is also a cell key gives way to the cell, so the
+    /// Grid key then needs Ctrl and the monitor key is off.
+    /// </summary>
+    private void HandleRecursive(PhysicalKey key, ModifierState modifiers)
+    {
+        switch (key)
+        {
+            case PhysicalKey.Backspace:
+                GoUp();
+                return;
+
+            case PhysicalKey.Tab:
+                Close(restore: false);
+                return;
+
+            case PhysicalKey.Space:
+                ExecuteAction(ActionFor(modifiers));
+                return;
+
+            case PhysicalKey.Enter:
+                ExecuteAction(GridAction.Right);
+                return;
+        }
+
+        int cell = FindKey(_cellKeys, key);
+
+        if (key == _gridKey &&
+            key != PhysicalKey.None &&
+            (modifiers.Ctrl || cell < 0))
+        {
+            Close(restore: false);
+            return;
+        }
+
+        if (_recursiveMonitorKey != PhysicalKey.None && key == _recursiveMonitorKey)
+        {
+            MoveToNextMonitor();
+            return;
+        }
+
+        if (cell >= 0)
+        {
+            SelectCell(cell);
+        }
+    }
+
+    private void SelectCell(int index)
+    {
+        var cell = GridMath.SubRect(_rect, index, RecursiveSide, RecursiveSide);
+        if (cell.Width < 1 || cell.Height < 1)
+        {
+            return;
+        }
+
+        _parents.Add(_rect);
+        _rect = cell;
+        _depth++;
+        _target = GridMath.Center(_rect);
+        ParkPointer();
+
+        if (_depth >= MaxDepth || _rect.Width <= 2 || _rect.Height <= 2)
+        {
+            Close(restore: false);
+            return;
+        }
+
+        Show();
+    }
+
+    private void GoUp()
+    {
+        if (_parents.Count == 0)
+        {
+            return;
+        }
+
+        _rect = _parents[^1];
+        _parents.RemoveAt(_parents.Count - 1);
+        _depth = Math.Max(0, _depth - 1);
+
+        // Back at the whole monitor the pointer returns to where it started.
+        _target = _parents.Count == 0 ? _savedPointer : GridMath.Center(_rect);
+        ParkPointer();
+        Show();
+    }
+
+    private int MaxDepth => Math.Clamp(
+        _settings.MaxDepth,
+        GridSettings.MinMaxDepth,
+        GridSettings.MaxMaxDepth);
+
+    /// <summary>The recursive grid is always three cells by three.</summary>
+    public const int RecursiveSide = 3;
+
+    private void ResetLevels()
+    {
+        _parents.Clear();
+        _depth = 0;
+        _rect = _root;
     }
 
     /// <summary>Shift turns the click into a right click; without it, a left click.</summary>
@@ -307,9 +439,16 @@ public sealed class GridController : IModeController
         _monitor = next;
         _root = next.Bounds;
         ApplyLattice(_root);
+        ResetLevels();
         _typed = string.Empty;
         _highlight = -1;
         _target = GridMath.Center(_root);
+
+        if (_recursive)
+        {
+            ParkPointer();
+        }
+
         Show();
     }
 
@@ -320,6 +459,7 @@ public sealed class GridController : IModeController
         _overlay.Hide();
         _active = false;
         ResetSelection();
+        ResetLevels();
 
         if (restore)
         {
@@ -347,6 +487,23 @@ public sealed class GridController : IModeController
         {
             if (!_active || _monitor is null)
             {
+                return;
+            }
+
+            if (_recursive)
+            {
+                _overlay.Show(new GridOverlayState(
+                    _monitor,
+                    _rect,
+                    RecursiveSide,
+                    RecursiveSide,
+                    _cellLabels,
+                    string.Empty,
+                    -1,
+                    _target,
+                    Recursive: true,
+                    Depth: _depth,
+                    MaxDepth: MaxDepth));
                 return;
             }
 
@@ -385,7 +542,12 @@ public sealed class GridController : IModeController
 
     private void ParseSettings()
     {
-        ParseKeys(_settings.Keys, out _keyChars, out _keyLabels);
+        ParseKeys(_settings.Keys, GridSettings.DefaultKeys(), out _keyChars, out _keyLabels);
+        ParseKeys(
+            _settings.RecursiveKeys,
+            GridSettings.DefaultRecursiveKeys(),
+            out _cellKeys,
+            out _cellLabels);
         ApplyLattice(_root);
     }
 
@@ -412,10 +574,10 @@ public sealed class GridController : IModeController
 
     private static void ParseKeys(
         IReadOnlyList<string>? names,
+        string[] defaults,
         out PhysicalKey[] keys,
         out string[] labels)
     {
-        var defaults = GridSettings.DefaultKeys();
         var parsed = new PhysicalKey[defaults.Length];
         var text = new string[defaults.Length];
         var seen = new HashSet<PhysicalKey>();
@@ -459,6 +621,9 @@ public sealed class GridController : IModeController
         // that also switched monitors would make those cells unreachable.
         var monitor = ResolveControl(_keys.NextMonitor, PhysicalKey.N);
         _monitorKey = Array.IndexOf(_keyChars, monitor) < 0 && !IsReservedKey(monitor)
+            ? monitor
+            : PhysicalKey.None;
+        _recursiveMonitorKey = Array.IndexOf(_cellKeys, monitor) < 0 && !IsReservedKey(monitor)
             ? monitor
             : PhysicalKey.None;
     }

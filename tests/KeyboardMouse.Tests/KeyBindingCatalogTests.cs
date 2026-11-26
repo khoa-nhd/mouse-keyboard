@@ -6,10 +6,11 @@ namespace KeyboardMouse.Tests;
 public class KeyBindingCatalogTests
 {
     [Fact]
-    public void Catalog_HasThirtyEightEditableBindings()
+    public void Catalog_HasFortySevenEditableBindings()
     {
-        Assert.Equal(38, KeyBindingCatalog.All.Count);
+        Assert.Equal(47, KeyBindingCatalog.All.Count);
         Assert.Equal(28, KeyBindingCatalog.NormalPool.Count());
+        Assert.Equal(9, KeyBindingCatalog.RecursiveGridPool.Count());
         Assert.Equal(10, KeyBindingCatalog.GridPool.Count());
         Assert.Equal(KeyBindingCatalog.All.Count, KeyBindingCatalog.All.Select(b => b.Id).Distinct().Count());
     }

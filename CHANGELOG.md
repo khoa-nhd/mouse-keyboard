@@ -3,6 +3,30 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.7.0] - 2026-11-26
+
+### Added
+- **The recursive grid is back, and it is the default.** G lays a 3 x 3 grid over
+  the monitor with one key per cell (`U I O / J K L / M , .`). Each key moves the
+  pointer to the centre of that cell and splits the cell into the next 3 x 3, so
+  three keys reach any spot; after the last level the grid closes with the
+  pointer parked there. It never clicks on its own: Space clicks (Shift + Space
+  or Enter for a right click), Backspace goes up a level, Tab or G stops here,
+  N starts over on the next monitor and Esc puts the pointer back. The overlay
+  dims everything outside the current level and shows the levels left as dots.
+- **Grid style setting.** Settings > General has a **Grid style** switch between
+  *Recursive 3 x 3* and *4-letter codes* (the flat grid of v1.5 - v1.6), plus
+  **Grid levels** (2 - 5) for the recursive grid. In settings.json these are
+  `grid.style` (`"recursive"` or `"codes"`), `grid.maxDepth` (1 - 5) and
+  `grid.recursiveKeys`.
+- **The nine cell keys are remappable** in the keymap, on a 3 x 3 pad that shows
+  while the recursive style is on (the ten code keys show for the code style).
+  The Power moves demo and the help texts follow the chosen style.
+
+### Changed
+- Upgrading switches G to the recursive grid. To keep the four-key code grid,
+  pick *4-letter codes* under Settings > General > Grid style.
+
 ## [1.6.1] - 2026-11-13
 
 ### Changed

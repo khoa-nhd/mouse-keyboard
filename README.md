@@ -240,6 +240,31 @@ or `Middle`. To use a different key, set `keys.autoClick`.
 
 ### Grid mode (G)
 
+Grid mode has two styles; `grid.style` picks one, and so does **Grid style** in
+Settings.
+
+#### Recursive grid (default, `"recursive"`)
+
+```
+Level 1    U | I | O       each key moves the pointer to the centre of its
+           J | K | L       cell and splits that cell into the next 3 x 3,
+           M | , | .       so three keys reach any spot on the screen
+```
+
+G lays a 3 x 3 grid over the monitor with one key in each cell
+(`grid.recursiveKeys`, default `U I O J K L M Comma Period`, top row first).
+Pressing a cell key moves the pointer to the centre of that cell and makes the
+cell the next, smaller 3 x 3 grid. After `grid.maxDepth` levels (default 3,
+1 to 5) the grid closes with the pointer parked there; it never clicks on its
+own.
+
+Backspace = up a level (back at the top the pointer returns to where it was) ·
+Tab or G = stop here and close · Space = left click here (Shift + Space = right
+click) · Enter = right click · N (the Next monitor key) = start over on the next
+monitor · Esc = cancel and restore the pointer.
+
+#### Four-key codes (`"codes"`)
+
 ```
 One grid   small cells that keep their size on any screen, each with its
            full four-key code: AAAA  AGAS  SFAK  ...
@@ -355,6 +380,8 @@ Tray icon → **Open settings file**, edit it, save, then tray icon →
     "alphabet": "asdfjkl;", "maxElements": 400, "includeTaskbar": true
   },
   "grid": {
+    "style": "recursive", "maxDepth": 3,
+    "recursiveKeys": ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"],
     "keys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Semicolon"],
     "adaptToScreen": true, "columns": 28, "rows": 18
   },

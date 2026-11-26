@@ -9,6 +9,11 @@ namespace KeyboardMouse.Overlays;
 /// <see cref="Labels"/> holds one four-character code per cell, row-major;
 /// <see cref="Typed"/> is what the user has typed so far, so cells that no
 /// longer match can fade and the current match can be highlighted.
+///
+/// For the recursive grid <see cref="Recursive"/> is true: <see cref="Root"/>
+/// is the current level's rectangle, the lattice is 3 x 3, <see cref="Labels"/>
+/// holds the nine cell keys, and <see cref="Depth"/> of <see cref="MaxDepth"/>
+/// says how far it has narrowed.
 /// </summary>
 public sealed record GridOverlayState(
     MonitorInfo Monitor,
@@ -18,7 +23,10 @@ public sealed record GridOverlayState(
     IReadOnlyList<string> Labels,
     string Typed,
     int Highlight,
-    Point Target);
+    Point Target,
+    bool Recursive = false,
+    int Depth = 0,
+    int MaxDepth = 0);
 
 /// <summary>Abstraction so GridController can be tested without real windows.</summary>
 public interface IGridOverlay : IDisposable

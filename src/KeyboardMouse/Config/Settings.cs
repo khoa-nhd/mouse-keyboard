@@ -1,4 +1,4 @@
-using KeyboardMouse.Core;
+﻿using KeyboardMouse.Core;
 using KeyboardMouse.Input;
 using KeyboardMouse.Overlays;
 
@@ -188,8 +188,42 @@ public sealed class AutoClickSettings
 /// </summary>
 public sealed class GridSettings
 {
+    /// <summary>The 3 x 3 grid that narrows one level per key (the default).</summary>
+    public const string RecursiveStyle = "recursive";
+
+    /// <summary>One flat grid with a four-character code printed in every cell.</summary>
+    public const string CodesStyle = "codes";
+
+    /// <summary>
+    /// Which grid the Grid key opens: <see cref="RecursiveStyle"/> (the default)
+    /// or <see cref="CodesStyle"/>.
+    /// </summary>
+    public string Style { get; set; } = RecursiveStyle;
+
+    /// <summary>Nine keys of the recursive grid, row-major over its 3 x 3 cells.</summary>
+    public string[] RecursiveKeys { get; set; } = DefaultRecursiveKeys();
+
+    /// <summary>How many levels the recursive grid narrows before it closes.</summary>
+    public int MaxDepth { get; set; } = DefaultMaxDepth;
+
+    public const int DefaultMaxDepth = 3;
+    public const int MinMaxDepth = 1;
+    public const int MaxMaxDepth = 5;
+
     /// <summary>Ten keys, one per character of a cell code.</summary>
     public string[] Keys { get; set; } = DefaultKeys();
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsRecursive => !string.Equals(Style, CodesStyle, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Maps any stored value onto one of the two known styles.</summary>
+    public static string NormalizeStyle(string? style) =>
+        string.Equals(style?.Trim(), CodesStyle, StringComparison.OrdinalIgnoreCase)
+            ? CodesStyle
+            : RecursiveStyle;
+
+    public static string[] DefaultRecursiveKeys() =>
+        ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"];
 
     /// <summary>
     /// Divides the monitor into as many cells as it takes to keep a cell about

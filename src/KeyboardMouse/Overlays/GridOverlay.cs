@@ -55,6 +55,16 @@ public sealed class GridOverlay : IGridOverlay
                 Math.Clamp(state.Target.X - bounds.Left, 0, width - 1),
                 Math.Clamp(state.Target.Y - bounds.Top, 0, height - 1));
 
+            if (state.Recursive)
+            {
+                RenderSurface(width, height, bounds.Left, bounds.Top, g =>
+                {
+                    DrawRecursive(g, new Rectangle(0, 0, width, height), root, state, scale);
+                    DrawTarget(g, target, scale);
+                });
+                return;
+            }
+
             RenderSurface(width, height, bounds.Left, bounds.Top, g =>
             {
                 // Light enough to read the screen through the grid; the codes
@@ -71,6 +81,152 @@ public sealed class GridOverlay : IGridOverlay
                 DrawFrame(g, root, scale);
                 DrawTarget(g, target, scale);
             });
+        }
+
+        /// <summary>
+        /// The recursive grid: the monitor outside the current level is dimmed,
+        /// the level itself is split 3 x 3 with its cell key in each cell, and a
+        /// row of dots shows how many levels are left.
+        /// </summary>
+        private static void DrawRecursive(
+            Graphics g,
+            Rectangle screen,
+            Rectangle active,
+            GridOverlayState state,
+            float scale)
+        {
+            using (var outside = new SolidBrush(Color.FromArgb(96, 7, 10, 18)))
+            {
+                FillOutside(g, outside, screen, active);
+            }
+
+            using (var inside = new SolidBrush(Color.FromArgb(40, 7, 10, 18)))
+            {
+                g.FillRectangle(inside, active);
+            }
+
+            for (int i = 0; i < state.Columns * state.Rows; i++)
+            {
+                var cell = GridMath.SubRect(active, i, state.Columns, state.Rows);
+                Color tint = ColumnTints[i % ColumnTints.Length];
+                using var fill = new SolidBrush(WithAlpha(tint, (i % 2) == 0 ? 30 : 18));
+                g.FillRectangle(fill, cell);
+            }
+
+            using (var shadow = new Pen(Color.FromArgb(120, 0, 0, 0), Math.Max(3f, 3f * scale)))
+            using (var line = new Pen(Color.FromArgb(200, 255, 255, 255), Math.Max(1.2f, 1.4f * scale)))
+            {
+                for (int i = 1; i < state.Columns; i++)
+                {
+                    int x = active.Left + (int)((long)active.Width * i / state.Columns);
+                    g.DrawLine(shadow, x, active.Top, x, active.Bottom);
+                    g.DrawLine(line, x, active.Top, x, active.Bottom);
+                }
+
+                for (int i = 1; i < state.Rows; i++)
+                {
+                    int y = active.Top + (int)((long)active.Height * i / state.Rows);
+                    g.DrawLine(shadow, active.Left, y, active.Right, y);
+                    g.DrawLine(line, active.Left, y, active.Right, y);
+                }
+            }
+
+            using (var shadow = new Pen(Color.FromArgb(120, 0, 0, 0), Math.Max(4f, 3.4f * scale)))
+            using (var frame = new Pen(WithAlpha(Accent, 230), Math.Max(2f, 2f * scale)))
+            {
+                g.DrawRectangle(shadow, active);
+                g.DrawRectangle(frame, active);
+            }
+
+            var sample = GridMath.SubRect(active, 0, state.Columns, state.Rows);
+            float fontSize = Math.Clamp(
+                Math.Min(sample.Width * 0.30f, sample.Height * 0.42f),
+                11f,
+                Math.Max(11f, 64f * scale));
+
+            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+            using var format = CenteredFormat();
+            using var brush = new SolidBrush(Color.FromArgb(250, 255, 255, 255));
+            float offset = Math.Max(1f, 1.5f * scale);
+
+            for (int i = 0; i < state.Columns * state.Rows && i < state.Labels.Count; i++)
+            {
+                string label = state.Labels[i];
+                if (string.IsNullOrEmpty(label))
+                {
+                    continue;
+                }
+
+                var cell = GridMath.SubRect(active, i, state.Columns, state.Rows);
+                DrawShadowedString(
+                    g,
+                    label,
+                    font,
+                    brush,
+                    cell.Left + (cell.Width / 2f),
+                    cell.Top + (cell.Height / 2f),
+                    offset,
+                    format,
+                    shadowAlpha: 200);
+            }
+
+            DrawDepth(g, active, state.Depth, state.MaxDepth, scale);
+        }
+
+        /// <summary>One dot per level: filled for the levels already taken.</summary>
+        private static void DrawDepth(Graphics g, Rectangle active, int depth, int maxDepth, float scale)
+        {
+            if (maxDepth < 2)
+            {
+                return;
+            }
+
+            float dot = Math.Max(4f, 4f * scale);
+            float gap = dot * 1.4f;
+            float x = active.Left + (dot * 2f);
+            float y = active.Top + (dot * 2f);
+
+            using var filled = new SolidBrush(WithAlpha(Accent, 240));
+            using var empty = new Pen(Color.FromArgb(220, 255, 255, 255), Math.Max(1f, scale));
+            using var shadow = new SolidBrush(Color.FromArgb(150, 0, 0, 0));
+
+            for (int i = 0; i < maxDepth; i++)
+            {
+                float cx = x + (i * ((dot * 2f) + gap));
+                g.FillEllipse(shadow, cx - dot - 1, y - dot - 1, (dot * 2f) + 2, (dot * 2f) + 2);
+
+                if (i <= depth)
+                {
+                    g.FillEllipse(filled, cx - dot, y - dot, dot * 2f, dot * 2f);
+                }
+                else
+                {
+                    g.DrawEllipse(empty, cx - dot, y - dot, dot * 2f, dot * 2f);
+                }
+            }
+        }
+
+        private static void FillOutside(Graphics g, Brush brush, Rectangle outer, Rectangle inner)
+        {
+            if (inner.Top > outer.Top)
+            {
+                g.FillRectangle(brush, outer.Left, outer.Top, outer.Width, inner.Top - outer.Top);
+            }
+
+            if (inner.Bottom < outer.Bottom)
+            {
+                g.FillRectangle(brush, outer.Left, inner.Bottom, outer.Width, outer.Bottom - inner.Bottom);
+            }
+
+            if (inner.Left > outer.Left)
+            {
+                g.FillRectangle(brush, outer.Left, inner.Top, inner.Left - outer.Left, inner.Height);
+            }
+
+            if (inner.Right < outer.Right)
+            {
+                g.FillRectangle(brush, inner.Right, inner.Top, outer.Right - inner.Right, inner.Height);
+            }
         }
 
         /// <summary>

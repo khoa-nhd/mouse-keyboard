@@ -10,18 +10,23 @@ public sealed record KeyBindingDefinition(
     string Id,
     string Group,
     string DefaultKey,
-    int GridIndex = -1)
+    int GridIndex = -1,
+    int RecursiveIndex = -1)
 {
     public bool IsGrid => GridIndex >= 0;
+
+    public bool IsRecursiveGrid => RecursiveIndex >= 0;
 }
 
 /// <summary>
 /// The single source of truth for every editable binding: the activation
-/// toggle, the normal-layer actions, and the ten keys the grid prints in its
-/// cells (one key per character of a cell code).
+/// toggle, the normal-layer actions, the nine cell keys of the recursive grid,
+/// and the ten keys the code grid prints in its cells (one key per character
+/// of a cell code).
 ///
-/// The normal pool (toggle + <see cref="KeysSettings"/>) and the grid pool are
-/// independent, so a grid cell can reuse a normal-layer key. Inside a pool a
+/// The normal pool (toggle + <see cref="KeysSettings"/>), the recursive grid
+/// pool and the code grid pool are independent, so a grid cell can reuse a
+/// normal-layer key. Inside a pool a
 /// key belongs to exactly one action: assigning a key that is already taken
 /// swaps the two actions instead of creating a duplicate.
 /// </summary>
@@ -66,6 +71,16 @@ public static class KeyBindingCatalog
         new("undo", "edit", "Z"),
         new("redo", "edit", "W"),
 
+        new("rgrid0", "recursiveGrid", "U", RecursiveIndex: 0),
+        new("rgrid1", "recursiveGrid", "I", RecursiveIndex: 1),
+        new("rgrid2", "recursiveGrid", "O", RecursiveIndex: 2),
+        new("rgrid3", "recursiveGrid", "J", RecursiveIndex: 3),
+        new("rgrid4", "recursiveGrid", "K", RecursiveIndex: 4),
+        new("rgrid5", "recursiveGrid", "L", RecursiveIndex: 5),
+        new("rgrid6", "recursiveGrid", "M", RecursiveIndex: 6),
+        new("rgrid7", "recursiveGrid", "Comma", RecursiveIndex: 7),
+        new("rgrid8", "recursiveGrid", "Period", RecursiveIndex: 8),
+
         new("grid0", "grid", "A", 0),
         new("grid1", "grid", "S", 1),
         new("grid2", "grid", "D", 2),
@@ -81,7 +96,10 @@ public static class KeyBindingCatalog
     public static IReadOnlyList<KeyBindingDefinition> All => Definitions;
 
     public static IEnumerable<KeyBindingDefinition> NormalPool =>
-        Definitions.Where(definition => !definition.IsGrid);
+        Definitions.Where(definition => !definition.IsGrid && !definition.IsRecursiveGrid);
+
+    public static IEnumerable<KeyBindingDefinition> RecursiveGridPool =>
+        Definitions.Where(definition => definition.IsRecursiveGrid);
 
     public static IEnumerable<KeyBindingDefinition> GridPool =>
         Definitions.Where(definition => definition.IsGrid);
@@ -135,6 +153,7 @@ public static class KeyBindingCatalog
             "paste" => settings.Keys.Paste,
             "undo" => settings.Keys.Undo,
             "redo" => settings.Keys.Redo,
+            _ when definition.IsRecursiveGrid => GetRecursiveGrid(settings, definition.RecursiveIndex),
             _ => GetGrid(settings, definition.GridIndex)
         };
     }
@@ -151,7 +170,7 @@ public static class KeyBindingCatalog
         swappedId = null;
         if (!TryGet(id, out var definition) ||
             !TryParseBindingKey(keyName, out var key) ||
-            (definition.IsGrid && IsReservedGridKey(key)))
+            ((definition.IsGrid || definition.IsRecursiveGrid) && IsReservedGridKey(key)))
         {
             return false;
         }
@@ -232,6 +251,11 @@ public static class KeyBindingCatalog
         settings.Grid ??= new GridSettings();
 
         EnsureGridKeys(settings);
+        settings.Grid.Style = GridSettings.NormalizeStyle(settings.Grid.Style);
+        settings.Grid.MaxDepth = Math.Clamp(
+            settings.Grid.MaxDepth,
+            GridSettings.MinMaxDepth,
+            GridSettings.MaxMaxDepth);
 
         foreach (var definition in NormalPool)
         {
@@ -241,6 +265,7 @@ public static class KeyBindingCatalog
         ResolveDuplicates(settings, NormalPool);
 
         NormalizeGridLevel(settings.Grid.Keys, GridSettings.DefaultKeys());
+        NormalizeGridLevel(settings.Grid.RecursiveKeys, GridSettings.DefaultRecursiveKeys());
         ClampGridSize(settings.Grid);
     }
 
@@ -258,6 +283,13 @@ public static class KeyBindingCatalog
         }
 
         return true;
+    }
+
+    private static string GetRecursiveGrid(Settings settings, int index)
+    {
+        settings.Grid.RecursiveKeys ??= GridSettings.DefaultRecursiveKeys();
+        string[] keys = settings.Grid.RecursiveKeys;
+        return index >= 0 && index < keys.Length ? keys[index] : string.Empty;
     }
 
     private static string GetGrid(Settings settings, int index)
@@ -300,6 +332,14 @@ public static class KeyBindingCatalog
             case "undo": settings.Keys.Undo = value; break;
             case "redo": settings.Keys.Redo = value; break;
             default:
+                if (definition.RecursiveIndex >= 0 &&
+                    settings.Grid.RecursiveKeys is { } recursiveKeys &&
+                    definition.RecursiveIndex < recursiveKeys.Length)
+                {
+                    recursiveKeys[definition.RecursiveIndex] = value;
+                    break;
+                }
+
                 if (definition.GridIndex >= 0 &&
                     settings.Grid.Keys is { } gridKeys &&
                     definition.GridIndex < gridKeys.Length)
@@ -365,6 +405,12 @@ public static class KeyBindingCatalog
             settings.Grid.Keys.Length != GridSettings.DefaultKeys().Length)
         {
             settings.Grid.Keys = GridSettings.DefaultKeys();
+        }
+
+        if (settings.Grid.RecursiveKeys is null ||
+            settings.Grid.RecursiveKeys.Length != GridSettings.DefaultRecursiveKeys().Length)
+        {
+            settings.Grid.RecursiveKeys = GridSettings.DefaultRecursiveKeys();
         }
     }
 
@@ -448,7 +494,9 @@ public static class KeyBindingCatalog
         key.IsModifier();
 
     private static IEnumerable<KeyBindingDefinition> Pool(KeyBindingDefinition definition) =>
-        definition.IsGrid ? GridPool : NormalPool;
+        definition.IsGrid ? GridPool
+            : definition.IsRecursiveGrid ? RecursiveGridPool
+            : NormalPool;
 
     private static bool IsUnbound(string? value) =>
         string.IsNullOrWhiteSpace(value);
