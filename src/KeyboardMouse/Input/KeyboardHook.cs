@@ -21,6 +21,7 @@ public sealed class KeyboardHook : IDisposable
     private long _lastCallbackTicks;
     private int _staleChecks;
     private int _reinstalling;
+    private uint _lastPokeTick = unchecked((uint)Environment.TickCount); // GetTickCount() of our last injected poke
     private SynchronizationContext? _uiContext; // the installing (message loop) thread
 
     public KeyboardHook()
@@ -175,7 +176,18 @@ public sealed class KeyboardHook : IDisposable
             return;
         }
 
+        // An injected key resets the system idle timer just like a real one,
+        // so poking while the user is away would keep the PC from ever
+        // sleeping or blanking the screen. Only poke when real input arrived
+        // since our last poke; an idle machine gets at most one poke.
+        if (!TryGetLastInputTick(out uint lastInput) || !ShouldPoke(lastInput, _lastPokeTick))
+        {
+            _staleChecks = 0;
+            return;
+        }
+
         SendHeartbeatPoke();
+        _lastPokeTick = unchecked((uint)Environment.TickCount);
         System.Threading.Thread.Sleep(300);
 
         if (_disposed)
@@ -246,6 +258,25 @@ public sealed class KeyboardHook : IDisposable
         {
             Interlocked.Exchange(ref _reinstalling, 0);
         }
+    }
+
+    /// <summary>
+    /// True when the system saw input after our last poke (plus a small
+    /// margin, since the poke itself shows up as input a moment later).
+    /// Ticks are 32-bit GetTickCount values, compared wrap-safe.
+    /// </summary>
+    internal static bool ShouldPoke(uint lastInputTick, uint lastPokeTick)
+    {
+        const int marginMs = 500;
+        return unchecked((int)(lastInputTick - lastPokeTick)) > marginMs;
+    }
+
+    private static bool TryGetLastInputTick(out uint tick)
+    {
+        var info = new User32.LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<User32.LASTINPUTINFO>() };
+        bool ok = User32.GetLastInputInfo(ref info);
+        tick = info.dwTime;
+        return ok;
     }
 
     /// <summary>

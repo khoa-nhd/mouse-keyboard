@@ -3,6 +3,14 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.8.2] - 2026-11-26
+
+### Fixed
+- **The PC can sleep again while the app runs.** The keyboard hook watchdog
+  injected an ignored key every 5 s while the keyboard was idle, and Windows
+  counts injected input as activity, so sleep and the screen saver never
+  kicked in. The watchdog now pokes only after real input since its last poke.
+
 ## [1.8.1] - 2026-11-26
 
 ### Added
