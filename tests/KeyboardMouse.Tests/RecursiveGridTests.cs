@@ -247,7 +247,7 @@ public class RecursiveGridTests
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
         Assert.False(state.Recursive);
         Assert.Equal(28, state.Columns);
-        Assert.Equal(4, state.Labels[0].Length);
+        Assert.Equal(3, state.Labels[0].Length);
     }
 
     [Theory]

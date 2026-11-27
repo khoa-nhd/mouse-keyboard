@@ -163,7 +163,7 @@ public sealed class KeyOutput : IKeyOutput
                     wScan = scanCode,
                     dwFlags = flags,
                     time = 0,
-                    dwExtraInfo = IntPtr.Zero
+                    dwExtraInfo = (IntPtr)InjectedInput.Signature
                 }
             }
         };

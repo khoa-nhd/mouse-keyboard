@@ -5,8 +5,10 @@ using KeyboardMouse.Overlays;
 namespace KeyboardMouse.Tests;
 
 /// <summary>
-/// Grid mode is one flat grid whose cells each show a four-character code from
-/// the moment it opens; typing the four characters clicks that cell.
+/// Grid mode is one flat grid whose cells each show a three-character code from
+/// the moment it opens: block, column in the block, row in the block. On the
+/// 28 x 18 default the blocks are 3 x 2: columns 0-8, 9-17, 18-27 and rows
+/// 0-8, 9-17, named A S D (top) and F G H (bottom).
 /// </summary>
 public class GridControllerTests
 {
@@ -52,7 +54,7 @@ public class GridControllerTests
     }
 
     [Fact]
-    public void G_OpensTheWholeGridWithAFourCharacterCodeInEveryCell()
+    public void G_OpensTheWholeGridWithAThreeCharacterCodeInEveryCell()
     {
         var h = OpenGrid();
 
@@ -61,14 +63,19 @@ public class GridControllerTests
         Assert.Equal(28, state.Columns);
         Assert.Equal(18, state.Rows);
         Assert.Equal(28 * 18, state.Labels.Count);
-        Assert.All(state.Labels, label => Assert.Equal(4, label.Length));
+        Assert.All(state.Labels, label => Assert.Equal(3, label.Length));
+        Assert.Equal(state.Labels.Count, state.Labels.Distinct().Count());
+        Assert.Equal(3, state.BlocksAcross);
+        Assert.Equal(2, state.BlocksDown);
 
-        // Every code is readable before typing: column band, column, row band, row.
-        Assert.Equal("AAAA", state.Labels[0]);
-        Assert.Equal("ASAA", state.Labels[1]);
-        Assert.Equal("AGAA", state.Labels[4]);
-        Assert.Equal("AAAS", state.Labels[28]);
-        Assert.Equal("AGAS", state.Labels[(1 * 28) + 4]);
+        // Every code is readable before typing: block, column, row.
+        Assert.Equal("AAA", state.Labels[0]);
+        Assert.Equal("ASA", state.Labels[1]);
+        Assert.Equal("AGA", state.Labels[4]);
+        Assert.Equal("AAS", state.Labels[28]);
+        Assert.Equal("AGS", state.Labels[(1 * 28) + 4]);
+        Assert.Equal("SAA", state.Labels[9]);
+        Assert.Equal("FAA", state.Labels[9 * 28]);
 
         Assert.Equal(string.Empty, state.Typed);
         Assert.Equal(-1, state.Highlight);
@@ -95,21 +102,16 @@ public class GridControllerTests
         Assert.Equal(1, afterColumn.Highlight);
         Assert.Equal(new Point(102, 30), afterColumn.Target);
 
-        Press(h, PhysicalKey.A);
-
-        var afterRowBand = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal("ASA", afterRowBand.Typed);
-        Assert.Equal(new Point(102, 30), afterRowBand.Target);
-
         Assert.Empty(h.Mouse.Calls);
     }
 
     [Fact]
-    public void TypingAllFourCharactersOnlyMovesThePointerAndClosesTheGrid()
+    public void TypingAllThreeCharactersOnlyMovesThePointerAndClosesTheGrid()
     {
         var h = OpenGrid();
 
-        Type(h, "SFAK");
+        // Column 13, row 7: block S (columns 9-17), column 4 of it, row 7 (K).
+        Type(h, "SGK");
 
         Assert.False(h.Grid.Visible);
         Assert.Equal(["move:925,450"], h.Mouse.Calls);
@@ -119,7 +121,7 @@ public class GridControllerTests
     public void SpaceAfterACompleteCodeClicksThroughMouseMode()
     {
         var h = OpenGrid();
-        Type(h, "SFAK");
+        Type(h, "SGK");
 
         // The grid is closed, so Space is mouse mode's own left click.
         Press(h, PhysicalKey.Space);
@@ -132,10 +134,10 @@ public class GridControllerTests
     {
         foreach (var (code, expected) in new[]
         {
-            ("AAAA", new Point(34, 30)),
-            ("ASAA", new Point(102, 30)),
-            ("SFAK", new Point(925, 450)),
-            ("DFSH", new Point(1611, 930))
+            ("AAA", new Point(34, 30)),
+            ("ASA", new Point(102, 30)),
+            ("SGK", new Point(925, 450)),
+            ("HHJ", new Point(1611, 930))
         })
         {
             var h = OpenGrid();
@@ -167,30 +169,29 @@ public class GridControllerTests
     public void CharacterNoRemainingCellAccepts_IsIgnored()
     {
         var h = OpenGrid();
-        Type(h, "AS");
+        Type(h, "A");
         int shows = h.Grid.ShowCount;
 
-        // After "AS" only the two row bands A and S are still possible.
-        Press(h, PhysicalKey.D);
+        // Block A is nine columns wide, so the tenth key has no column there.
+        Press(h, PhysicalKey.Semicolon);
 
         Assert.Equal(shows, h.Grid.ShowCount);
-        Assert.Equal("AS", h.Grid.State!.Typed);
+        Assert.Equal("A", h.Grid.State!.Typed);
     }
 
     [Fact]
     public void BackspaceTakesACharacterBack()
     {
         var h = OpenGrid();
-        Type(h, "ASA");
+        Type(h, "AS");
 
         Press(h, PhysicalKey.Backspace);
 
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
-        Assert.Equal("AS", state.Typed);
-        Assert.Equal(1, state.Highlight);
-        Assert.Equal(new Point(102, 30), state.Target);
+        Assert.Equal("A", state.Typed);
+        Assert.Equal(0, state.Highlight);
+        Assert.Equal(new Point(34, 30), state.Target);
 
-        Press(h, PhysicalKey.Backspace);
         Press(h, PhysicalKey.Backspace);
 
         var cleared = Assert.IsType<GridOverlayState>(h.Grid.State);
@@ -215,7 +216,7 @@ public class GridControllerTests
     public void TabWhileTyping_MovesWithoutClicking()
     {
         var h = OpenGrid();
-        Type(h, "SFA");
+        Type(h, "SG");
 
         Press(h, PhysicalKey.Tab);
 
@@ -239,7 +240,7 @@ public class GridControllerTests
     public void ShiftOnTheLastCharacter_StillOnlyMoves()
     {
         var h = OpenGrid();
-        Type(h, "SFA");
+        Type(h, "SG");
         Assert.False(h.Down(PhysicalKey.LeftShift));
 
         Press(h, PhysicalKey.K);
@@ -350,9 +351,11 @@ public class GridControllerTests
         Assert.Equal(10, state.Columns);
         Assert.Equal(10, state.Rows);
         Assert.Equal(100, state.Labels.Count);
-        Assert.Equal("AAAS", state.Labels[10]);
+        // Ten keys cover 10 x 10 cells with a single block.
+        Assert.Equal(1, state.BlocksAcross * state.BlocksDown);
+        Assert.Equal("AAS", state.Labels[10]);
 
-        Type(h, "AAAS");
+        Type(h, "AAS");
 
         Assert.False(h.Grid.Visible);
         Assert.Equal(["move:96,162"], h.Mouse.Calls);

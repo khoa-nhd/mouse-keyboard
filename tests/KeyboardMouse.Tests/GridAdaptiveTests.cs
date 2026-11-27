@@ -57,14 +57,18 @@ public class GridAdaptiveTests
     }
 
     [Fact]
-    public void EveryCellStillCarriesAFourCharacterCodeOnABigMonitor()
+    public void EveryCellStillCarriesAThreeCharacterCodeOnABigMonitor()
     {
         var h = OpenGridOn(3840, 2160);
         var state = Assert.IsType<GridOverlayState>(h.Grid.State);
 
-        // 56 columns need column bands 0..5: the first character is a band, the
-        // second the column inside it.
-        Assert.Equal("SFAK", state.Labels[(7 * state.Columns) + 13]);
+        // 56 x 32 cells need 14 keys: the ten configured plus Q W E R. The
+        // lattice is cut into 4 x 3 blocks of at most 14 x 14 cells.
+        Assert.Equal(56 * 32, state.Labels.Count);
+        Assert.All(state.Labels, label => Assert.Equal(3, label.Length));
+        Assert.Equal(4, state.BlocksAcross);
+        Assert.Equal(3, state.BlocksDown);
+        Assert.Equal("ARK", state.Labels[(7 * state.Columns) + 13]);
         Assert.Equal(state.Columns * state.Rows, state.Labels.Distinct().Count());
     }
 
@@ -97,7 +101,7 @@ public class GridAdaptiveTests
         var h = OpenGridOn(3840, 2160);
 
         // Column 13, row 7 out of 56 x 32.
-        foreach (var key in new[] { PhysicalKey.S, PhysicalKey.F, PhysicalKey.A, PhysicalKey.K })
+        foreach (var key in new[] { PhysicalKey.A, PhysicalKey.R, PhysicalKey.K })
         {
             h.Down(key);
             h.Up(key);

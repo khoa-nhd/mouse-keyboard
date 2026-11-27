@@ -1,3 +1,4 @@
+using KeyboardMouse.Input;
 using System.Runtime.InteropServices;
 using KeyboardMouse.Native;
 using KeyboardMouse.Platform;
@@ -239,7 +240,7 @@ public sealed class MouseOutput : IMouseOutput
                 mouseData = mouseData,
                 dwFlags = flags,
                 time = 0,
-                dwExtraInfo = IntPtr.Zero
+                dwExtraInfo = (IntPtr)InjectedInput.Signature
             }
         }
     };

@@ -26,7 +26,9 @@ public sealed record GridOverlayState(
     Point Target,
     bool Recursive = false,
     int Depth = 0,
-    int MaxDepth = 0);
+    int MaxDepth = 0,
+    int BlocksAcross = 1,
+    int BlocksDown = 1);
 
 /// <summary>Abstraction so GridController can be tested without real windows.</summary>
 public interface IGridOverlay : IDisposable

@@ -3,6 +3,22 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.9.3] - 2026-11-27
+
+### Fixed
+- **No key did anything while a keyboard remapper (kanata, AutoHotkey, ...)
+  was running.** A remapper swallows every key you type and sends it again,
+  so every key reached KeyboardMouse marked as injected, and injected keys
+  were all ignored. Now only the app's own output is ignored: it is tagged,
+  and keys re-sent by other programs count as typing.
+
+### Changed
+- **Codes grid: three letters per cell instead of four**, with the same
+  number of cells. The screen is cut into a few blocks: the first letter
+  picks the block, the second the column in it, the third the row. When a
+  big monitor has more cells than the ten grid keys can reach, extra keys
+  (Q W E R ...) join the codes instead of the grid getting coarser.
+
 ## [1.9.2] - 2026-11-26
 
 ### Fixed

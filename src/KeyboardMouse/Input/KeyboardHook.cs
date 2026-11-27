@@ -6,8 +6,11 @@ namespace KeyboardMouse.Input;
 
 /// <summary>
 /// WH_KEYBOARD_LL hook. The callback must stay trivial: it maps the event and
-/// hands it to a single handler, nothing else. Injected events (our own
-/// SendInput output, other remappers) are always passed through untouched.
+/// hands it to a single handler, nothing else. Our own SendInput output is
+/// tagged with <see cref="InjectedInput.Signature"/> and passed through
+/// untouched. Keys injected by anything else are handled like typed keys:
+/// remappers such as kanata or AutoHotkey swallow every physical key and send
+/// it again with SendInput, so ignoring injected keys would ignore them all.
 /// Installed on the UI thread, which owns the message loop.
 /// </summary>
 public sealed class KeyboardHook : IDisposable
@@ -122,8 +125,9 @@ public sealed class KeyboardHook : IDisposable
             var data = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
 
             // Never react to our own injected input: otherwise e.g. the copy
-            // chord we synthesize would be routed back into the app.
-            if ((data.flags & User32.LLKHF_INJECTED) != 0 && !IsTestKey(data))
+            // chord we synthesize would be routed back into the app. Input
+            // injected by other programs (keyboard remappers) is real typing.
+            if (IsOwnInjection(data.flags, data.dwExtraInfo))
             {
                 return User32.CallNextHookEx(_hook, nCode, wParam, lParam);
             }
@@ -136,7 +140,14 @@ public sealed class KeyboardHook : IDisposable
             }
 
             bool extended = (data.flags & User32.LLKHF_EXTENDED) != 0;
-            var key = PhysicalKeyExtensions.FromScanCode(data.scanCode, extended);
+            uint scanCode = data.scanCode;
+            if (scanCode == 0)
+            {
+                // Injected by virtual key only: recover the scan code.
+                scanCode = User32.MapVirtualKeyW(data.vkCode, User32.MAPVK_VK_TO_VSC);
+            }
+
+            var key = PhysicalKeyExtensions.FromScanCode(scanCode, extended);
             if (key == PhysicalKey.None)
             {
                 return User32.CallNextHookEx(_hook, nCode, wParam, lParam);
@@ -147,9 +158,13 @@ public sealed class KeyboardHook : IDisposable
             {
                 isRepeat = !_keysDown.Add(key);
             }
-            else
+            else if (!_keysDown.Remove(key))
             {
-                _keysDown.Remove(key);
+                // A release we already handled. When a remapper's hook sits
+                // after ours, an unswallowed key comes back a second time as
+                // its re-sent copy; handling that release again would end a
+                // tap or a held layer twice.
+                return User32.CallNextHookEx(_hook, nCode, wParam, lParam);
             }
 
             var keyEvent = new KeyEvent(key, isDown, isRepeat, Environment.TickCount64);
@@ -174,16 +189,12 @@ public sealed class KeyboardHook : IDisposable
         }
     }
 
-#if DEBUG
-    // Debug builds only: with KM_TEST_KEYS=1, injected keys tagged with this
-    // extra-info value count as real, so UI tests can drive the hook.
-    private static readonly bool TestKeysEnabled = Environment.GetEnvironmentVariable("KM_TEST_KEYS") == "1";
-
-    private static bool IsTestKey(KBDLLHOOKSTRUCT data) =>
-        TestKeysEnabled && data.dwExtraInfo == (UIntPtr)0x4B4D5445u;
-#else
-    private static bool IsTestKey(KBDLLHOOKSTRUCT data) => false;
-#endif
+    /// <summary>
+    /// True only for input this app sent itself. Other injected input (a
+    /// remapper re-sending the keys it intercepted) must be handled as typing.
+    /// </summary>
+    internal static bool IsOwnInjection(uint flags, UIntPtr extraInfo) =>
+        (flags & User32.LLKHF_INJECTED) != 0 && extraInfo == (UIntPtr)InjectedInput.Signature;
 
     public void Dispose()
     {

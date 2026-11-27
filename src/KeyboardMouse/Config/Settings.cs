@@ -195,18 +195,17 @@ public sealed class AutoClickSettings
 /// <summary>
 /// Mouseless-style grid: one grid of small cells laid over the screen.
 ///
-/// Every cell is printed with the four keys that reach it from the moment the
+/// Every cell is printed with the three keys that reach it from the moment the
 /// overlay opens, so the target is picked by reading its code rather than by
 /// stepping through levels. The code addresses the cell as
-/// <c>[column band][column][row band][row]</c>, which means typing narrows one
-/// band at a time: ten columns, then one column, then ten rows, then the cell.
+/// <c>[block][column in block][row in block]</c>; see GridCodes.
 /// </summary>
 public sealed class GridSettings
 {
     /// <summary>The 3 x 3 grid that narrows one level per key (the default).</summary>
     public const string RecursiveStyle = "recursive";
 
-    /// <summary>One flat grid with a four-character code printed in every cell.</summary>
+    /// <summary>One flat grid with a three-character code printed in every cell.</summary>
     public const string CodesStyle = "codes";
 
     /// <summary>
@@ -265,8 +264,8 @@ public sealed class GridSettings
     public const int ReferenceWidth = 1920;
     public const int ReferenceHeight = 1200;
 
-    // Two characters reach 100 columns and 100 rows, so 100 is the ceiling a
-    // four-character code can address with ten keys.
+    // Three-character codes reach any lattice up to 100 x 100; a big one simply
+    // borrows more keys than the ten configured (see GridCodes.KeysNeeded).
     public const int MinColumns = 2;
     public const int MaxColumns = 100;
     public const int MinRows = 2;

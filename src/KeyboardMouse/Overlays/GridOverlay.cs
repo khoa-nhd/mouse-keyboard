@@ -7,7 +7,7 @@ namespace KeyboardMouse.Overlays;
 /// One monitor-sized layered window for grid mode, styled after Mouseless.
 ///
 /// There is a single grid and a single frame: every cell shows its complete
-/// four-character code from the moment it opens, so the user reads the code in
+/// three-character code from the moment it opens, so the user reads the code in
 /// the cell they want and types it. Cells that stop matching the typed prefix
 /// fade instead of disappearing, and the cell the code currently points at is
 /// highlighted.
@@ -243,22 +243,34 @@ public sealed class GridOverlay : IGridOverlay
         }
 
         /// <summary>
-        /// One tint per ten-column band, so the bands the first code character
-        /// selects are visible before anything is typed.
+        /// One tint per block, with a stronger line between blocks, so the
+        /// blocks the first code character selects are visible before
+        /// anything is typed.
         /// </summary>
         private static void DrawColumnTints(Graphics g, Rectangle root, GridOverlayState state)
         {
-            for (int band = 0; band * ColumnBand < state.Columns; band++)
-            {
-                int start = band * ColumnBand;
-                int end = Math.Min(state.Columns, start + ColumnBand);
-                int left = root.Left + (int)((long)root.Width * start / state.Columns);
-                int right = root.Left + (int)((long)root.Width * end / state.Columns);
-                var strip = new Rectangle(left, root.Top, right - left, root.Height);
-                Color tint = ColumnTints[band % ColumnTints.Length];
+            int across = Math.Max(1, state.BlocksAcross);
+            int down = Math.Max(1, state.BlocksDown);
 
-                using var fill = new SolidBrush(WithAlpha(tint, band % 2 == 0 ? 26 : 15));
-                g.FillRectangle(fill, strip);
+            for (int by = 0; by < down; by++)
+            {
+                int top = root.Top + (int)((long)root.Height * GridCodes.BlockStart(by, state.Rows, down) / state.Rows);
+                int bottom = root.Top + (int)((long)root.Height * GridCodes.BlockStart(by + 1, state.Rows, down) / state.Rows);
+
+                for (int bx = 0; bx < across; bx++)
+                {
+                    int left = root.Left + (int)((long)root.Width * GridCodes.BlockStart(bx, state.Columns, across) / state.Columns);
+                    int right = root.Left + (int)((long)root.Width * GridCodes.BlockStart(bx + 1, state.Columns, across) / state.Columns);
+                    var block = new Rectangle(left, top, right - left, bottom - top);
+                    int index = (by * across) + bx;
+                    Color tint = ColumnTints[index % ColumnTints.Length];
+
+                    using var fill = new SolidBrush(WithAlpha(tint, (bx + by) % 2 == 0 ? 30 : 14));
+                    g.FillRectangle(fill, block);
+
+                    using var edge = new Pen(WithAlpha(tint, 150), 2f);
+                    g.DrawRectangle(edge, block);
+                }
             }
         }
 
@@ -279,7 +291,7 @@ public sealed class GridOverlay : IGridOverlay
         }
 
         /// <summary>
-        /// Every cell carries its four characters. Cells still reachable from the
+        /// Every cell carries its three characters. Cells still reachable from the
         /// typed prefix stay bright; the rest fade so the remaining choice reads
         /// at a glance.
         /// </summary>
@@ -327,7 +339,6 @@ public sealed class GridOverlay : IGridOverlay
         }
 
         /// <summary>Columns share one tint per ten-column band of the code.</summary>
-        private const int ColumnBand = 10;
 
         private static void DrawGridLines(
             Graphics g,

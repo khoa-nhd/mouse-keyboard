@@ -689,7 +689,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         <button class="btn" id="capture-cancel" type="button" data-t="keymap.cancel">Cancel</button>
       </div>
       <div class="card" style="margin-top:16px">
-          <div class="section-title" style="margin-top:0"><h3 style="margin:0" data-t="keymap.gridT">Grid keys</h3><span data-grid-only="recursive" data-t="keymap.rgridLead">One key per cell of the 3 x 3 grid, top row first.</span><span data-grid-only="codes" data-t="keymap.gridLead">Every cell prints four of these ten keys: column band, column, row band, row.</span></div>
+          <div class="section-title" style="margin-top:0"><h3 style="margin:0" data-t="keymap.gridT">Grid keys</h3><span data-grid-only="recursive" data-t="keymap.rgridLead">One key per cell of the 3 x 3 grid, top row first.</span><span data-grid-only="codes" data-t="keymap.gridLead">Every cell prints three keys: block, column, row. A big screen borrows a few more keys (Q W E R ...) so no cell is lost.</span></div>
           <div class="grid-pad recursive" id="keymap-rgrid" data-grid-only="recursive"></div>
           <p class="keymap-note" data-grid-only="recursive" data-t="keymap.rgridMode">In grid mode: a cell key moves the pointer into that cell and narrows the grid to it; after the last level the grid closes with the pointer there. Backspace goes up a level, Tab or the Grid key stops here, Space or Enter click, the Next monitor key (N) switches monitor, Esc cancels.</p>
           <div class="grid-pad" id="keymap-grid" data-grid-only="codes"></div>
@@ -721,10 +721,10 @@ td:first-child { width: 168px; white-space: nowrap; }
         <div class="card mode">
           <div class="head"><span class="kbd" data-key="grid">G</span><h2 data-t="modes.gridT">Grid jump</h2></div>
           <div class="demo" style="height:280px"><div class="screen" id="grid-demo"></div></div>
-          <p data-t="modes.grid" data-grid-text="">One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.</p>
+          <p data-t="modes.grid" data-grid-text="">One grid of small cells covers the screen and every cell is printed with the three letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its three letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.</p>
           <ul>
             <li data-t="modes.grid1" data-grid-text="1"><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of</li>
-            <li data-t="modes.grid2" data-grid-text="2">A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7</li>
+            <li data-t="modes.grid2" data-grid-text="2">A code reads block, column, row — <kbd>S</kbd><kbd>G</kbd><kbd>K</kbd> is the second block, its fifth column, its eighth row</li>
             <li data-t="modes.grid3" data-grid-text="3"><kbd>Tab</kbd> moves there and closes without clicking · <kbd>N</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back · then <kbd>Space</kbd> clicks where the pointer landed</li>
           </ul>
         </div>
@@ -795,7 +795,7 @@ td:first-child { width: 168px; white-space: nowrap; }
         </div>
       </div>
       <div class="tips">
-        <div class="card"><b data-t="practice.tip1t">Use the grid</b><span data-t="practice.tip1" data-grid-tip="">Press G and read the four letters printed in the cell you want. Type them and it is clicked; add Shift for a right click or press Tab to only move there.</span></div>
+        <div class="card"><b data-t="practice.tip1t">Use the grid</b><span data-t="practice.tip1" data-grid-tip="">Press G and read the three letters printed in the cell you want. Type them and it is clicked; add Shift for a right click or press Tab to only move there.</span></div>
         <div class="card"><b data-t="practice.tip2t">Try hints</b><span data-t="practice.tip2">Press H — the target gets a label. Type it to click instantly.</span></div>
         <div class="card"><b data-t="practice.tip3t">Go precise</b><span data-t="practice.tip3">Hold S for slow, exact moves on the small targets.</span></div>
       </div>
@@ -816,7 +816,7 @@ td:first-child { width: 168px; white-space: nowrap; }
           <h2 style="margin-bottom:10px" data-t="settings.general">General</h2>
           <div class="setting"><div><h3 data-t="home.autostartT">Start with Windows</h3><p data-t="home.autostart">Launch silently in the tray every time you sign in.</p></div><label class="switch"><input type="checkbox" data-bind="autostart"><span></span></label></div>
           <div class="setting"><div><h3 data-t="settings.updateT">Check for updates automatically</h3><p data-t="settings.update">Once a day, ask GitHub for a newer version. Nothing about you is sent. Off by default.</p></div><label class="switch"><input type="checkbox" data-bind="updateCheckOnStart"><span></span></label></div>
-          <div class="setting"><div><h3 data-t="settings.gridT">Grid style</h3><p data-t="settings.grid">What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the four letters that reach it.</p></div>
+          <div class="setting"><div><h3 data-t="settings.gridT">Grid style</h3><p data-t="settings.grid">What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the three letters that reach it.</p></div>
             <div class="seg" id="grid-style"><button data-grid-style="recursive" data-t="grid.recursive">Recursive 3 x 3</button><button data-grid-style="codes" data-t="grid.codes">4-letter codes</button></div></div>
           <div class="setting" data-grid-only="recursive"><div><h3 data-t="settings.depthT">Grid levels</h3><p data-t="settings.depth">How many times the recursive grid narrows before it parks the pointer and closes.</p></div>
             <div class="seg" id="grid-depth"><button data-depth="2">2</button><button data-depth="3">3</button><button data-depth="4">4</button><button data-depth="5">5</button></div></div>
@@ -961,9 +961,9 @@ const T = {
     "keys.notMapped": "Not used in mouse mode — this key types as usual.",
     "cat.system": "On / off", "cat.move": "Move", "cat.layer": "Hold layers", "cat.click": "Click", "cat.nav": "Back / forward", "cat.jump": "Jump", "cat.edit": "Edit",
     "modes.title": "Power moves", "modes.lead": "Moving across a big screen with {k:up} {k:left} {k:down} {k:right} is fine — but these are much faster.",
-    "modes.gridT": "Grid jump", "modes.codes": "One grid of small cells covers the screen and every cell is printed with the four letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its four letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.",
+    "modes.gridT": "Grid jump", "modes.codes": "One grid of small cells covers the screen and every cell is printed with the three letters that reach it, from the moment it opens. The lattice follows the monitor: a bigger screen is cut into more cells, never into wider ones. Read the cell you want and type its three letters: the pointer jumps there and the grid closes itself. It never clicks for you — the click is your own Space. The rest of the grid dims as you type.",
     "modes.codes1": "<kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> — the ten letters every code is made of",
-    "modes.codes2": "A code reads column band, column, row band, row — <kbd>S</kbd><kbd>F</kbd><kbd>A</kbd><kbd>K</kbd> is column 13, row 7",
+    "modes.codes2": "A code reads block, column, row — <kbd>S</kbd><kbd>G</kbd><kbd>K</kbd> is the second block, its fifth column, its eighth row",
     "modes.codes3": "<kbd>Tab</kbd> moves there and closes without clicking · <kbd>{k:nextMonitor}</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>Backspace</kbd> back · then <kbd>{k:leftClick}</kbd> clicks where the pointer landed",
     "modes.hintT": "Hints", "modes.hint": "Every button and link gets a short label. Type the label and it is clicked — no aiming at all.",
     "modes.hint1": "Labels use only home-row letters: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd>",
@@ -986,7 +986,7 @@ const T = {
     "practice.hits": "Hits", "practice.time": "Time", "practice.best": "Best", "practice.size": "Target size", "practice.big": "Big", "practice.small": "Small",
     "practice.ready": "Ready?", "practice.how": "Tap {k:toggle}, move onto the button with {k:up} {k:left} {k:down} {k:right}, then press {k:leftClick}.", "practice.start": "Start",
     "practice.done": "Nice! {time}", "practice.newBest": "New personal best!", "practice.again": "Play again",
-    "practice.tip1t": "Use the grid", "practice.codesTip": "Press {k:grid} and read the four letters printed in the cell you want. Type them and the pointer jumps there while the grid closes; then press {k:leftClick} to click, or {k:rightClick} for a right click.",
+    "practice.tip1t": "Use the grid", "practice.codesTip": "Press {k:grid} and read the three letters printed in the cell you want. Type them and the pointer jumps there while the grid closes; then press {k:leftClick} to click, or {k:rightClick} for a right click.",
     "practice.tip2t": "Try hints", "practice.tip2": "Press {k:hint} — the target gets a label. Type it to click instantly.",
     "practice.tip3t": "Go precise", "practice.tip3": "Hold {k:precisionLayer} for slow, exact moves on the small targets.",
     "settings.title": "Settings", "settings.lead": "Adjust a slider or a colour, then press Enter, click outside it, or press Apply. Keys are changed on the Keys page.",
@@ -1019,13 +1019,13 @@ const T = {
     "toast.bindingReset": "Key reset", "toast.bindingUnbound": "Key unbound", "toast.allReset": "All keys reset", "toast.hintSaved": "Hint characters saved", "toast.hintInvalid": "Use at least two different supported characters",
     "perSec": "{n} / s",
     "keymap.title": "Keymap", "keymap.lead": "Every key that runs in mouse mode can be changed. Click a key, then press the replacement.",
-    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid keys", "keymap.gridLead": "Every cell prints four of these ten keys: column band, column, row band, row.", "keymap.gridMode": "In grid mode: a full code only moves the pointer to the cell and closes the grid, so the click is your own {k:leftClick}; Space or Enter inside the grid click straight away, Tab moves and closes, the Next monitor key ({k:nextMonitor}) switches monitor, Backspace erases a letter, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid key {n}", "keymap.gridColDesc": "Character {n} of every cell code.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid keys",
-    "modes.grid": "Press {k:grid} and a 3 x 3 grid covers the screen, one key printed in each cell. Press the key of the cell you want: the pointer jumps to its centre and that cell becomes the next, smaller 3 x 3 grid. After the last level the pointer stays there and the grid closes. It never clicks for you — the click is your own {k:leftClick}. Prefer one big grid of four-letter codes? Switch Grid style in Settings.",
+    "keymap.search": "Search keys or actions", "keymap.resetAll": "Reset all", "keymap.confirmReset": "Click again to reset", "keymap.change": "Change", "keymap.reset": "Reset", "keymap.unbind": "Unbind", "keymap.unbound": "Unbound", "keymap.listening": "Press a key for {action}", "keymap.listeningSub": "Esc cancels. Modifier-only presses are ignored.", "keymap.cancel": "Cancel", "keymap.swapped": "{action} is now {key}. {other} took {old}.", "keymap.bound": "{action} is now {key}.", "keymap.captureCancelled": "Key change cancelled", "keymap.fixed": "Fixed", "keymap.fixedLead": "Esc and Backspace stay fixed; grid mode also reserves Space, Enter and Tab.", "keymap.gridT": "Grid keys", "keymap.gridLead": "Every cell prints three keys: block, column, row. A big screen borrows a few more keys (Q W E R ...) so no cell is lost.", "keymap.gridMode": "In grid mode: a full code only moves the pointer to the cell and closes the grid, so the click is your own {k:leftClick}; Space or Enter inside the grid click straight away, Tab moves and closes, the Next monitor key ({k:nextMonitor}) switches monitor, Backspace erases a letter, Ctrl + the Grid key closes, Esc cancels.", "keymap.gridCol": "Grid key {n}", "keymap.gridColDesc": "One of the keys the cell codes are written with.", "keymap.hintT": "Hint characters", "keymap.hintLead": "Letters, digits and punctuation the hint labels can use. At least two different characters.", "keymap.hintSave": "Save", "keymap.hintPreview": "Preview", "keymap.hintInvalid": "Use at least two different supported characters.", "keymap.group.toggle": "Mouse mode", "keymap.group.move": "Move", "keymap.group.layer": "Hold layers", "keymap.group.click": "Clicks", "keymap.group.nav": "Back / forward", "keymap.group.jump": "Jump & modes", "keymap.group.edit": "Edit", "keymap.group.grid": "Grid keys",
+    "modes.grid": "Press {k:grid} and a 3 x 3 grid covers the screen, one key printed in each cell. Press the key of the cell you want: the pointer jumps to its centre and that cell becomes the next, smaller 3 x 3 grid. After the last level the pointer stays there and the grid closes. It never clicks for you — the click is your own {k:leftClick}. Prefer one big grid of three-letter codes? Switch Grid style in Settings.",
     "modes.grid1": "<kbd>{rg:0}</kbd> <kbd>{rg:1}</kbd> <kbd>{rg:2}</kbd> · <kbd>{rg:3}</kbd> <kbd>{rg:4}</kbd> <kbd>{rg:5}</kbd> · <kbd>{rg:6}</kbd> <kbd>{rg:7}</kbd> <kbd>{rg:8}</kbd> — the nine cells, top row to bottom row",
     "modes.grid2": "Three keys reach any spot — <kbd>{rg:2}</kbd><kbd>{rg:3}</kbd><kbd>{rg:4}</kbd> is the top-right cell, then its middle-left, then its centre",
     "modes.grid3": "<kbd>Backspace</kbd> up a level · <kbd>Tab</kbd> or <kbd>{k:grid}</kbd> stop here · <kbd>{k:nextMonitor}</kbd> next monitor · <kbd>Esc</kbd> cancel · <kbd>{k:leftClick}</kbd> clicks where the pointer is",
     "practice.tip1": "Press {k:grid}, then the key of the cell the target is in, two or three times. The pointer lands on it; press {k:leftClick} to click, or {k:rightClick} for a right click.",
-    "settings.gridT": "Grid style", "settings.grid": "What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the four letters that reach it.",
+    "settings.gridT": "Grid style", "settings.grid": "What G opens. Recursive narrows a 3 x 3 grid one key at a time. Codes covers the screen with small cells, each printed with the three letters that reach it.",
     "grid.recursive": "Recursive 3 x 3", "grid.codes": "4-letter codes",
     "settings.gridLookT": "Grid look", "settings.gridLook": "How the 3 x 3 grid is drawn. Applies the next time you press G.",
     "settings.scopeT": "Hint area", "settings.scope": "Where H looks for things to click: the window you are in, the whole screen the pointer is on, or every screen.",
@@ -1737,8 +1737,15 @@ function gridDemo() {
   const keys = ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"];
   const columns = 28, rows = 18;
   const target = { col: 13, row: 7 };               // column 13, row 7
-  const axis = n => keys[Math.floor(n / 10)] + keys[n % 10];
-  const code = axis(target.col) + axis(target.row);      // "SFAK"
+  // Same cut as the app (GridCodes): 3 x 2 blocks, at most ten cells a side.
+  const across = 3, down = 2;
+  const blockOf = (n, count, blocks) => Math.floor(((n + 1) * blocks - 1) / count);
+  const blockStart = (b, count, blocks) => Math.floor((count * b) / blocks);
+  const codeOf = (c, r) => {
+    const bx = blockOf(c, columns, across), by = blockOf(r, rows, down);
+    return keys[by * across + bx] + keys[c - blockStart(bx, columns, across)] + keys[r - blockStart(by, rows, down)];
+  };
+  const code = codeOf(target.col, target.row);           // "SGK"
   const targetIndex = (target.row * columns) + target.col;
   const ptr = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   ptr.setAttribute("class", "gptr"); ptr.innerHTML = '<use href="#ptr"/>';
@@ -1768,7 +1775,7 @@ function gridDemo() {
     return el;
   }
   // The whole grid is drawn at once: every cell already carries the complete
-  // four-letter code that reaches it, so the target is visible before typing.
+  // three-letter code that reaches it, so the target is visible before typing.
   function draw(prefix) {
     wipe();
     const W = host.clientWidth, H = host.clientHeight;
@@ -1777,10 +1784,10 @@ function gridDemo() {
     const size = Math.max(4, Math.min(9, Math.min((W / columns) * 0.28, (H / rows) * 0.42)));
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < columns; c++) {
-        const label = axis(c) + axis(r);
+        const label = codeOf(c, r);
         const i = (r * columns) + c;
         const on = !prefix || label.startsWith(prefix);
-        const cls = (on ? "band band" + (Math.floor(r / 4) % 3) : "faint") +
+        const cls = (on ? "band band" + ((blockOf(r, rows, down) * across + blockOf(c, columns, across)) % 3) : "faint") +
           (prefix && i === targetIndex ? " hit" : "");
         add(cellRect(root, i), cls, label, size);
       }
@@ -1800,7 +1807,7 @@ function gridDemo() {
     draw(code.slice(0, count));
     typed.innerHTML = "<kbd>G</kbd>" +
       Array.from(code.slice(0, count)).map(ch => "<kbd>" + ch + "</kbd>").join("") +
-      (count === 4 ? "<kbd>Space</kbd>" : "");   // the full code only moves; Space clicks
+      (count === 3 ? "<kbd>Space</kbd>" : "");   // the full code only moves; Space clicks
   }
   // The recursive grid: a 3 x 3 grid that each key narrows into one cell.
   const cellKeys = () => (state.settings.recursiveGridKeys || ["U", "I", "O", "J", "K", "L", "M", "Comma", "Period"]).map(k => label(norm(k || "")));

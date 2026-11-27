@@ -18,13 +18,14 @@ namespace KeyboardMouse.Controllers;
 /// closes keeping the position, Space/Enter click, N switches monitor, Esc
 /// restores the original pointer.
 ///
-/// <b>Codes</b>: one grid of small cells over the screen, and four characters
+/// <b>Codes</b>: one grid of small cells over the screen, and three characters
 /// printed in every cell.
 ///
-/// The four characters are the complete code that reaches the cell, so they are
-/// readable before anything is typed. Typing narrows the grid: the first
-/// character lights a band of columns, the second a single column, the third a
-/// band of rows, and the fourth moves the pointer to the centre of the cell.
+/// The three characters are the complete code that reaches the cell, so they
+/// are readable before anything is typed. Typing narrows the grid: the first
+/// character lights a block of cells, the second one column of that block, and
+/// the third moves the pointer to the centre of the cell. When the configured
+/// keys are too few for the lattice, more keys join the codes.
 /// There is no second grid and no extra level to step into.
 ///
 /// The lattice adapts to the monitor: a cell keeps roughly its size, so a bigger
@@ -59,7 +60,10 @@ public sealed class GridController : IModeController
     private PhysicalKey _monitorKey = PhysicalKey.N;
     private PhysicalKey[] _keyChars = [];
     private string[] _keyLabels = [];
+    private PhysicalKey[] _codeKeys = [];   // the keys the codes are written with
+    private string[] _codeLabels = [];
     private string[] _labels = [];
+    private GridCodes.Blocks _blocks = new(1, 1);
     private PhysicalKey[] _cellKeys = [];
     private string[] _cellLabels = [];
     private PhysicalKey _recursiveMonitorKey = PhysicalKey.N;
@@ -115,6 +119,7 @@ public sealed class GridController : IModeController
     {
         _keys = settings;
         ParseControlKeys();
+        ApplyLattice(_root);
     }
 
     public void Open()
@@ -217,11 +222,11 @@ public sealed class GridController : IModeController
             return HandleResult.Swallow;
         }
 
-        int index = FindKey(_keyChars, keyEvent.Key);
+        int index = FindKey(_codeKeys, keyEvent.Key);
 
         if (index >= 0)
         {
-            TypeCharacter(_keyLabels[index]);
+            TypeCharacter(_codeLabels[index]);
         }
 
         return HandleResult.Swallow;
@@ -515,7 +520,9 @@ public sealed class GridController : IModeController
                 _labels,
                 _typed,
                 _highlight,
-                _target));
+                _target,
+                BlocksAcross: _blocks.Across,
+                BlocksDown: _blocks.Down));
         });
     }
 
@@ -569,7 +576,68 @@ public sealed class GridController : IModeController
             _rows = Math.Clamp(_settings.Rows, GridSettings.MinRows, GridSettings.MaxRows);
         }
 
-        _labels = GridCodes.Build(_columns, _rows, _keyLabels);
+        BuildCodeKeys(GridCodes.KeysNeeded(_columns, _rows));
+        _labels = GridCodes.Build(_columns, _rows, _codeLabels);
+        _blocks = GridCodes.Plan(_columns, _rows, _codeLabels.Length)!.Value;
+    }
+
+    /// <summary>
+    /// Extra keys, in order, for a lattice that the configured keys cannot
+    /// address in three characters: the cell count is never cut to fit.
+    /// </summary>
+    private static readonly PhysicalKey[] ExtraCodeKeys =
+    [
+        PhysicalKey.Q, PhysicalKey.W, PhysicalKey.E, PhysicalKey.R, PhysicalKey.T,
+        PhysicalKey.Y, PhysicalKey.U, PhysicalKey.I, PhysicalKey.O, PhysicalKey.P,
+        PhysicalKey.Z, PhysicalKey.X, PhysicalKey.C, PhysicalKey.V, PhysicalKey.B,
+        PhysicalKey.M, PhysicalKey.Comma, PhysicalKey.Period, PhysicalKey.Slash,
+        PhysicalKey.Apostrophe, PhysicalKey.LeftBracket, PhysicalKey.RightBracket,
+        PhysicalKey.A, PhysicalKey.S, PhysicalKey.D, PhysicalKey.F, PhysicalKey.H,
+        PhysicalKey.J, PhysicalKey.K, PhysicalKey.L, PhysicalKey.Semicolon,
+        PhysicalKey.D1, PhysicalKey.D2, PhysicalKey.D3, PhysicalKey.D4, PhysicalKey.D5,
+        PhysicalKey.D6, PhysicalKey.D7, PhysicalKey.D8, PhysicalKey.D9, PhysicalKey.D0,
+    ];
+
+    /// <summary>
+    /// The configured grid keys (blank slots skipped), followed by as many
+    /// extra keys as the lattice needs. Extras never take the Grid or Next
+    /// monitor key, so those keep working.
+    /// </summary>
+    private void BuildCodeKeys(int needed)
+    {
+        var keys = new List<PhysicalKey>();
+        var labels = new List<string>();
+
+        for (int i = 0; i < _keyChars.Length; i++)
+        {
+            if (_keyChars[i] != PhysicalKey.None)
+            {
+                keys.Add(_keyChars[i]);
+                labels.Add(_keyLabels[i]);
+            }
+        }
+
+        var grid = ResolveControl(_keys.Grid, PhysicalKey.G);
+        var monitor = ResolveControl(_keys.NextMonitor, PhysicalKey.N);
+
+        foreach (var extra in ExtraCodeKeys)
+        {
+            if (keys.Count >= needed)
+            {
+                break;
+            }
+
+            if (extra == grid || extra == monitor || keys.Contains(extra))
+            {
+                continue;
+            }
+
+            keys.Add(extra);
+            labels.Add(KeyNames.Display(extra));
+        }
+
+        _codeKeys = keys.ToArray();
+        _codeLabels = labels.ToArray();
     }
 
     private static void ParseKeys(
