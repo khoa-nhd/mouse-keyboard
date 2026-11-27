@@ -3,7 +3,9 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
-## [1.9.3] - 2026-11-27
+## [1.9.4] - 2026-11-27
+
+(The v1.9.3 tag was pushed by mistake on the 1.9.2 code and has no release.)
 
 ### Fixed
 - **No key did anything while a keyboard remapper (kanata, AutoHotkey, ...)
