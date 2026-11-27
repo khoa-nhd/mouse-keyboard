@@ -3,6 +3,13 @@
 All notable changes to KeyboardMouse are listed here. Format based on
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.9.5] - 2026-11-27
+
+### Changed
+- Settings: the Grid style choices are now just **Recursive** and **Grid**.
+  The old "4-letter codes" label was out of date after codes went to three
+  letters.
+
 ## [1.9.4] - 2026-11-27
 
 (The v1.9.3 tag was pushed by mistake on the 1.9.2 code and has no release.)
